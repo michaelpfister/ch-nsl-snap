@@ -52,6 +52,7 @@ private:
     void copyImage();
     void copyFilePath();
     void clearEditor();
+    void showSettings();
 
     void setImage(const QImage &image, double scale, const QString &name, const QString &source);
     void onToolChanged(ToolId id);
@@ -82,6 +83,7 @@ private:
     QToolButton *m_undoButton = nullptr;
     QToolButton *m_redoButton = nullptr;
     QLabel *m_zoomLabel = nullptr;
+    QToolButton *m_settingsButton = nullptr;
     QPushButton *m_copyButton = nullptr;
     QPushButton *m_saveButton = nullptr;
 

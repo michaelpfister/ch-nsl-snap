@@ -19,6 +19,10 @@ add_library(nsl_snap_core STATIC
     src/app/MainWindow.h
     src/app/PropertiesPanel.cpp
     src/app/PropertiesPanel.h
+    src/app/Settings.cpp
+    src/app/Settings.h
+    src/app/SettingsDialog.cpp
+    src/app/SettingsDialog.h
     src/app/ToolRail.cpp
     src/app/ToolRail.h
     src/capture/CaptureBackend.cpp
@@ -26,6 +30,9 @@ add_library(nsl_snap_core STATIC
     src/capture/CaptureResult.h
     src/editor/Commands.cpp
     src/editor/Commands.h
+    src/editor/DimItem.cpp
+    src/editor/DimItem.h
+    src/editor/DimSettings.h
     src/editor/EditorScene.cpp
     src/editor/EditorScene.h
     src/editor/EditorView.cpp
@@ -35,6 +42,8 @@ add_library(nsl_snap_core STATIC
     src/editor/FrameStyle.h
     src/editor/Tool.cpp
     src/editor/Tool.h
+    src/imaging/Blur.cpp
+    src/imaging/Blur.h
     src/imaging/WindowImage.cpp
     src/imaging/WindowImage.h
     src/ui/Icons.cpp
@@ -44,6 +53,13 @@ add_library(nsl_snap_core STATIC
 )
 target_include_directories(nsl_snap_core PUBLIC src)
 target_link_libraries(nsl_snap_core PUBLIC Qt6::Widgets Qt6::Svg)
+
+# Image processing runs over millions of pixels; keep it fast in debug
+# builds too, otherwise the blur takes half a second (F-27).
+if(CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang")
+    set_source_files_properties(src/imaging/Blur.cpp src/imaging/WindowImage.cpp
+        PROPERTIES COMPILE_OPTIONS "-O2")
+endif()
 
 file(GLOB NSL_ICONS RELATIVE ${CMAKE_CURRENT_SOURCE_DIR} resources/icons/*.svg)
 qt_add_resources(nsl_snap_core "icons"

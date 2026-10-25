@@ -1,6 +1,8 @@
 #include "editor/EditorScene.h"
 
+#include "editor/DimItem.h"
 #include "editor/FrameItem.h"
+#include "imaging/Blur.h"
 
 #include <QGraphicsPixmapItem>
 #include <QPainter>
@@ -25,14 +27,53 @@ void EditorScene::setBaseImage(const QImage &image, double scale)
     m_base = addPixmap(QPixmap::fromImage(image));
     m_base->setZValue(-1); // always below the annotations
     setSceneRect(m_base->boundingRect());
+    m_dimItem = new DimItem(this);
+    addItem(m_dimItem);
+}
+
+void EditorScene::setDimSettings(const DimSettings &settings)
+{
+    if (settings == m_dim)
+        return;
+    m_dim = settings;
+    update();
+    emit dimSettingsChanged();
+}
+
+QPixmap EditorScene::dimLayer() const
+{
+    if (!m_dimLayer.isNull() && m_dimLayerSettings == m_dim)
+        return m_dimLayer;
+
+    const int radius = int(std::lround(m_dim.blur * m_scale));
+    if (!m_blurred.contains(radius))
+        m_blurred.insert(radius, Blur::boxBlur(m_baseImage, radius)
+                                     .convertToFormat(QImage::Format_ARGB32_Premultiplied));
+    QImage layer = m_blurred.value(radius);
+
+    // The veil from the mockup; SourceAtop keeps transparent corners clear.
+    QPainter painter(&layer);
+    painter.setCompositionMode(QPainter::CompositionMode_SourceAtop);
+    painter.fillRect(layer.rect(), QColor(12, 14, 18, qRound(m_dim.strength * 2.55)));
+    painter.end();
+
+    m_dimLayer = QPixmap::fromImage(layer);
+    m_dimLayerSettings = m_dim;
+    return m_dimLayer;
 }
 
 void EditorScene::clearAll()
 {
-    clear(); // deletes all items, including m_base
+    clear(); // deletes all items, including m_base and m_dimItem
     m_base = nullptr;
+    m_dimItem = nullptr;
     m_baseImage = QImage();
     m_scale = 1.0;
+    m_blurred.clear();
+    m_dimLayer = QPixmap();
+    // A new image starts without the dim effect.
+    m_dim.enabled = false;
+    emit dimSettingsChanged();
     setSceneRect(QRectF());
     emit annotationsChanged();
 }

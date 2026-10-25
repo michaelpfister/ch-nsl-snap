@@ -1,5 +1,6 @@
 #pragma once
 
+#include "editor/DimSettings.h"
 #include "editor/FrameStyle.h"
 
 #include <QList>
@@ -82,4 +83,39 @@ private:
     QList<FrameItem *> m_frames;
     QList<FrameStyle> m_before;
     FrameStyle m_after;
+};
+
+class SetDimCommand : public QUndoCommand
+{
+public:
+    SetDimCommand(EditorScene *scene, const DimSettings &settings);
+    void redo() override;
+    void undo() override;
+
+    // Slider drags merge into one step, like SetFrameStyleCommand.
+    int id() const override { return 2; }
+    bool mergeWith(const QUndoCommand *other) override;
+
+private:
+    EditorScene *m_scene;
+    DimSettings m_before;
+    DimSettings m_after;
+};
+
+// Changes the order of the frames, and with it their numbers (F-24, Q-18):
+// the frame at `from` in EditorScene::frames() moves to `to`.
+class ReorderFramesCommand : public QUndoCommand
+{
+public:
+    ReorderFramesCommand(EditorScene *scene, int from, int to);
+    void redo() override;
+    void undo() override;
+
+private:
+    void apply(const QList<qint64> &orders);
+
+    EditorScene *m_scene;
+    QList<FrameItem *> m_frames; // in the original order
+    QList<qint64> m_before;
+    QList<qint64> m_after;
 };

@@ -1,6 +1,8 @@
 #include "app/MainWindow.h"
 
 #include "app/PropertiesPanel.h"
+#include "app/Settings.h"
+#include "app/SettingsDialog.h"
 #include "app/ToolRail.h"
 #include "capture/CaptureBackend.h"
 #include "editor/Commands.h"
@@ -148,10 +150,50 @@ MainWindow::MainWindow(QWidget *parent)
     connect(m_undoStack, &QUndoStack::indexChanged, this, &MainWindow::onSelectionChanged);
     connect(m_properties, &PropertiesPanel::frameStyleChanged, this, &MainWindow::onFrameStyleChanged);
     connect(m_properties, &PropertiesPanel::objectClicked, this, &MainWindow::selectObject);
+    connect(m_properties, &PropertiesPanel::objectMoved, this, [this](int from, int to) {
+        m_undoStack->push(new ReorderFramesCommand(m_view->editorScene(), from, to));
+    });
 
-    // The dim toggle exists twice (rail and panel); keep them in sync.
-    connect(m_toolRail->dimButton(), &QToolButton::toggled, m_properties->dimCheckBox(), &QAbstractButton::setChecked);
-    connect(m_properties->dimCheckBox(), &QAbstractButton::toggled, m_toolRail->dimButton(), &QAbstractButton::setChecked);
+    // Dim background (F-27): the switch exists twice (rail and panel). Both
+    // push an undo step; the scene's state is shown in both.
+    connect(m_properties, &PropertiesPanel::dimSettingsChanged, this, [this](const DimSettings &settings) {
+        if (m_view->hasImage() && settings != m_view->editorScene()->dimSettings())
+            m_undoStack->push(new SetDimCommand(m_view->editorScene(), settings));
+        else
+            m_properties->setDimSettings(m_view->editorScene()->dimSettings());
+    });
+    // The switch always starts at 45 % without blur (DimSettings defaults);
+    // the blur buttons below it pick none, light or strong.
+    connect(m_toolRail, &ToolRail::dimToggled, this, [this](bool enabled) {
+        if (!m_view->hasImage()) {
+            m_toolRail->showDim(m_view->editorScene()->dimSettings());
+            return;
+        }
+        DimSettings settings;
+        settings.enabled = enabled;
+        if (!enabled) {
+            settings = m_view->editorScene()->dimSettings();
+            settings.enabled = false;
+        }
+        m_undoStack->push(new SetDimCommand(m_view->editorScene(), settings));
+    });
+    connect(m_toolRail, &ToolRail::blurChosen, this, [this](int blur) {
+        DimSettings settings = m_view->editorScene()->dimSettings();
+        if (settings.blur == blur)
+            return;
+        settings.blur = blur;
+        // Computing a new blur takes a moment; show that something happens.
+        QApplication::setOverrideCursor(Qt::WaitCursor);
+        m_undoStack->push(new SetDimCommand(m_view->editorScene(), settings));
+        m_view->editorScene()->dimLayer(); // compute now, while the cursor waits
+        QApplication::restoreOverrideCursor();
+    });
+    connect(m_view->editorScene(), &EditorScene::dimSettingsChanged, this, [this] {
+        const DimSettings settings = m_view->editorScene()->dimSettings();
+        m_properties->setDimSettings(settings);
+        m_toolRail->showDim(settings);
+    });
+    m_properties->setAdvancedMode(Settings::advancedMode());
 
     connect(m_capture.get(), &CaptureBackend::captured, this, &MainWindow::onCaptured);
     connect(m_capture.get(), &CaptureBackend::cancelled, this, [this] {
@@ -246,7 +288,13 @@ QWidget *MainWindow::createTopBar()
 
     m_zoomLabel = new QLabel(bar);
     m_zoomLabel->setProperty("role", QStringLiteral("muted"));
+    m_zoomLabel->setMinimumWidth(48); // room for "100 %"
+    m_zoomLabel->setAlignment(Qt::AlignRight | Qt::AlignVCenter);
     layout->addWidget(m_zoomLabel);
+
+    m_settingsButton = iconButton(tr("Einstellungen (F2)"), bar);
+    connect(m_settingsButton, &QToolButton::clicked, this, &MainWindow::showSettings);
+    layout->addWidget(m_settingsButton);
 
     m_copyButton = textButton(tr("Kopieren"), QStringLiteral("secondary"), bar);
     m_copyButton->setToolTip(tr("Bild in die Zwischenablage kopieren (Ctrl+C)"));
@@ -280,6 +328,7 @@ void MainWindow::createShortcuts()
     add(QKeySequence::Copy, &MainWindow::copyImage);
     add(QKeySequence(Qt::CTRL | Qt::ALT | Qt::Key_C), &MainWindow::copyFilePath);
     add(QKeySequence(Qt::CTRL | Qt::Key_Delete), &MainWindow::clearEditor);
+    add(QKeySequence(Qt::Key_F2), &MainWindow::showSettings);
     // Delete removes the selected annotations, not the image (F-46).
     auto *remove = new QAction(this);
     remove->setShortcuts({QKeySequence::Delete, QKeySequence(Qt::Key_Backspace)});
@@ -320,6 +369,7 @@ void MainWindow::applyTheme(const Theme &theme)
     m_timerIcon->setPixmap(Icons::icon(QStringLiteral("timer"), theme.muted).pixmap(QSize(16, 16)));
     m_undoButton->setIcon(Icons::icon(QStringLiteral("undo"), theme.muted));
     m_redoButton->setIcon(Icons::icon(QStringLiteral("redo"), theme.muted));
+    m_settingsButton->setIcon(Icons::icon(QStringLiteral("settings"), theme.muted));
     m_copyButton->setIcon(Icons::icon(QStringLiteral("copy"), theme.text));
     m_saveButton->setIcon(Icons::icon(QStringLiteral("save"), QColor(Qt::white)));
 
@@ -548,6 +598,13 @@ void MainWindow::copyFilePath()
     }
     QApplication::clipboard()->setText(m_savedPath);
     statusBar()->showMessage(tr("Dateipfad kopiert."), 3000);
+}
+
+void MainWindow::showSettings()
+{
+    SettingsDialog dialog(this);
+    connect(&dialog, &SettingsDialog::advancedModeChanged, m_properties, &PropertiesPanel::setAdvancedMode);
+    dialog.exec();
 }
 
 void MainWindow::clearEditor()

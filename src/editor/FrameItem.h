@@ -27,6 +27,8 @@ public:
     // Creation order; numbers follow it (F-24). Kept through undo/redo, so
     // a deleted and restored frame gets its old number back.
     qint64 order() const { return m_order; }
+    // Only for reordering (ReorderFramesCommand).
+    void setOrder(qint64 order) { m_order = order; }
 
     // Handles keep their screen size, so the bounding rect depends on the
     // zoom; the view calls this after zooming.

@@ -156,3 +156,14 @@ Each entry: context, decision, rationale, consequences. Entries marked **(assump
 - The app writes the scale into the PNG's resolution (96 dpi × scale, e.g. 192 dpi for scale 2) and reads it back when opening a file. Files without it, or with odd values, count as scale 1.
 **Rationale:** Frames look the same on every capture, and a saved HiDPI capture opens with the right scale again. Browsers ignore the PNG resolution, so the instruction pages are not affected.
 **Consequences:** Images from other tools open as scale 1; their frames are then thinner relative to the content. Acceptable.
+
+## D-016 Dim background: one switch and three blur levels; sliders in the advanced mode
+
+**Context:** The first version of F-27 had a switch plus sliders for strength and blur. Blurring a HiDPI capture took about half a second in the debug build, on every slider step, so dimming felt slow (user feedback, 2026-10-25).
+**Decision:**
+- The switch in the tool rail always dims with **45 %** and **no blur**.
+- While dimmed, three small buttons below the switch choose **no blur, light (1 px) or strong (3 px)**.
+- The sliders for strength and blur are only shown in the **advanced mode**, a setting in the new settings dialog (F2, gear button in the top bar). Their changes apply when the slider is released.
+- Performance: the blur reads memory in order (columns via a transposed copy) and is compiled with `-O2` even in debug builds; the blurred image is cached per radius and the finished dimmed layer per setting.
+**Rationale:** Three fixed levels cover the instruction pages and keep them consistent; fine-tuning is rarely needed.
+**Consequences:** Measured on a 2292 × 1318 capture: dimming 17 ms, the first use of a blur level about 100 ms (with a wait cursor), every later switch under 10 ms.

@@ -56,6 +56,7 @@ The editor is object-based (D-012): the captured image stays unchanged, annotati
 - `EditorScene` (a `QGraphicsScene`) is the document: base image, annotation items, the undo stack, and `renderImage()` for export.
 - `EditorView` turns mouse input into commands: drawing with the active tool, moving (one `MoveItemsCommand` per drag), middle-button panning, Ctrl + wheel zoom.
 - Annotation items (`FrameItem` so far) paint themselves, show handles when selected and push their own resize commands. A numbered frame is a `FrameItem` with a badge position; its number is computed by the scene from the creation order (`FrameItem::order`), so it renumbers itself and survives undo.
+- The dimmed background (F-27) is a document setting, not an object: `DimItem` sits between the base image and the annotations and paints a blurred copy of the image (`imaging/Blur`, cached per radius) plus a dark veil, clipped to everything outside the frames. The scene caches the blurred image per radius and the finished layer per setting (D-016). It paints with `SourceAtop`, so transparent window corners stay transparent.
 - `Commands.h` holds all undo commands; commands that take items out of the scene own them.
 - The properties panel shows the style of the selected frames, or the style for new ones, and pushes `SetFrameStyleCommand`s (slider drags merge into one step).
 
@@ -65,7 +66,7 @@ The editor is object-based (D-012): the captured image stays unchanged, annotati
 |---|---|
 | `docs/` | This documentation |
 | `CMakeLists.txt`, `src/` | The app (C++20, Qt 6.8, D-013) |
-| `src/app/` | Main window, top bar, tool rail, properties panel, shortcuts |
+| `src/app/` | Main window, top bar, tool rail, properties panel, shortcuts, settings (`Settings`, `SettingsDialog`, stored with QSettings) |
 | `src/capture/` | `CaptureBackend` interface and the platform backends (`gnome/`; `windows/` and `macos/` later) |
 | `src/editor/` | Editor view (`QGraphicsView`), later the annotation items (D-012) |
 | `src/ui/` | Theme (colour tokens, style sheet, light/dark) and SVG icons (D-014) |

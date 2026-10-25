@@ -1,6 +1,7 @@
 // Tests for the editor document (D-012): frames, undo/redo and export.
 
 #include "editor/Commands.h"
+#include "editor/DimSettings.h"
 #include "editor/EditorScene.h"
 #include "editor/FrameItem.h"
 
@@ -196,6 +197,75 @@ private slots:
         // Badge circle (diameter 26) centred on the top-right corner of the line.
         QCOMPARE(pixel(out, 139 + 9, 41 - 2), kRed); // outside the frame, inside the badge
         QCOMPARE(pixel(out, 40 - 2, 41 - 2), QColor(Qt::white)); // top-left corner: no badge
+    }
+
+    void dimDarkensOutsideFramesOnly()
+    {
+        auto *frame = new FrameItem(QRectF(50, 20, 100, 60), squareStyle(kRed, 2), 1.0);
+        m_stack->push(new AddItemsCommand(m_scene, {frame}, QStringLiteral("add")));
+        DimSettings dim;
+        dim.enabled = true;
+        dim.strength = 50;
+        dim.blur = 0;
+        m_stack->push(new SetDimCommand(m_scene, dim));
+
+        const QImage out = m_scene->renderImage();
+        QCOMPARE(pixel(out, 100, 50), QColor(Qt::white)); // inside the frame: untouched
+        QCOMPARE(pixel(out, 51, 50), kRed);               // the frame line stays bright
+        const QColor outside = pixel(out, 10, 10);
+        QVERIFY(outside.value() < 150 && outside.value() > 110); // white under a 50 % veil
+
+        m_stack->undo();
+        QCOMPARE(pixel(m_scene->renderImage(), 10, 10), QColor(Qt::white));
+    }
+
+    void dimKeepsTransparentCorners()
+    {
+        QImage base(60, 40, QImage::Format_ARGB32);
+        base.fill(Qt::white);
+        base.setPixelColor(0, 0, Qt::transparent); // a cleaned window corner
+        m_scene->setBaseImage(base, 1.0);
+        DimSettings dim;
+        dim.enabled = true;
+        dim.blur = 3;
+        m_stack->push(new SetDimCommand(m_scene, dim));
+        QCOMPARE(m_scene->renderImage().pixelColor(0, 0).alpha(), 0);
+    }
+
+    void dimSliderMovesMergeButSwitchDoesNot()
+    {
+        DimSettings dim;
+        dim.enabled = true;
+        m_stack->push(new SetDimCommand(m_scene, dim));
+        for (int s = 50; s <= 70; s += 5) {
+            dim.strength = s;
+            m_stack->push(new SetDimCommand(m_scene, dim));
+        }
+        QCOMPARE(m_stack->count(), 2); // switch on + one merged slider step
+        m_stack->undo();
+        QCOMPARE(m_scene->dimSettings().strength, 45);
+        QVERIFY(m_scene->dimSettings().enabled);
+    }
+
+    void reorderChangesNumbersAndUndoes()
+    {
+        FrameStyle numbered = squareStyle(kRed, 3);
+        numbered.badge = BadgePosition::TopRight;
+        QList<FrameItem *> f;
+        for (int i = 0; i < 3; ++i) {
+            f << new FrameItem(QRectF(10 + 50 * i, 10, 40, 30), numbered, 1.0);
+            m_stack->push(new AddItemsCommand(m_scene, {f.last()}, QStringLiteral("add")));
+        }
+        // Drag the third entry to the top: it becomes number 1.
+        m_stack->push(new ReorderFramesCommand(m_scene, 2, 0));
+        QCOMPARE(m_scene->numberOf(f[2]), 1);
+        QCOMPARE(m_scene->numberOf(f[0]), 2);
+        QCOMPARE(m_scene->numberOf(f[1]), 3);
+        QCOMPARE(m_scene->frames(), (QList<FrameItem *>{f[2], f[0], f[1]}));
+
+        m_stack->undo();
+        QCOMPARE(m_scene->numberOf(f[0]), 1);
+        QCOMPARE(m_scene->numberOf(f[2]), 3);
     }
 
 private:

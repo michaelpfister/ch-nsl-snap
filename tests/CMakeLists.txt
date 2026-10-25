@@ -6,3 +6,7 @@ qt_add_executable(tst_editor tst_editor.cpp)
 target_link_libraries(tst_editor PRIVATE nsl_snap_core Qt6::Test)
 add_test(NAME tst_editor COMMAND tst_editor)
 set_tests_properties(tst_editor PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
+
+qt_add_executable(tst_blur tst_blur.cpp)
+target_link_libraries(tst_blur PRIVATE nsl_snap_core Qt6::Test)
+add_test(NAME tst_blur COMMAND tst_blur)

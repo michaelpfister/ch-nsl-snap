@@ -9,7 +9,11 @@
 #include <QFrame>
 #include <QHBoxLayout>
 #include <QLabel>
+#include <QDropEvent>
 #include <QListWidget>
+
+#include <algorithm>
+#include <functional>
 #include <QPainter>
 #include <QPushButton>
 #include <QSlider>
@@ -59,6 +63,43 @@ private:
     QColor m_color;
 };
 
+// The object list: entries can be dragged to change the order. The list
+// does not move the entry itself; it reports the move and is rebuilt from
+// the scene afterwards, so undo and the list never disagree.
+class ObjectList : public QListWidget
+{
+public:
+    std::function<void(int from, int to)> onMove;
+
+    explicit ObjectList(QWidget *parent)
+        : QListWidget(parent)
+    {
+        setDragDropMode(QAbstractItemView::InternalMove);
+        setDefaultDropAction(Qt::MoveAction);
+        setDropIndicatorShown(true);
+        setSelectionMode(QAbstractItemView::SingleSelection);
+    }
+
+protected:
+    void dropEvent(QDropEvent *event) override
+    {
+        const int from = currentRow();
+        const QModelIndex target = indexAt(event->position().toPoint());
+        int to = count() - 1;
+        if (target.isValid()) {
+            to = target.row();
+            if (dropIndicatorPosition() == QAbstractItemView::BelowItem)
+                ++to;
+            if (dropIndicatorPosition() != QAbstractItemView::OnItem && from < to)
+                --to; // the entry leaves its old place first
+        }
+        event->setDropAction(Qt::IgnoreAction);
+        event->accept();
+        if (from >= 0 && from != to && onMove)
+            onMove(from, std::clamp(to, 0, count() - 1));
+    }
+};
+
 QLabel *sectionLabel(const QString &text, QWidget *parent)
 {
     auto *label = new QLabel(text, parent);
@@ -88,9 +129,9 @@ QSlider *labelledSlider(QVBoxLayout *layout, const QString &label, int min, int 
     slider->setRange(min, max);
     slider->setValue(value);
     slider->setAccessibleName(label);
-    QObject::connect(slider, &QSlider::valueChanged, valueLabel, [valueLabel, unit](int v) {
-        valueLabel->setText(QStringLiteral("%1 %2").arg(v).arg(unit));
-    });
+    const auto showValue = [valueLabel, unit](int v) { valueLabel->setText(QStringLiteral("%1 %2").arg(v).arg(unit)); };
+    QObject::connect(slider, &QSlider::valueChanged, valueLabel, showValue);
+    QObject::connect(slider, &QSlider::sliderMoved, valueLabel, showValue); // also without tracking
     layout->addWidget(slider);
     return slider;
 }
@@ -188,32 +229,52 @@ PropertiesPanel::PropertiesPanel(QWidget *parent)
     layout->addWidget(separator(this));
     layout->addSpacing(16);
 
-    // Dim background (F-27).
+    // Dim background (F-27): fine-tuning only in the advanced mode; the
+    // normal way is the switch and the blur buttons in the tool rail.
+    m_dimSection = new QWidget(this);
+    auto *dimLayout = new QVBoxLayout(m_dimSection);
+    dimLayout->setContentsMargins(0, 0, 0, 0);
+    dimLayout->setSpacing(8);
     // Label left, checkbox right, as in the design.
     auto *dimRow = new QHBoxLayout;
-    auto *dimLabel = new QLabel(tr("Hintergrund abdunkeln"), this);
+    auto *dimLabel = new QLabel(tr("Hintergrund abdunkeln"), m_dimSection);
     QFont bold = dimLabel->font();
     bold.setWeight(QFont::DemiBold);
     dimLabel->setFont(bold);
-    m_dim = new QCheckBox(this);
+    m_dim = new QCheckBox(m_dimSection);
     m_dim->setAccessibleName(dimLabel->text());
     dimLabel->setBuddy(m_dim);
     dimRow->addWidget(dimLabel);
     dimRow->addStretch(1);
     dimRow->addWidget(m_dim);
-    layout->addLayout(dimRow);
-    labelledSlider(layout, tr("Stärke"), 0, 80, 45, QStringLiteral("%"), this);
-    labelledSlider(layout, tr("Unschärfe"), 0, 10, 2, QStringLiteral("px"), this);
-
-    layout->addSpacing(16);
-    layout->addWidget(separator(this));
-    layout->addSpacing(16);
+    dimLayout->addLayout(dimRow);
+    const DimSettings defaults;
+    m_dimStrength = labelledSlider(dimLayout, tr("Stärke"), 0, 80, defaults.strength, QStringLiteral("%"), m_dimSection);
+    m_dimBlur = labelledSlider(dimLayout, tr("Unschärfe"), 0, 10, defaults.blur, QStringLiteral("px"), m_dimSection);
+    // Apply on release, not on every slider step: a new blur radius takes
+    // a moment to compute.
+    m_dimStrength->setTracking(false);
+    m_dimBlur->setTracking(false);
+    const auto emitDim = [this] {
+        if (!m_updating)
+            emit dimSettingsChanged(dimSettings());
+    };
+    connect(m_dim, &QCheckBox::toggled, this, emitDim);
+    connect(m_dimStrength, &QSlider::valueChanged, this, emitDim);
+    connect(m_dimBlur, &QSlider::valueChanged, this, emitDim);
+    dimLayout->addSpacing(16);
+    dimLayout->addWidget(separator(m_dimSection));
+    dimLayout->addSpacing(8);
+    m_dimSection->hide();
+    layout->addWidget(m_dimSection);
 
     // Objects (D-012).
     layout->addWidget(sectionLabel(tr("Objekte"), this));
-    m_objects = new QListWidget(this);
+    auto *objects = new ObjectList(this);
+    objects->onMove = [this](int from, int to) { emit objectMoved(from, to); };
+    m_objects = objects;
     m_objects->setAccessibleName(tr("Objekte"));
-    m_objects->setSelectionMode(QAbstractItemView::NoSelection);
+    m_objects->setToolTip(tr("Ziehen, um die Reihenfolge der Nummern zu ändern"));
     m_objects->setFocusPolicy(Qt::NoFocus);
     connect(m_objects, &QListWidget::itemClicked, this, [this](QListWidgetItem *item) {
         if (item->flags() != Qt::NoItemFlags)
@@ -223,6 +284,29 @@ PropertiesPanel::PropertiesPanel(QWidget *parent)
     setObjects({}, {});
 
     showTool(ToolId::Select);
+}
+
+DimSettings PropertiesPanel::dimSettings() const
+{
+    DimSettings settings;
+    settings.enabled = m_dim->isChecked();
+    settings.strength = m_dimStrength->value();
+    settings.blur = m_dimBlur->value();
+    return settings;
+}
+
+void PropertiesPanel::setAdvancedMode(bool enabled)
+{
+    m_dimSection->setVisible(enabled);
+}
+
+void PropertiesPanel::setDimSettings(const DimSettings &settings)
+{
+    m_updating = true;
+    m_dim->setChecked(settings.enabled);
+    m_dimStrength->setValue(settings.strength);
+    m_dimBlur->setValue(settings.blur);
+    m_updating = false;
 }
 
 FrameStyle PropertiesPanel::frameStyle() const
