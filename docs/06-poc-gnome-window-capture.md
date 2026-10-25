@@ -57,12 +57,16 @@ Disable the extension again with `gnome-extensions disable nsl-snap@netslash.ch`
 |---|---|
 | Extension loads on GNOME 46 without errors, D-Bus service answers (`Version` = 1) | ✓ verified in the nested shell (2026-10-25) |
 | Picking with hover highlight | ✓ works (Files, 2026-10-25) |
-| Only the window, overlapping windows not visible | to be tested by hand with an overlapping window |
-| Clean edges on GTK4/libadwaita apps (e.g. Files, Settings) | ✓ Files, after core crop (D-010); Settings to be tested |
+| Only the window, overlapping windows not visible | ✓ Edge, partly covered: nothing of the covering window in the image |
+| Clean edges on GTK4/libadwaita apps (e.g. Files, Settings) | ✓ Files and Settings (live): four hard edges, rounded corners without residue |
 | Transparent rounded corners | ✓ after corner cleanup (D-009), confirmed with a new capture (2026-10-25): all corner pixels alpha 0, no residue below alpha 80 left |
 | HiDPI (integer scale 2) | ✓ image is exactly frame size × 2 (1334×776 → 2668×1552) |
-| GTK3, Qt, Electron, Xwayland apps (e.g. Firefox, VS Code) | to be tested by hand |
+| Chromium/Electron apps (Edge, VS Code) | ✓ Edge (live): hard edges, rounded top and square bottom corners as Edge draws them. VS Code: checked offline on a buffer capture, four rounded corners |
+| Maximised windows (Edge, Claude) | ✓ full window, square, fully opaque |
+| GTK3, Qt, Firefox | to be tested by hand |
 | Fractional scaling | to be tested by hand |
+
+**Conclusion (2026-10-25):** the key feature works on GNOME 46 / Wayland. Picking, offscreen capture, core crop (D-010) and corner cleanup (D-009) give clean single-window images for libadwaita and Chromium-based apps, including partly covered and maximised windows. D-003 holds.
 
 ### Findings from the first capture (Files, dark theme, scale 2)
 
