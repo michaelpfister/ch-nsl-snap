@@ -179,3 +179,14 @@ Each entry: context, decision, rationale, consequences. Entries marked **(assump
 **Rationale:** Reading details needs large, sharp pixels; a window that is enlarged should show the image larger without an extra click.
 **Rejected:** Capping fit mode at 100 %: that was the cause of the complaint.
 **Consequences:** Small captures (e.g. a little dialog) appear magnified in fit mode; Ctrl+Alt+0 shows them at their real size. 100 % means logical size (D-015): a scale-2 capture at 100 % looks as on the screen it was taken from.
+
+## D-018 Pixelate and blur replace the image pixels
+
+**Context:** F-26 hides personal data (names, e-mail addresses, codes). The result must not be reversible from the exported image.
+**Decision:**
+- A pixelated or blurred area (`RedactItem`) is an object like a frame (movable, resizable, undoable), but it **replaces** the image pixels under it when drawn (composition mode "Source"), so nothing of the original shows through or remains in the PNG.
+- Its rectangle and position are kept on **whole image pixels**, so no half-covered original pixel shows at the edges.
+- Kinds: pixelate (block average) or blur (box blur, with some surrounding image so the edge is as soft as the middle). Three levels: light / medium / strong = 6 / 10 / 16 px blocks or 4 / 8 / 14 px blur radius (logical px, D-015). Default: pixelate, medium. Tool P; Alt while drawing gives blur.
+- It lies above the dimmed background and darkens itself outside the frames, so the dim layer (computed from the original image) never paints over it.
+**Rationale:** Covering the pixels is the only safe way; lightly pixelated text can stay readable, hence medium as default and a hint in the panel.
+**Consequences:** The dim layer's blur can spread a few pixels of heavily blurred original just outside a pixelated area. Not readable; accepted.

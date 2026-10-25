@@ -2,6 +2,7 @@
 
 #include "editor/DimItem.h"
 #include "editor/FrameItem.h"
+#include "editor/RectItem.h"
 #include "imaging/Blur.h"
 
 #include <QGraphicsPixmapItem>
@@ -55,7 +56,7 @@ QPixmap EditorScene::dimLayer() const
     // The veil from the mockup; SourceAtop keeps transparent corners clear.
     QPainter painter(&layer);
     painter.setCompositionMode(QPainter::CompositionMode_SourceAtop);
-    painter.fillRect(layer.rect(), QColor(12, 14, 18, qRound(m_dim.strength * 2.55)));
+    painter.fillRect(layer.rect(), dimVeil());
     painter.end();
 
     m_dimLayer = QPixmap::fromImage(layer);
@@ -126,15 +127,58 @@ double EditorScene::scaleFromMetadata(const QImage &image)
     return (scale >= 1.0 && scale <= 4.0) ? scale : 1.0;
 }
 
+QPainterPath EditorScene::dimmedArea() const
+{
+    QPainterPath area;
+    area.addRect(sceneRect());
+
+    // Each frame cuts out its outer outline, rounded like the frame.
+    QPainterPath cutouts;
+    for (const FrameItem *frame : frames()) {
+        const QRectF rect = frame->mapRectToScene(frame->rect());
+        QPainterPath cut;
+        if (frame->style().rounded) {
+            const qreal r = std::min({FrameStyle::kRadius * imageScale(), rect.width() / 2, rect.height() / 2});
+            cut.addRoundedRect(rect, r, r);
+        } else {
+            cut.addRect(rect);
+        }
+        cutouts = cutouts.united(cut);
+    }
+    return area.subtracted(cutouts);
+}
+
+QColor EditorScene::dimVeil() const
+{
+    return QColor(12, 14, 18, qRound(m_dim.strength * 2.55));
+}
+
+QList<RectItem *> EditorScene::annotations() const
+{
+    QList<RectItem *> result;
+    for (QGraphicsItem *item : items()) {
+        if (auto *annotation = dynamic_cast<RectItem *>(item))
+            result << annotation;
+    }
+    std::sort(result.begin(), result.end(),
+              [](const RectItem *a, const RectItem *b) { return a->order() < b->order(); });
+    return result;
+}
+
+QList<RectItem *> EditorScene::selectedAnnotations() const
+{
+    QList<RectItem *> result = annotations();
+    result.removeIf([](const RectItem *item) { return !item->isSelected(); });
+    return result;
+}
+
 QList<FrameItem *> EditorScene::frames() const
 {
     QList<FrameItem *> result;
-    for (QGraphicsItem *item : items()) {
+    for (RectItem *item : annotations()) {
         if (item->type() == FrameItem::Type)
             result << static_cast<FrameItem *>(item);
     }
-    std::sort(result.begin(), result.end(),
-              [](const FrameItem *a, const FrameItem *b) { return a->order() < b->order(); });
     return result;
 }
 

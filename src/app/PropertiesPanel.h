@@ -2,6 +2,7 @@
 
 #include "editor/DimSettings.h"
 #include "editor/FrameStyle.h"
+#include "editor/RedactStyle.h"
 #include "editor/Tool.h"
 
 #include <QColor>
@@ -30,6 +31,16 @@ public:
     // "Rahmen" with the number of selected frames.
     void showSelection(int count);
 
+    // Which property groups are visible: frame (colour, corners, line,
+    // number) and/or pixelate (kind, strength).
+    void showSections(bool frame, bool redact);
+    // "Verpixeln" with the number of selected areas.
+    void showRedactSelection(int count);
+
+    RedactStyle redactStyle() const;
+    // Shows `style` without emitting redactStyleChanged.
+    void setRedactStyle(const RedactStyle &style);
+
     FrameStyle frameStyle() const;
     // Shows `style` without emitting frameStyleChanged.
     void setFrameStyle(const FrameStyle &style);
@@ -51,6 +62,8 @@ public:
 signals:
     // The user changed colour, corners or line width.
     void frameStyleChanged(const FrameStyle &style);
+    // The user changed kind or strength of pixelating (F-26).
+    void redactStyleChanged(const RedactStyle &style);
     // The user clicked an entry in the object list.
     void objectClicked(int index);
     // The user dragged an entry in the object list to a new place (F-24).
@@ -59,6 +72,10 @@ signals:
     void dimSettingsChanged(const DimSettings &settings);
 
 private:
+    QWidget *m_frameSection = nullptr;
+    QWidget *m_redactSection = nullptr;
+    QButtonGroup *m_redactMode = nullptr;
+    QButtonGroup *m_redactLevel = nullptr;
     QLabel *m_title = nullptr;
     QLabel *m_hint = nullptr;
     QButtonGroup *m_swatches = nullptr;

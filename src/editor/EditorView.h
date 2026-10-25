@@ -8,7 +8,7 @@
 #include <QPointF>
 
 class EditorScene;
-class FrameItem;
+class RectItem;
 class QGraphicsItem;
 class QUndoStack;
 
@@ -83,8 +83,8 @@ private:
     EditorScene *m_scene;
     ToolId m_tool = ToolId::Select;
 
-    // A frame being drawn (Frame tool), not yet on the undo stack.
-    FrameItem *m_drawing = nullptr;
+    // A frame or pixelated area being drawn, not yet on the undo stack.
+    RectItem *m_drawing = nullptr;
     QPointF m_drawStart;
 
     // Positions of the selected items when a drag started, for the undo step.

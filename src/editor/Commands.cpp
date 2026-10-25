@@ -2,6 +2,8 @@
 
 #include "editor/EditorScene.h"
 #include "editor/FrameItem.h"
+#include "editor/RectItem.h"
+#include "editor/RedactItem.h"
 
 #include <QCoreApplication>
 
@@ -106,22 +108,22 @@ void MoveItemsCommand::undo()
 
 // --- Frame rectangle ---------------------------------------------------
 
-SetFrameRectCommand::SetFrameRectCommand(FrameItem *frame, const QRectF &from, const QRectF &to)
+SetRectCommand::SetRectCommand(RectItem *item, const QRectF &from, const QRectF &to)
     : QUndoCommand(tr("Grösse ändern"))
-    , m_frame(frame)
+    , m_item(item)
     , m_from(from)
     , m_to(to)
 {
 }
 
-void SetFrameRectCommand::redo()
+void SetRectCommand::redo()
 {
-    m_frame->setRect(m_to);
+    m_item->setRect(m_to);
 }
 
-void SetFrameRectCommand::undo()
+void SetRectCommand::undo()
 {
-    m_frame->setRect(m_from);
+    m_item->setRect(m_from);
 }
 
 // --- Frame style -------------------------------------------------------
@@ -186,36 +188,59 @@ bool SetDimCommand::mergeWith(const QUndoCommand *other)
     return true;
 }
 
-// --- Reorder frames ----------------------------------------------------
+// --- Reorder ------------------------------------------------------------
 
-ReorderFramesCommand::ReorderFramesCommand(EditorScene *scene, int from, int to)
+ReorderItemsCommand::ReorderItemsCommand(EditorScene *scene, int from, int to)
     : QUndoCommand(tr("Reihenfolge ändern"))
     , m_scene(scene)
-    , m_frames(scene->frames())
+    , m_items(scene->annotations())
 {
-    for (const FrameItem *frame : std::as_const(m_frames))
-        m_before << frame->order();
-    // The frames keep the same set of order values, handed out anew.
-    QList<FrameItem *> moved = m_frames;
+    for (const RectItem *item : std::as_const(m_items))
+        m_before << item->order();
+    // The items keep the same set of order values, handed out anew.
+    QList<RectItem *> moved = m_items;
     moved.move(from, to);
-    m_after.resize(m_frames.size());
+    m_after.resize(m_items.size());
     for (qsizetype i = 0; i < moved.size(); ++i)
-        m_after[m_frames.indexOf(moved[i])] = m_before[i];
+        m_after[m_items.indexOf(moved[i])] = m_before[i];
 }
 
-void ReorderFramesCommand::apply(const QList<qint64> &orders)
+void ReorderItemsCommand::apply(const QList<qint64> &orders)
 {
-    for (qsizetype i = 0; i < m_frames.size(); ++i)
-        m_frames[i]->setOrder(orders[i]);
+    for (qsizetype i = 0; i < m_items.size(); ++i)
+        m_items[i]->setOrder(orders[i]);
     emit m_scene->annotationsChanged(); // repaints the numbers, updates the list
 }
 
-void ReorderFramesCommand::redo()
+void ReorderItemsCommand::redo()
 {
     apply(m_after);
 }
 
-void ReorderFramesCommand::undo()
+void ReorderItemsCommand::undo()
 {
     apply(m_before);
+}
+
+// --- Pixelate style ----------------------------------------------------
+
+SetRedactStyleCommand::SetRedactStyleCommand(const QList<RedactItem *> &items, const RedactStyle &style)
+    : QUndoCommand(tr("Verpixeln ändern"))
+    , m_items(items)
+    , m_after(style)
+{
+    for (const RedactItem *item : items)
+        m_before << item->style();
+}
+
+void SetRedactStyleCommand::redo()
+{
+    for (RedactItem *item : std::as_const(m_items))
+        item->setStyle(m_after);
+}
+
+void SetRedactStyleCommand::undo()
+{
+    for (qsizetype i = 0; i < m_items.size(); ++i)
+        m_items[i]->setStyle(m_before[i]);
 }

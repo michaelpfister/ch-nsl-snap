@@ -165,7 +165,12 @@ PropertiesPanel::PropertiesPanel(QWidget *parent)
     layout->addSpacing(12);
 
     // Colour (F-22).
-    layout->addWidget(sectionLabel(tr("Farbe"), this));
+    // Frame properties (F-22–F-24).
+    m_frameSection = new QWidget(this);
+    auto *frameLayout = new QVBoxLayout(m_frameSection);
+    frameLayout->setContentsMargins(0, 0, 0, 0);
+    frameLayout->setSpacing(8);
+    frameLayout->addWidget(sectionLabel(tr("Farbe"), this));
     auto *swatchRow = new QHBoxLayout;
     swatchRow->setSpacing(6);
     for (const Swatch &swatch : kSwatches) {
@@ -182,11 +187,11 @@ PropertiesPanel::PropertiesPanel(QWidget *parent)
     }
     m_swatches->buttons().first()->setChecked(true);
     swatchRow->addStretch(1);
-    layout->addLayout(swatchRow);
-    layout->addSpacing(12);
+    frameLayout->addLayout(swatchRow);
+    frameLayout->addSpacing(12);
 
     // Corners (F-23): segmented control.
-    layout->addWidget(sectionLabel(tr("Ecken"), this));
+    frameLayout->addWidget(sectionLabel(tr("Ecken"), this));
     auto *segment = new QFrame(this);
     segment->setProperty("role", QStringLiteral("segment"));
     auto *segmentLayout = new QHBoxLayout(segment);
@@ -202,19 +207,19 @@ PropertiesPanel::PropertiesPanel(QWidget *parent)
     }
     m_rounded->setChecked(true);
     connect(corners, &QButtonGroup::buttonClicked, this, [this] { emit frameStyleChanged(frameStyle()); });
-    layout->addWidget(segment);
-    layout->addSpacing(12);
+    frameLayout->addWidget(segment);
+    frameLayout->addSpacing(12);
 
     // Line width (F-23).
-    m_width = labelledSlider(layout, tr("Linienstärke"), 1, 8, 3, QStringLiteral("px"), this);
+    m_width = labelledSlider(frameLayout, tr("Linienstärke"), 1, 8, 3, QStringLiteral("px"), this);
     connect(m_width, &QSlider::valueChanged, this, [this] {
         if (!m_updating)
             emit frameStyleChanged(frameStyle());
     });
-    layout->addSpacing(12);
+    frameLayout->addSpacing(12);
 
     // Number badge position (F-24).
-    layout->addWidget(sectionLabel(tr("Nummer"), this));
+    frameLayout->addWidget(sectionLabel(tr("Nummer"), this));
     m_badge = new QComboBox(this);
     m_badge->addItem(tr("Oben rechts"), int(BadgePosition::TopRight));
     m_badge->addItem(tr("Oben links"), int(BadgePosition::TopLeft));
@@ -224,7 +229,45 @@ PropertiesPanel::PropertiesPanel(QWidget *parent)
     m_badge->setAccessibleName(tr("Nummer"));
     m_badge->setFocusPolicy(Qt::NoFocus);
     connect(m_badge, &QComboBox::activated, this, [this] { emit frameStyleChanged(frameStyle()); });
-    layout->addWidget(m_badge);
+    frameLayout->addWidget(m_badge);
+    layout->addWidget(m_frameSection);
+
+    // Pixelate / blur properties (F-26).
+    m_redactSection = new QWidget(this);
+    auto *redactLayout = new QVBoxLayout(m_redactSection);
+    redactLayout->setContentsMargins(0, 0, 0, 0);
+    redactLayout->setSpacing(8);
+    const auto segmentedRow = [this](QVBoxLayout *target, const QString &label, const QStringList &texts,
+                                     QButtonGroup *group) {
+        target->addWidget(sectionLabel(label, this));
+        auto *frame = new QFrame(this);
+        frame->setProperty("role", QStringLiteral("segment"));
+        auto *row = new QHBoxLayout(frame);
+        row->setContentsMargins(3, 3, 3, 3);
+        row->setSpacing(2);
+        for (int i = 0; i < texts.size(); ++i) {
+            auto *button = new QPushButton(texts[i], frame);
+            button->setCheckable(true);
+            group->addButton(button, i);
+            row->addWidget(button);
+        }
+        target->addWidget(frame);
+    };
+    m_redactMode = new QButtonGroup(this);
+    m_redactLevel = new QButtonGroup(this);
+    segmentedRow(redactLayout, tr("Art"), {tr("Verpixeln"), tr("Weichzeichnen")}, m_redactMode);
+    redactLayout->addSpacing(12);
+    segmentedRow(redactLayout, tr("Stärke"), {tr("Leicht"), tr("Mittel"), tr("Stark")}, m_redactLevel);
+    auto *redactHint = new QLabel(tr("Für Namen und Codes «Mittel» oder «Stark» wählen: "
+                                     "leicht verpixelter Text kann lesbar bleiben."), this);
+    redactHint->setProperty("role", QStringLiteral("hint"));
+    redactHint->setWordWrap(true);
+    redactLayout->addWidget(redactHint);
+    connect(m_redactMode, &QButtonGroup::idClicked, this, [this] { emit redactStyleChanged(redactStyle()); });
+    connect(m_redactLevel, &QButtonGroup::idClicked, this, [this] { emit redactStyleChanged(redactStyle()); });
+    setRedactStyle(RedactStyle());
+    m_redactSection->hide();
+    layout->addWidget(m_redactSection);
 
     layout->addSpacing(16);
     layout->addWidget(separator(this));
@@ -332,6 +375,32 @@ void PropertiesPanel::setFrameStyle(const FrameStyle &style)
     (style.rounded ? m_rounded : m_square)->setChecked(true);
     m_badge->setCurrentIndex(m_badge->findData(int(style.badge)));
     m_updating = false;
+}
+
+RedactStyle PropertiesPanel::redactStyle() const
+{
+    RedactStyle style;
+    style.mode = RedactMode(std::max(0, m_redactMode->checkedId()));
+    style.level = RedactLevel(std::max(0, m_redactLevel->checkedId()));
+    return style;
+}
+
+void PropertiesPanel::setRedactStyle(const RedactStyle &style)
+{
+    m_redactMode->button(int(style.mode))->setChecked(true);
+    m_redactLevel->button(int(style.level))->setChecked(true);
+}
+
+void PropertiesPanel::showSections(bool frame, bool redact)
+{
+    m_frameSection->setVisible(frame);
+    m_redactSection->setVisible(redact);
+}
+
+void PropertiesPanel::showRedactSelection(int count)
+{
+    m_title->setText(tr("Verpixeln"));
+    m_hint->setText(count == 1 ? tr("1 ausgewählt") : tr("%1 ausgewählt").arg(count));
 }
 
 void PropertiesPanel::setBadgeOptions(const QList<BadgePosition> &positions)

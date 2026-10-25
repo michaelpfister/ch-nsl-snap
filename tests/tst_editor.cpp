@@ -4,6 +4,7 @@
 #include "editor/DimSettings.h"
 #include "editor/EditorScene.h"
 #include "editor/FrameItem.h"
+#include "editor/RedactItem.h"
 
 #include <QBuffer>
 #include <QTest>
@@ -90,7 +91,7 @@ private slots:
 
         frame->setPos(10, 5);
         m_stack->push(new MoveItemsCommand({{frame, QPointF(0, 0), QPointF(10, 5)}}));
-        m_stack->push(new SetFrameRectCommand(frame, QRectF(20, 20, 50, 30), QRectF(20, 20, 80, 40)));
+        m_stack->push(new SetRectCommand(frame, QRectF(20, 20, 50, 30), QRectF(20, 20, 80, 40)));
         m_stack->push(new SetFrameStyleCommand({frame}, squareStyle(kBlue, 3)));
 
         QCOMPARE(frame->pos(), QPointF(10, 5));
@@ -257,7 +258,7 @@ private slots:
             m_stack->push(new AddItemsCommand(m_scene, {f.last()}, QStringLiteral("add")));
         }
         // Drag the third entry to the top: it becomes number 1.
-        m_stack->push(new ReorderFramesCommand(m_scene, 2, 0));
+        m_stack->push(new ReorderItemsCommand(m_scene, 2, 0));
         QCOMPARE(m_scene->numberOf(f[2]), 1);
         QCOMPARE(m_scene->numberOf(f[0]), 2);
         QCOMPARE(m_scene->numberOf(f[1]), 3);
@@ -266,6 +267,93 @@ private slots:
         m_stack->undo();
         QCOMPARE(m_scene->numberOf(f[0]), 1);
         QCOMPARE(m_scene->numberOf(f[2]), 3);
+    }
+
+    // A "secret": black and white stripes, one pixel wide, like text.
+    void paintSecret(QImage &image, const QRect &area)
+    {
+        for (int y = area.top(); y <= area.bottom(); ++y)
+            for (int x = area.left(); x <= area.right(); ++x)
+                image.setPixelColor(x, y, (x % 2) ? Qt::black : Qt::white);
+    }
+
+    void pixelateHidesTheOriginal()
+    {
+        QImage base(200, 100, QImage::Format_ARGB32);
+        base.fill(Qt::white);
+        const QRect secret(40, 20, 60, 40);
+        paintSecret(base, secret);
+        m_scene->setBaseImage(base, 1.0);
+
+        RedactStyle style; // pixelate, medium: 10 px blocks
+        m_stack->push(new AddItemsCommand(m_scene, {new RedactItem(QRectF(secret), style, 1.0)}, QStringLiteral("add")));
+        const QImage out = m_scene->renderImage();
+        // No stripe survives: neighbouring pixels in a block are equal.
+        for (int y = secret.top(); y <= secret.bottom(); ++y)
+            for (int x = secret.left(); x < secret.right(); ++x)
+                if (out.pixelColor(x, y) != out.pixelColor(x + 1, y) && (x - secret.left() + 1) % 10 != 0)
+                    QFAIL(qPrintable(QStringLiteral("stripe left at %1,%2").arg(x).arg(y)));
+        QCOMPARE(out.pixelColor(10, 10), QColor(Qt::white)); // outside untouched
+        m_stack->undo();
+        QCOMPARE(m_scene->renderImage().pixelColor(41, 30), QColor(Qt::black));
+    }
+
+    void blurHidesTheOriginal()
+    {
+        QImage base(200, 100, QImage::Format_ARGB32);
+        base.fill(Qt::white);
+        const QRect secret(40, 20, 60, 40);
+        paintSecret(base, secret);
+        m_scene->setBaseImage(base, 1.0);
+        RedactStyle style;
+        style.mode = RedactMode::Blur;
+        m_stack->push(new AddItemsCommand(m_scene, {new RedactItem(QRectF(secret), style, 1.0)}, QStringLiteral("add")));
+        const QImage out = m_scene->renderImage();
+        // Stripes average out to grey: neighbours differ only a little.
+        const int a = out.pixelColor(70, 40).red();
+        const int b = out.pixelColor(71, 40).red();
+        QVERIFY(std::abs(a - b) < 20);
+        QVERIFY(a > 60 && a < 200);
+    }
+
+    void redactionSnapsToWholePixels()
+    {
+        auto *item = new RedactItem(QRectF(10.4, 10.6, 30.2, 20.7), RedactStyle(), 1.0);
+        m_stack->push(new AddItemsCommand(m_scene, {item}, QStringLiteral("add")));
+        QCOMPARE(item->rect(), QRectF(QPointF(10, 11), QPointF(41, 31)));
+        item->setPos(3.6, 2.2);
+        QCOMPARE(item->pos(), QPointF(4, 2));
+    }
+
+    void redactionIsDimmedOutsideFrames()
+    {
+        auto *item = new RedactItem(QRectF(10, 10, 40, 40), RedactStyle(), 1.0);
+        m_stack->push(new AddItemsCommand(m_scene, {item}, QStringLiteral("add")));
+        DimSettings dim;
+        dim.enabled = true;
+        dim.strength = 50;
+        m_stack->push(new SetDimCommand(m_scene, dim));
+        // White image pixelated is still white; dimmed it turns grey.
+        const QColor c = m_scene->renderImage().pixelColor(30, 30);
+        QVERIFY(c.value() < 150);
+    }
+
+    void redactStyleIsUndoableAndListed()
+    {
+        auto *frame = new FrameItem(QRectF(100, 20, 40, 30), squareStyle(kRed, 3), 1.0);
+        auto *item = new RedactItem(QRectF(10, 10, 40, 40), RedactStyle(), 1.0);
+        m_stack->push(new AddItemsCommand(m_scene, {frame}, QStringLiteral("add")));
+        m_stack->push(new AddItemsCommand(m_scene, {item}, QStringLiteral("add")));
+        QCOMPARE(m_scene->annotations().size(), 2);
+        QCOMPARE(m_scene->annotations().last()->label(), QStringLiteral("Verpixelt"));
+        QCOMPARE(m_scene->frames().size(), 1);
+
+        RedactStyle blur;
+        blur.mode = RedactMode::Blur;
+        m_stack->push(new SetRedactStyleCommand({item}, blur));
+        QCOMPARE(item->label(), QStringLiteral("Weichgezeichnet"));
+        m_stack->undo();
+        QCOMPARE(item->style().mode, RedactMode::Pixelate);
     }
 
 private:

@@ -3,6 +3,7 @@
 #include "editor/Commands.h"
 #include "editor/EditorScene.h"
 #include "editor/FrameItem.h"
+#include "editor/RedactItem.h"
 
 #include <QDragEnterEvent>
 #include <QDropEvent>
@@ -92,14 +93,14 @@ void EditorView::setTool(ToolId tool)
 bool EditorView::isDrawingTool() const
 {
     // Frame and numbered frame draw so far; the others follow (docs/04-features.md).
-    return m_tool == ToolId::Frame || m_tool == ToolId::Number;
+    return m_tool == ToolId::Frame || m_tool == ToolId::Number || m_tool == ToolId::Pixelate;
 }
 
 bool EditorView::deleteSelection()
 {
     QList<QGraphicsItem *> items;
-    for (FrameItem *frame : m_scene->selectedFrames())
-        items << frame;
+    for (RectItem *item : m_scene->selectedAnnotations())
+        items << item;
     if (items.isEmpty())
         return false;
     m_scene->undoStack()->push(new RemoveItemsCommand(m_scene, items));
@@ -184,15 +185,15 @@ void EditorView::applyZoom(double zoom, const QPoint *anchor)
     // From two screen pixels per image pixel on, show crisp pixels instead
     // of a blurry upscale, so details can be read exactly.
     m_scene->setSmoothBase(m * devicePixelRatioF() < 2.0);
-    for (FrameItem *frame : m_scene->frames())
-        frame->viewZoomChanged();
+    for (RectItem *item : m_scene->annotations())
+        item->viewZoomChanged();
     emit zoomChanged();
 }
 
 QGraphicsItem *EditorView::annotationAt(const QPoint &viewPos) const
 {
     for (QGraphicsItem *item : items(viewPos)) {
-        if (item->type() == FrameItem::Type)
+        if (dynamic_cast<RectItem *>(item))
             return item;
     }
     return nullptr;
@@ -272,12 +273,21 @@ void EditorView::mousePressEvent(QMouseEvent *event)
         && !annotationAt(event->position().toPoint())) {
         m_scene->clearSelection();
         m_drawStart = mapToScene(event->position().toPoint());
-        // The number tool uses the badge position of the current style; the
-        // frame tool draws plain frames.
-        FrameStyle style = m_scene->frameStyle();
-        if (m_tool == ToolId::Frame)
-            style.badge = BadgePosition::None;
-        m_drawing = new FrameItem(QRectF(m_drawStart, m_drawStart), style, m_scene->imageScale());
+        const QRectF start(m_drawStart, m_drawStart);
+        if (m_tool == ToolId::Pixelate) {
+            // Alt switches this area to blur ("Alt für Weichzeichnen").
+            RedactStyle style = m_scene->redactStyle();
+            if (event->modifiers() & Qt::AltModifier)
+                style.mode = RedactMode::Blur;
+            m_drawing = new RedactItem(start, style, m_scene->imageScale());
+        } else {
+            // The number tool uses the badge position of the current style;
+            // the frame tool draws plain frames.
+            FrameStyle style = m_scene->frameStyle();
+            if (m_tool == ToolId::Frame)
+                style.badge = BadgePosition::None;
+            m_drawing = new FrameItem(start, style, m_scene->imageScale());
+        }
         m_scene->addItem(m_drawing);
         return;
     }
@@ -329,16 +339,20 @@ void EditorView::mouseReleaseEvent(QMouseEvent *event)
     }
 
     if (m_drawing && event->button() == Qt::LeftButton) {
-        FrameItem *frame = m_drawing;
+        RectItem *item = m_drawing;
         m_drawing = nullptr;
-        m_scene->removeItem(frame);
-        const QSizeF onScreen = transform().mapRect(frame->rect()).size();
+        m_scene->removeItem(item);
+        const QSizeF onScreen = transform().mapRect(item->rect()).size();
         if (onScreen.width() < kMinDrawSize || onScreen.height() < kMinDrawSize) {
-            delete frame; // just a click
+            delete item; // just a click
             return;
         }
-        m_scene->undoStack()->push(new AddItemsCommand(m_scene, {frame},
-                                                       frame->isNumbered() ? tr("Nummer setzen") : tr("Rahmen zeichnen")));
+        QString text = tr("Rahmen zeichnen");
+        if (item->type() == RedactItem::Type)
+            text = tr("Verpixeln");
+        else if (static_cast<FrameItem *>(item)->isNumbered())
+            text = tr("Nummer setzen");
+        m_scene->undoStack()->push(new AddItemsCommand(m_scene, {item}, text));
         return;
     }
 

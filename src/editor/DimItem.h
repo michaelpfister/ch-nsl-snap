@@ -18,9 +18,6 @@ public:
     QRectF boundingRect() const override;
     void paint(QPainter *painter, const QStyleOptionGraphicsItem *option, QWidget *widget) override;
 
-    // The area that is dimmed: the image minus the frame cut-outs.
-    QPainterPath dimmedArea() const;
-
 private:
     EditorScene *m_scene;
 };

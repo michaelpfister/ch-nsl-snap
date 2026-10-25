@@ -9,6 +9,7 @@
 #include "editor/EditorScene.h"
 #include "editor/EditorView.h"
 #include "editor/FrameItem.h"
+#include "editor/RedactItem.h"
 #include "imaging/WindowImage.h"
 #include "ui/Icons.h"
 #include "ui/Theme.h"
@@ -150,9 +151,10 @@ MainWindow::MainWindow(QWidget *parent)
     connect(scene, &EditorScene::annotationsChanged, this, &MainWindow::updateObjectList);
     connect(m_undoStack, &QUndoStack::indexChanged, this, &MainWindow::onSelectionChanged);
     connect(m_properties, &PropertiesPanel::frameStyleChanged, this, &MainWindow::onFrameStyleChanged);
+    connect(m_properties, &PropertiesPanel::redactStyleChanged, this, &MainWindow::onRedactStyleChanged);
     connect(m_properties, &PropertiesPanel::objectClicked, this, &MainWindow::selectObject);
     connect(m_properties, &PropertiesPanel::objectMoved, this, [this](int from, int to) {
-        m_undoStack->push(new ReorderFramesCommand(m_view->editorScene(), from, to));
+        m_undoStack->push(new ReorderItemsCommand(m_view->editorScene(), from, to));
     });
 
     // Dim background (F-27): the switch exists twice (rail and panel). Both
@@ -436,17 +438,29 @@ void MainWindow::onToolChanged(ToolId id)
 
 void MainWindow::onSelectionChanged()
 {
-    const QList<FrameItem *> selected = m_view->editorScene()->selectedFrames();
-    if (selected.isEmpty()) {
+    const EditorScene *scene = m_view->editorScene();
+    const QList<FrameItem *> selected = scene->selectedFrames();
+    const QList<RedactItem *> redactions = selectedRedactions();
+    if (!redactions.isEmpty())
+        m_properties->setRedactStyle(redactions.first()->style());
+
+    if (selected.isEmpty() && !redactions.isEmpty()) {
+        m_properties->showRedactSelection(int(redactions.size()));
+        m_properties->showSections(false, true);
+    } else if (selected.isEmpty()) {
         // Style for new objects; only the number tool draws with a number.
-        FrameStyle style = m_view->editorScene()->frameStyle();
-        if (m_toolRail->currentTool() != ToolId::Number)
+        const ToolId tool = m_toolRail->currentTool();
+        FrameStyle style = scene->frameStyle();
+        if (tool != ToolId::Number)
             style.badge = BadgePosition::None;
-        m_properties->showTool(m_toolRail->currentTool());
+        m_properties->showTool(tool);
         m_properties->setFrameStyle(style);
+        m_properties->setRedactStyle(scene->redactStyle());
+        m_properties->showSections(tool != ToolId::Pixelate, tool == ToolId::Pixelate);
         m_properties->setBadgeOptions({BadgePosition::TopRight, BadgePosition::TopLeft,
                                        BadgePosition::BottomRight, BadgePosition::BottomLeft});
     } else {
+        m_properties->showSections(true, !redactions.isEmpty());
         m_properties->showSelection(int(selected.size()));
         // Show where the number really is, and offer only corners where it
         // fits for every selected frame.
@@ -478,26 +492,44 @@ void MainWindow::onFrameStyleChanged(const FrameStyle &style)
         m_undoStack->push(new SetFrameStyleCommand(selected, style));
 }
 
+QList<RedactItem *> MainWindow::selectedRedactions() const
+{
+    QList<RedactItem *> result;
+    for (RectItem *item : m_view->editorScene()->selectedAnnotations()) {
+        if (item->type() == RedactItem::Type)
+            result << static_cast<RedactItem *>(item);
+    }
+    return result;
+}
+
+void MainWindow::onRedactStyleChanged(const RedactStyle &style)
+{
+    // Default for new areas, and applied to the selected ones (F-26).
+    m_view->editorScene()->setRedactStyle(style);
+    const QList<RedactItem *> selected = selectedRedactions();
+    if (!selected.isEmpty())
+        m_undoStack->push(new SetRedactStyleCommand(selected, style));
+}
+
 void MainWindow::updateObjectList()
 {
     QStringList labels;
     QList<bool> selected;
-    const EditorScene *scene = m_view->editorScene();
-    for (const FrameItem *frame : scene->frames()) {
-        labels << (frame->isNumbered() ? tr("Nummer %1").arg(scene->numberOf(frame)) : tr("Rahmen"));
-        selected << frame->isSelected();
+    for (const RectItem *item : m_view->editorScene()->annotations()) {
+        labels << item->label();
+        selected << item->isSelected();
     }
     m_properties->setObjects(labels, selected);
 }
 
 void MainWindow::selectObject(int index)
 {
-    const QList<FrameItem *> frames = m_view->editorScene()->frames();
-    if (index < 0 || index >= frames.size())
+    const QList<RectItem *> items = m_view->editorScene()->annotations();
+    if (index < 0 || index >= items.size())
         return;
     m_view->editorScene()->clearSelection();
-    frames[index]->setSelected(true);
-    m_view->ensureVisible(frames[index]);
+    items[index]->setSelected(true);
+    m_view->ensureVisible(items[index]);
 }
 
 void MainWindow::updateActions()

@@ -2,6 +2,7 @@
 
 #include "editor/DimSettings.h"
 #include "editor/FrameStyle.h"
+#include "editor/RedactStyle.h"
 
 #include <QList>
 #include <QPointF>
@@ -10,6 +11,8 @@
 
 class EditorScene;
 class FrameItem;
+class RectItem;
+class RedactItem;
 class QGraphicsItem;
 
 // Undo commands for the editor (D-012). Each command changes the scene in
@@ -55,15 +58,16 @@ private:
     QList<Move> m_moves;
 };
 
-class SetFrameRectCommand : public QUndoCommand
+// Resize of a frame or another rectangular annotation.
+class SetRectCommand : public QUndoCommand
 {
 public:
-    SetFrameRectCommand(FrameItem *frame, const QRectF &from, const QRectF &to);
+    SetRectCommand(RectItem *item, const QRectF &from, const QRectF &to);
     void redo() override;
     void undo() override;
 
 private:
-    FrameItem *m_frame;
+    RectItem *m_item;
     QRectF m_from;
     QRectF m_to;
 };
@@ -102,12 +106,13 @@ private:
     DimSettings m_after;
 };
 
-// Changes the order of the frames, and with it their numbers (F-24, Q-18):
-// the frame at `from` in EditorScene::frames() moves to `to`.
-class ReorderFramesCommand : public QUndoCommand
+// Changes the order of the annotations, and with it the numbers of the
+// numbered frames (F-24, Q-18): the item at `from` in
+// EditorScene::annotations() moves to `to`.
+class ReorderItemsCommand : public QUndoCommand
 {
 public:
-    ReorderFramesCommand(EditorScene *scene, int from, int to);
+    ReorderItemsCommand(EditorScene *scene, int from, int to);
     void redo() override;
     void undo() override;
 
@@ -115,7 +120,20 @@ private:
     void apply(const QList<qint64> &orders);
 
     EditorScene *m_scene;
-    QList<FrameItem *> m_frames; // in the original order
+    QList<RectItem *> m_items; // in the original order
     QList<qint64> m_before;
     QList<qint64> m_after;
+};
+
+class SetRedactStyleCommand : public QUndoCommand
+{
+public:
+    SetRedactStyleCommand(const QList<RedactItem *> &items, const RedactStyle &style);
+    void redo() override;
+    void undo() override;
+
+private:
+    QList<RedactItem *> m_items;
+    QList<RedactStyle> m_before;
+    RedactStyle m_after;
 };

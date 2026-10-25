@@ -17,6 +17,8 @@ class QUndoStack;
 class ToolRail;
 struct CaptureResult;
 struct FrameStyle;
+struct RedactStyle;
+class RedactItem;
 struct Theme;
 
 class MainWindow : public QMainWindow
@@ -58,6 +60,8 @@ private:
     void onToolChanged(ToolId id);
     void onSelectionChanged();
     void onFrameStyleChanged(const FrameStyle &style);
+    void onRedactStyleChanged(const RedactStyle &style);
+    QList<RedactItem *> selectedRedactions() const;
     void updateObjectList();
     void selectObject(int index);
     void updateActions();

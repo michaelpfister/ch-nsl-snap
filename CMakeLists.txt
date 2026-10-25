@@ -40,6 +40,11 @@ add_library(nsl_snap_core STATIC
     src/editor/FrameItem.cpp
     src/editor/FrameItem.h
     src/editor/FrameStyle.h
+    src/editor/RectItem.cpp
+    src/editor/RectItem.h
+    src/editor/RedactItem.cpp
+    src/editor/RedactItem.h
+    src/editor/RedactStyle.h
     src/editor/Tool.cpp
     src/editor/Tool.h
     src/imaging/Blur.cpp

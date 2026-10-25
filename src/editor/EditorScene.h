@@ -2,14 +2,17 @@
 
 #include "editor/DimSettings.h"
 #include "editor/FrameStyle.h"
+#include "editor/RedactStyle.h"
 
 #include <QGraphicsScene>
 #include <QHash>
 #include <QImage>
+#include <QPainterPath>
 #include <QPixmap>
 
 class DimItem;
 class FrameItem;
+class RectItem;
 class QGraphicsPixmapItem;
 class QUndoStack;
 
@@ -48,7 +51,11 @@ public:
     static void setScaleMetadata(QImage &image, double scale);
     static double scaleFromMetadata(const QImage &image);
 
-    // Annotation frames in creation order (FrameItem::order).
+    // All annotations (frames, pixelated areas) in creation order
+    // (RectItem::order): the order of the object list.
+    QList<RectItem *> annotations() const;
+    QList<RectItem *> selectedAnnotations() const;
+    // Only the frames, in the same order.
     QList<FrameItem *> frames() const;
     QList<FrameItem *> selectedFrames() const;
 
@@ -63,6 +70,14 @@ public:
     // and darkened. Cached until the image or the settings change, so
     // repainting and switching on and off cost nothing.
     QPixmap dimLayer() const;
+    // The dimmed area: the image minus the frame cut-outs.
+    QPainterPath dimmedArea() const;
+    // The dark veil for the current strength.
+    QColor dimVeil() const;
+
+    // Style for new pixelated areas; follows the properties panel.
+    RedactStyle redactStyle() const { return m_redactStyle; }
+    void setRedactStyle(const RedactStyle &style) { m_redactStyle = style; }
 
     // Style for new frames; follows the properties panel. Its badge is the
     // position used by the number tool.
@@ -82,6 +97,7 @@ private:
     bool m_exporting = false;
     bool m_smoothBase = true;
     FrameStyle m_frameStyle;
+    RedactStyle m_redactStyle;
     DimSettings m_dim;
     DimItem *m_dimItem = nullptr;
     // Caches for dimLayer(): the blur is the slow part, so it is kept per
