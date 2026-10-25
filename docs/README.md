@@ -19,3 +19,4 @@ These files record **why** the tool is built the way it is. The code says how it
 | [04-features.md](04-features.md) | Feature scope: WinSnap reference and our own additions (still to be defined) |
 | [05-open-questions.md](05-open-questions.md) | What is still undecided, and what it blocks |
 | [06-poc-gnome-window-capture.md](06-poc-gnome-window-capture.md) | Proof of concept: window capture on GNOME via a Shell extension, how to run it, results |
+| [07-development-setup.md](07-development-setup.md) | Setting up a machine to build the app: system packages, Qt 6.8, CMake |

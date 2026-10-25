@@ -14,6 +14,7 @@ Read [docs/README.md](docs/README.md) before changing behaviour. Decisions live 
 
 ## Development
 
+- Setup and build commands: [docs/07-development-setup.md](docs/07-development-setup.md). Qt 6.8.3 lives in `~/Qt/6.8.3/gcc_64` (pass it as `CMAKE_PREFIX_PATH`); never use the distribution's Qt 6.4.
 - GNOME Shell 46 on Wayland. The shell cannot be restarted in place: after installing or changing the extension, log out and in, or test in `scripts/nested-shell.sh`.
 - Extension code is ES modules (GNOME 45+ format). Syntax check: copy to `.mjs` and run `node --check`.
 - GNOME Shell's own sources are a good reference for APIs: `gresource extract /usr/lib/gnome-shell/libshell-14.so /org/gnome/shell/ui/screenshot.js`.
