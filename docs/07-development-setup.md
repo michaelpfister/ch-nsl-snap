@@ -35,6 +35,8 @@ python3 -m venv ~/Qt/aqt-venv
 ```bash
 cmake -S . -B build -G Ninja -DCMAKE_PREFIX_PATH=$HOME/Qt/6.8.3/gcc_64 -DCMAKE_BUILD_TYPE=Debug
 cmake --build build
+ctest --test-dir build --output-on-failure
+./build/nsl-snap
 ```
 
 ### 4. GNOME Shell extension

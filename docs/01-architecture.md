@@ -49,7 +49,7 @@ Each backend delivers a **capture result**: a PNG/RGBA image with alpha, plus me
 
 ### Shared core
 
-Not built yet. Planned: annotation editor, export (file with naming scheme, clipboard), settings, tray icon. Feature scope in [04-features.md](04-features.md). The technology is open (Q-01).
+Skeleton since 2026-10-25: main window with toolbar (capture window, open, save, copy, undo/redo, clear), editor view with drag & drop, GNOME backend, window crop and corner cleanup in C++ (`src/imaging/WindowImage`, same result as the PoC client, pixel for pixel). Still to come: the annotation tools, screen and region capture with freeze (D-011), settings, tray icon. Feature scope in [04-features.md](04-features.md).
 
 The editor is object-based (D-012): the captured image stays unchanged, annotations are objects with properties, every change is an undoable command, pixels are only computed on render and export.
 
@@ -58,6 +58,12 @@ The editor is object-based (D-012): the captured image stays unchanged, annotati
 | Path | Contents |
 |---|---|
 | `docs/` | This documentation |
+| `CMakeLists.txt`, `src/` | The app (C++20, Qt 6.8, D-013) |
+| `src/app/` | Main window, actions |
+| `src/capture/` | `CaptureBackend` interface and the platform backends (`gnome/`; `windows/` and `macos/` later) |
+| `src/editor/` | Editor view (`QGraphicsView`), later the annotation items (D-012) |
+| `src/imaging/` | Image processing without UI: crop to the opaque core (D-010), corner cleanup (D-009) |
+| `tests/` | Qt Test unit tests, run with `ctest` |
 | `gnome-extension/nsl-snap@netslash.ch/` | GNOME Shell extension (capture backend for GNOME) |
 | `tools/nsl-snap-pick` | PoC command-line client for the extension |
 | `scripts/` | Development helpers (install the extension, nested test shell) |
