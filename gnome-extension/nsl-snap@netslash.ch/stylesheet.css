@@ -1,0 +1,5 @@
+.nsl-snap-highlight {
+  border: 3px solid rgba(53, 132, 228, 0.95);
+  background-color: rgba(53, 132, 228, 0.15);
+  border-radius: 12px;
+}

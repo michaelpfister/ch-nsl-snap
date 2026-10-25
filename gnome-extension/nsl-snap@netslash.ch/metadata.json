@@ -1,0 +1,7 @@
+{
+  "uuid": "nsl-snap@netslash.ch",
+  "name": "NSL Snap",
+  "description": "Capture backend for NSL Snap: pick a window and capture it with clean edges and transparent corners.",
+  "shell-version": ["46"],
+  "version": 1
+}

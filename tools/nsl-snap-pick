@@ -1,0 +1,93 @@
+#!/usr/bin/env python3
+"""PoC client for the NSL Snap GNOME Shell extension.
+
+Asks the extension to let the user pick a window, then saves the capture as
+PNG. See docs/06-poc-gnome-window-capture.md.
+"""
+
+import argparse
+import datetime
+import json
+import pathlib
+import re
+import shutil
+import subprocess
+import sys
+
+import gi
+
+gi.require_version("Gio", "2.0")
+from gi.repository import Gio, GLib  # noqa: E402
+
+BUS_NAME = "ch.netslash.Snap.Shell"
+OBJECT_PATH = "/ch/netslash/Snap"
+INTERFACE = "ch.netslash.Snap1"
+
+
+def default_output(title: str) -> pathlib.Path:
+    pictures = GLib.get_user_special_dir(GLib.UserDirectory.DIRECTORY_PICTURES)
+    base = pathlib.Path(pictures or pathlib.Path.home()) / "NSL Snap"
+    stamp = datetime.datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
+    slug = re.sub(r"[^\w.-]+", "_", title).strip("_")[:60] or "window"
+    return base / f"{stamp}_{slug}.png"
+
+
+def main() -> int:
+    parser = argparse.ArgumentParser(description="Pick a window and capture it.")
+    parser.add_argument("-o", "--output", type=pathlib.Path, help="PNG file to write")
+    parser.add_argument(
+        "--crop",
+        choices=["frame", "buffer"],
+        default="frame",
+        help="frame: visible window only (default); buffer: keep shadow margins",
+    )
+    parser.add_argument("--clipboard", action="store_true", help="also copy to clipboard (needs wl-copy)")
+    parser.add_argument("--info", action="store_true", help="print capture metadata as JSON")
+    args = parser.parse_args()
+
+    bus = Gio.bus_get_sync(Gio.BusType.SESSION)
+    options = {"crop": GLib.Variant("s", args.crop)}
+    try:
+        result = bus.call_sync(
+            BUS_NAME,
+            OBJECT_PATH,
+            INTERFACE,
+            "PickWindow",
+            GLib.Variant("(a{sv})", (options,)),
+            GLib.VariantType("(aya{sv})"),
+            Gio.DBusCallFlags.NONE,
+            GLib.MAXINT,  # the user may take a while to pick
+            None,
+        )
+    except GLib.Error as e:
+        remote = Gio.DBusError.get_remote_error(e) or ""
+        if remote.endswith(".Cancelled"):
+            print("Cancelled.", file=sys.stderr)
+            return 1
+        if remote == "org.freedesktop.DBus.Error.ServiceUnknown":
+            print("NSL Snap extension is not running (see docs/06-poc-gnome-window-capture.md).", file=sys.stderr)
+            return 2
+        print(f"Error: {Gio.DBusError.strip_remote_error(e) or e.message}", file=sys.stderr)
+        return 2
+
+    png = result.get_child_value(0).get_data_as_bytes().get_data()
+    info = result.get_child_value(1).unpack()
+
+    output = args.output or default_output(info.get("title", ""))
+    output.parent.mkdir(parents=True, exist_ok=True)
+    output.write_bytes(png)
+    print(output)
+
+    if args.info:
+        print(json.dumps(info, indent=2, ensure_ascii=False))
+
+    if args.clipboard:
+        if shutil.which("wl-copy"):
+            subprocess.run(["wl-copy", "--type", "image/png"], input=png, check=False)
+        else:
+            print("wl-copy not found, skipped clipboard.", file=sys.stderr)
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())

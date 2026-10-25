@@ -1,0 +1,17 @@
+# Working on NSL Snap
+
+Read [docs/README.md](docs/README.md) before changing behaviour. Decisions live in `docs/02-decisions.md`; when a change contradicts one, update the decision (or ask) instead of silently diverging. New open points go into `docs/05-open-questions.md`. Platform limits are in `docs/03-platform-capabilities.md`; check there before promising a feature on GNOME.
+
+## Conventions
+
+- Code, identifiers, comments, docs and commit messages: English.
+- UI text: German (Switzerland), no "ß".
+- The GNOME Shell extension stays thin: pick, capture, return image bytes. Logic belongs in the app (docs/01-architecture.md).
+- Every capture method of the extension must require an interactive pick by the user. Never add a D-Bus method that lists windows or captures without user interaction (docs/02-decisions.md, D-003).
+- Shadows and backgrounds are drawn by the app, never taken from the system (D-004).
+
+## Development
+
+- GNOME Shell 46 on Wayland. The shell cannot be restarted in place: after installing or changing the extension, log out and in, or test in `scripts/nested-shell.sh`.
+- Extension code is ES modules (GNOME 45+ format). Syntax check: copy to `.mjs` and run `node --check`.
+- GNOME Shell's own sources are a good reference for APIs: `gresource extract /usr/lib/gnome-shell/libshell-14.so /org/gnome/shell/ui/screenshot.js`.
