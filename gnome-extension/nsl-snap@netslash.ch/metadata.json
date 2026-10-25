@@ -1,7 +1,7 @@
 {
   "uuid": "nsl-snap@netslash.ch",
   "name": "NSL Snap",
-  "description": "Capture backend for NSL Snap: pick a window and capture it with clean edges and transparent corners.",
+  "description": "Capture backend for NSL Snap: freezes the screen, then lets you pick a window or drag a region on the frozen picture.",
   "shell-version": ["46"],
-  "version": 1
+  "version": 2
 }

@@ -7,8 +7,9 @@
 #include <memory>
 
 // Interface for the per-platform capture code (docs/01-architecture.md).
-// Every capture is interactive: the backend lets the user pick, then emits
-// exactly one of captured(), cancelled() or failed().
+// Every capture is interactive: the backend freezes the screen, lets the
+// user select (D-011), then emits exactly one of captured(), cancelled() or
+// failed().
 class CaptureBackend : public QObject
 {
     Q_OBJECT
@@ -21,8 +22,10 @@ public:
     virtual bool isAvailable() const = 0;
     virtual QString unavailableReason() const = 0;
 
-    // Lets the user pick a window and captures it.
+    // Lets the user pick a window and captures it (F-02).
     virtual void captureWindow() = 0;
+    // Lets the user drag a rectangle on the frozen screen (F-03).
+    virtual void captureRegion() = 0;
 
 signals:
     void captured(const CaptureResult &result);

@@ -13,6 +13,7 @@
 | Q-15 | Windows 11 opens the Snipping Tool on Print. Ask users to switch that off, or use a low-level keyboard hook? | ask once on first start, with a button that opens the setting | F-42 on Windows |
 | Q-19 | Replaced text on a photo or gradient: fill with the main colour (now) or blur the area under the new text? | fill; blur as an option later | F-29 |
 | Q-17 | Bundle the Inter font (SIL Open Font License) with the app, so Windows and macOS look like the design? | yes, before the first Windows/macOS build | packaging |
+| Q-20 | A capture started while the activities overview is open shows the overview in the frozen picture, but window mode highlights the windows at their real places. Close the overview before freezing? | rare: the app hides itself first and the overview is usually closed; not handled yet | F-02 on GNOME |
 | Q-16 | Default global hotkeys on macOS (no Print key; Cmd + Shift + 3/4/5 belong to the system)? | Cmd + Shift + 6 (last mode), 7 (screen), 8 (window), 9 (region) | F-42 on macOS |
 
 ## Resolved

@@ -54,7 +54,7 @@ Each entry: context, decision, rationale, consequences. Entries marked **(assump
 
 ## D-006 The extension returns PNG bytes, it does not write files
 
-**Decision:** `PickWindow` returns the PNG as a byte array over D-Bus. Saving, naming and copying to the clipboard is the app's job.
+**Decision:** `Capture` (formerly `PickWindow`, D-021) returns the PNG as a byte array over D-Bus. Saving, naming and copying to the clipboard is the app's job.
 **Rationale:** Keeps the extension small and free of settings. Even a 4K window as PNG stays far below D-Bus message limits.
 
 ## D-007 Identifiers (assumption)
@@ -217,3 +217,17 @@ Each entry: context, decision, rationale, consequences. Entries marked **(assump
 - Outside the crop the editor shows the canvas colour, so the view matches the export. The fit mode (D-017) fits the crop.
 **Rationale:** A crop is just another object in the object-based model (D-012); cutting pixels would make undo expensive and lose the annotations outside.
 **Consequences:** While the crop tool is active, annotations cannot be selected, and hidden ones are not shown. Selection handles of an annotation at the crop edge are partly covered by the canvas.
+
+## D-021 Region capture: drag, then confirm; one overlay for window and region
+
+**Context:** F-03 on GNOME, the first part of the capture overlay of D-011 besides window capture (F-02).
+**Decision:**
+- The extension's new D-Bus method **`Capture(a{sv} options)`** (API version 2) freezes the screen and opens the overlay in the mode the app asks for (`mode`: `window` or `region`). The user can switch with **W** and **R**; the reply says which mode was used (`info.mode`), and the app takes that as the last used mode for Ctrl+N. `PickWindow` stays as `Capture` in window mode for the PoC client.
+- **Region:** dragging draws the region on the frozen picture, the rest is darkened. A **click into the region, Enter or Space** captures it; dragging again starts a new one, **Backspace/Delete** discards it (F-47). A drag under 4 logical px counts as a click. A hint bar at the top of the primary monitor names the keys; F1 hides it.
+- **Escape or a right click** cancels in both modes.
+- The region is cut from the frozen stage picture in physical pixels (logical × scale) and returned as PNG with the scale; the app opens it as it is, without the window cleanup of D-009/D-010.
+- If the extension that is running is still version 1 (updated but not logged out yet), window capture uses `PickWindow` and region capture says that a new login is needed.
+**Rationale:** Confirming separately (instead of capturing on release) lets the user check the region on the frozen picture first, as WinSnap does with Enter. One method with a mode keeps D-003 simple: every call ends in the overlay.
+**Consequences:**
+- Tested in a headless GNOME Shell 46 with injected input (2026-10-25): window and region, the freeze (a window moved during the overlay is captured where it was), Escape, right click, mode switch, Backspace, `PickWindow`, and the whole chain from the app (Ctrl+5 → region in the editor).
+- The handles of the region cannot be dragged; a new drag replaces it. Arrow keys for pixel-exact positioning (F-47) are still open.
