@@ -12,6 +12,9 @@ EditorScene::EditorScene(QUndoStack *undoStack, QObject *parent)
     : QGraphicsScene(parent)
     , m_undoStack(undoStack)
 {
+    m_frameStyle.badge = BadgePosition::TopRight;
+    // Numbers depend on the other frames: repaint all when one comes or goes.
+    connect(this, &EditorScene::annotationsChanged, this, [this] { update(); });
 }
 
 void EditorScene::setBaseImage(const QImage &image, double scale)
@@ -74,11 +77,27 @@ double EditorScene::scaleFromMetadata(const QImage &image)
 QList<FrameItem *> EditorScene::frames() const
 {
     QList<FrameItem *> result;
-    for (QGraphicsItem *item : items(Qt::AscendingOrder)) {
+    for (QGraphicsItem *item : items()) {
         if (item->type() == FrameItem::Type)
             result << static_cast<FrameItem *>(item);
     }
+    std::sort(result.begin(), result.end(),
+              [](const FrameItem *a, const FrameItem *b) { return a->order() < b->order(); });
     return result;
+}
+
+int EditorScene::numberOf(const FrameItem *frame) const
+{
+    if (!frame->isNumbered())
+        return 0;
+    int number = 0;
+    for (const FrameItem *other : frames()) {
+        if (other->isNumbered())
+            ++number;
+        if (other == frame)
+            return number;
+    }
+    return 0;
 }
 
 QList<FrameItem *> EditorScene::selectedFrames() const

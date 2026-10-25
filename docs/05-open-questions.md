@@ -11,6 +11,7 @@
 | Q-13 | Save editable projects (image + annotations) to continue later? | not in v1, but the model allows it (D-012) | file format |
 | Q-14 | GNOME binds Print, Shift + Print and Alt + Print to its own screenshot UI. How does the extension take them over? | the extension empties GNOME's three bindings (`org.gnome.shell.keybindings`) while it is enabled and restores them on disable; a setting can turn this off | F-42 on GNOME |
 | Q-15 | Windows 11 opens the Snipping Tool on Print. Ask users to switch that off, or use a low-level keyboard hook? | ask once on first start, with a button that opens the setting | F-42 on Windows |
+| Q-18 | How does the user change the order of numbered frames (F-24)? | drag in the object list | F-24 |
 | Q-17 | Bundle the Inter font (SIL Open Font License) with the app, so Windows and macOS look like the design? | yes, before the first Windows/macOS build | packaging |
 | Q-16 | Default global hotkeys on macOS (no Print key; Cmd + Shift + 3/4/5 belong to the system)? | Cmd + Shift + 6 (last mode), 7 (screen), 8 (window), 9 (region) | F-42 on macOS |
 

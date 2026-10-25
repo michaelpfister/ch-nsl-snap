@@ -338,8 +338,12 @@ void MainWindow::onSelectionChanged()
 {
     const QList<FrameItem *> selected = m_view->editorScene()->selectedFrames();
     if (selected.isEmpty()) {
+        // Style for new objects; only the number tool draws with a number.
+        FrameStyle style = m_view->editorScene()->frameStyle();
+        if (m_toolRail->currentTool() != ToolId::Number)
+            style.badge = BadgePosition::None;
         m_properties->showTool(m_toolRail->currentTool());
-        m_properties->setFrameStyle(m_view->editorScene()->frameStyle());
+        m_properties->setFrameStyle(style);
     } else {
         m_properties->showSelection(int(selected.size()));
         m_properties->setFrameStyle(selected.first()->style());
@@ -352,7 +356,11 @@ void MainWindow::onFrameStyleChanged(const FrameStyle &style)
     // The panel style becomes the default for new frames (F-22) and is
     // applied to the selected frames as one undo step.
     EditorScene *scene = m_view->editorScene();
-    scene->setFrameStyle(style);
+    // "Ohne Nummer" does not change where the number tool puts its numbers.
+    FrameStyle defaults = style;
+    if (defaults.badge == BadgePosition::None)
+        defaults.badge = scene->frameStyle().badge;
+    scene->setFrameStyle(defaults);
     const QList<FrameItem *> selected = scene->selectedFrames();
     if (!selected.isEmpty())
         m_undoStack->push(new SetFrameStyleCommand(selected, style));
@@ -362,9 +370,9 @@ void MainWindow::updateObjectList()
 {
     QStringList labels;
     QList<bool> selected;
-    int number = 0;
-    for (const FrameItem *frame : m_view->editorScene()->frames()) {
-        labels << tr("Rahmen %1").arg(++number);
+    const EditorScene *scene = m_view->editorScene();
+    for (const FrameItem *frame : scene->frames()) {
+        labels << (frame->isNumbered() ? tr("Nummer %1").arg(scene->numberOf(frame)) : tr("Rahmen"));
         selected << frame->isSelected();
     }
     m_properties->setObjects(labels, selected);

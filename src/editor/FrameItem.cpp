@@ -18,12 +18,25 @@ constexpr qreal kHandleSize = 8.0;  // screen pixels
 constexpr qreal kGrabMargin = 6.0;  // screen pixels around the line that still grab it
 constexpr qreal kMinSize = 4.0;     // image pixels
 
+qint64 nextOrder()
+{
+    static qint64 counter = 0;
+    return ++counter;
+}
+
+// Dark text on light badge colours (yellow), white otherwise.
+QColor badgeTextColor(const QColor &background)
+{
+    return background.lightnessF() > 0.6 ? QColor(0x1F2328) : QColor(Qt::white);
+}
+
 } // namespace
 
 FrameItem::FrameItem(const QRectF &rect, const FrameStyle &style, double scale)
     : m_rect(rect.normalized())
     , m_style(style)
     , m_scale(scale)
+    , m_order(nextOrder())
 {
     setFlags(ItemIsSelectable | ItemIsMovable | ItemSendsGeometryChanges);
     setAcceptHoverEvents(true);
@@ -41,8 +54,51 @@ void FrameItem::setStyle(const FrameStyle &style)
 {
     if (style == m_style)
         return;
+    const bool numberingChanged = style.badge == BadgePosition::None
+                                  || m_style.badge == BadgePosition::None;
     prepareGeometryChange();
     m_style = style;
+    // Turning a number on or off renumbers the other frames.
+    if (numberingChanged && scene())
+        scene()->update();
+}
+
+bool FrameItem::isHiddenHandle(Handle handle) const
+{
+    // The corner handle under the number badge would hide the number.
+    switch (m_style.badge) {
+    case BadgePosition::TopRight: return handle == TopRight;
+    case BadgePosition::TopLeft: return handle == TopLeft;
+    case BadgePosition::BottomRight: return handle == BottomRight;
+    case BadgePosition::BottomLeft: return handle == BottomLeft;
+    case BadgePosition::None: break;
+    }
+    return false;
+}
+
+QRectF FrameItem::badgeRect() const
+{
+    if (!isNumbered())
+        return {};
+    // Centred on the corner of the line, like the mockup.
+    const qreal inset = penWidth() / 2;
+    const QRectF line = m_rect.adjusted(inset, inset, -inset, -inset);
+    QPointF corner;
+    switch (m_style.badge) {
+    case BadgePosition::TopRight: corner = line.topRight(); break;
+    case BadgePosition::TopLeft: corner = line.topLeft(); break;
+    case BadgePosition::BottomRight: corner = line.bottomRight(); break;
+    case BadgePosition::BottomLeft: corner = line.bottomLeft(); break;
+    case BadgePosition::None: break;
+    }
+    const qreal d = FrameStyle::kBadgeDiameter * m_scale;
+    return QRectF(corner - QPointF(d / 2, d / 2), QSizeF(d, d));
+}
+
+int FrameItem::number() const
+{
+    const auto *editorScene = qobject_cast<const EditorScene *>(scene());
+    return editorScene ? editorScene->numberOf(this) : 0;
 }
 
 qreal FrameItem::screenToItem(qreal pixels) const
@@ -55,7 +111,7 @@ qreal FrameItem::screenToItem(qreal pixels) const
 QRectF FrameItem::boundingRect() const
 {
     const qreal margin = std::max(penWidth(), screenToItem(kHandleSize + kGrabMargin));
-    return m_rect.adjusted(-margin, -margin, margin, margin);
+    return m_rect.adjusted(-margin, -margin, margin, margin).united(badgeRect().adjusted(-2, -2, 2, 2));
 }
 
 QPainterPath FrameItem::shape() const
@@ -67,10 +123,14 @@ QPainterPath FrameItem::shape() const
     QPainterPathStroker stroker;
     stroker.setWidth(penWidth() + 2 * screenToItem(kGrabMargin));
     QPainterPath path = stroker.createStroke(outline);
+    if (isNumbered())
+        path.addEllipse(badgeRect());
     if (showsHandles()) {
         const qreal h = screenToItem(kHandleSize + 4);
-        for (int i = TopLeft; i <= Left; ++i)
-            path.addRect(QRectF(handlePoint(Handle(i)) - QPointF(h / 2, h / 2), QSizeF(h, h)));
+        for (int i = TopLeft; i <= Left; ++i) {
+            if (!isHiddenHandle(Handle(i)))
+                path.addRect(QRectF(handlePoint(Handle(i)) - QPointF(h / 2, h / 2), QSizeF(h, h)));
+        }
     }
     return path;
 }
@@ -91,14 +151,29 @@ void FrameItem::paint(QPainter *painter, const QStyleOptionGraphicsItem *, QWidg
         painter->drawRect(line);
     }
 
+    if (isNumbered()) {
+        const QRectF badge = badgeRect();
+        painter->setPen(Qt::NoPen);
+        painter->setBrush(m_style.color);
+        painter->drawEllipse(badge);
+        QFont font = painter->font();
+        font.setPixelSize(qRound(FrameStyle::kBadgeFontSize * m_scale));
+        font.setWeight(QFont::Bold);
+        painter->setFont(font);
+        painter->setPen(badgeTextColor(m_style.color));
+        painter->drawText(badge, Qt::AlignCenter, QString::number(number()));
+    }
+
     if (!showsHandles())
         return;
     const qreal h = screenToItem(kHandleSize);
     QPen handlePen(scene()->palette().color(QPalette::Highlight), screenToItem(1.5));
     painter->setPen(handlePen);
     painter->setBrush(Qt::white);
-    for (int i = TopLeft; i <= Left; ++i)
-        painter->drawRect(QRectF(handlePoint(Handle(i)) - QPointF(h / 2, h / 2), QSizeF(h, h)));
+    for (int i = TopLeft; i <= Left; ++i) {
+        if (!isHiddenHandle(Handle(i)))
+            painter->drawRect(QRectF(handlePoint(Handle(i)) - QPointF(h / 2, h / 2), QSizeF(h, h)));
+    }
 }
 
 bool FrameItem::showsHandles() const
@@ -130,7 +205,8 @@ FrameItem::Handle FrameItem::handleAt(const QPointF &pos) const
         return None;
     const qreal h = screenToItem(kHandleSize + 4);
     for (int i = TopLeft; i <= Left; ++i) {
-        if (QRectF(handlePoint(Handle(i)) - QPointF(h / 2, h / 2), QSizeF(h, h)).contains(pos))
+        if (!isHiddenHandle(Handle(i))
+            && QRectF(handlePoint(Handle(i)) - QPointF(h / 2, h / 2), QSizeF(h, h)).contains(pos))
             return Handle(i);
     }
     return None;

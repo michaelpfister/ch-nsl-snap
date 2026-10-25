@@ -22,6 +22,11 @@ public:
 
     FrameStyle style() const { return m_style; }
     void setStyle(const FrameStyle &style);
+    bool isNumbered() const { return m_style.badge != BadgePosition::None; }
+
+    // Creation order; numbers follow it (F-24). Kept through undo/redo, so
+    // a deleted and restored frame gets its old number back.
+    qint64 order() const { return m_order; }
 
     // Handles keep their screen size, so the bounding rect depends on the
     // zoom; the view calls this after zooming.
@@ -47,10 +52,14 @@ private:
     QPointF handlePoint(Handle handle) const;
     Handle handleAt(const QPointF &pos) const;
     bool showsHandles() const;
+    QRectF badgeRect() const;
+    bool isHiddenHandle(Handle handle) const;
+    int number() const;
 
     QRectF m_rect;
     FrameStyle m_style;
     double m_scale = 1.0;
+    qint64 m_order = 0;
 
     Handle m_dragHandle = None;
     QRectF m_rectAtPress;

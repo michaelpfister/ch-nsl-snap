@@ -8,6 +8,7 @@
 
 class QButtonGroup;
 class QCheckBox;
+class QComboBox;
 class QLabel;
 class QListWidget;
 class QPushButton;
@@ -50,6 +51,7 @@ private:
     QPushButton *m_square = nullptr;
     QPushButton *m_rounded = nullptr;
     QSlider *m_width = nullptr;
+    QComboBox *m_badge = nullptr;
     QCheckBox *m_dim = nullptr;
     QListWidget *m_objects = nullptr;
     QColor m_color;

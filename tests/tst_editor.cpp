@@ -155,6 +155,49 @@ private slots:
         QCOMPARE(EditorScene::scaleFromMetadata(plain), 1.0);
     }
 
+    void numbersFollowCreationOrderAndRenumber()
+    {
+        FrameStyle numbered = squareStyle(kRed, 3);
+        numbered.badge = BadgePosition::TopRight;
+        auto *a = new FrameItem(QRectF(10, 10, 40, 30), numbered, 1.0);
+        auto *plain = new FrameItem(QRectF(60, 10, 40, 30), squareStyle(kRed, 3), 1.0);
+        auto *b = new FrameItem(QRectF(110, 10, 40, 30), numbered, 1.0);
+        auto *c = new FrameItem(QRectF(10, 50, 40, 30), numbered, 1.0);
+        for (FrameItem *f : {a, plain, b, c})
+            m_stack->push(new AddItemsCommand(m_scene, {f}, QStringLiteral("add")));
+
+        QCOMPARE(m_scene->numberOf(a), 1);
+        QCOMPARE(m_scene->numberOf(plain), 0);
+        QCOMPARE(m_scene->numberOf(b), 2);
+        QCOMPARE(m_scene->numberOf(c), 3);
+
+        // Deleting 2 renumbers 3 to 2; undo brings the old numbers back.
+        m_stack->push(new RemoveItemsCommand(m_scene, {b}));
+        QCOMPARE(m_scene->numberOf(c), 2);
+        m_stack->undo();
+        QCOMPARE(m_scene->numberOf(b), 2);
+        QCOMPARE(m_scene->numberOf(c), 3);
+
+        // Turning the number off on the first frame renumbers the others.
+        FrameStyle off = numbered;
+        off.badge = BadgePosition::None;
+        m_stack->push(new SetFrameStyleCommand({a}, off));
+        QCOMPARE(m_scene->numberOf(b), 1);
+        QCOMPARE(m_scene->numberOf(c), 2);
+    }
+
+    void badgeIsDrawnOnTheCorner()
+    {
+        FrameStyle numbered = squareStyle(kRed, 2);
+        numbered.badge = BadgePosition::TopRight;
+        auto *frame = new FrameItem(QRectF(40, 40, 100, 40), numbered, 1.0);
+        m_stack->push(new AddItemsCommand(m_scene, {frame}, QStringLiteral("add")));
+        const QImage out = m_scene->renderImage();
+        // Badge circle (diameter 26) centred on the top-right corner of the line.
+        QCOMPARE(pixel(out, 139 + 9, 41 - 2), kRed); // outside the frame, inside the badge
+        QCOMPARE(pixel(out, 40 - 2, 41 - 2), QColor(Qt::white)); // top-left corner: no badge
+    }
+
 private:
     QUndoStack *m_stack = nullptr;
     EditorScene *m_scene = nullptr;

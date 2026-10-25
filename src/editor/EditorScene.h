@@ -39,11 +39,16 @@ public:
     static void setScaleMetadata(QImage &image, double scale);
     static double scaleFromMetadata(const QImage &image);
 
-    // Annotation frames from back to front.
+    // Annotation frames in creation order (FrameItem::order).
     QList<FrameItem *> frames() const;
     QList<FrameItem *> selectedFrames() const;
 
-    // Style for new frames; follows the properties panel.
+    // Number of a numbered frame: its position among the numbered frames
+    // in creation order, so deleting one renumbers the rest (F-24).
+    int numberOf(const FrameItem *frame) const;
+
+    // Style for new frames; follows the properties panel. Its badge is the
+    // position used by the number tool.
     FrameStyle frameStyle() const { return m_frameStyle; }
     void setFrameStyle(const FrameStyle &style) { m_frameStyle = style; }
 

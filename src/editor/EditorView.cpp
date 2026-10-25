@@ -89,8 +89,8 @@ void EditorView::setTool(ToolId tool)
 
 bool EditorView::isDrawingTool() const
 {
-    // Only the frame tool draws so far; the others follow (docs/04-features.md).
-    return m_tool == ToolId::Frame;
+    // Frame and numbered frame draw so far; the others follow (docs/04-features.md).
+    return m_tool == ToolId::Frame || m_tool == ToolId::Number;
 }
 
 bool EditorView::deleteSelection()
@@ -150,7 +150,12 @@ void EditorView::mousePressEvent(QMouseEvent *event)
         && !annotationAt(event->position().toPoint())) {
         m_scene->clearSelection();
         m_drawStart = mapToScene(event->position().toPoint());
-        m_drawing = new FrameItem(QRectF(m_drawStart, m_drawStart), m_scene->frameStyle(), m_scene->imageScale());
+        // The number tool uses the badge position of the current style; the
+        // frame tool draws plain frames.
+        FrameStyle style = m_scene->frameStyle();
+        if (m_tool == ToolId::Frame)
+            style.badge = BadgePosition::None;
+        m_drawing = new FrameItem(QRectF(m_drawStart, m_drawStart), style, m_scene->imageScale());
         m_scene->addItem(m_drawing);
         return;
     }
@@ -202,7 +207,8 @@ void EditorView::mouseReleaseEvent(QMouseEvent *event)
             delete frame; // just a click
             return;
         }
-        m_scene->undoStack()->push(new AddItemsCommand(m_scene, {frame}, tr("Rahmen zeichnen")));
+        m_scene->undoStack()->push(new AddItemsCommand(m_scene, {frame},
+                                                       frame->isNumbered() ? tr("Nummer setzen") : tr("Rahmen zeichnen")));
         return;
     }
 

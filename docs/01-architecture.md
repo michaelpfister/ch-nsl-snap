@@ -55,7 +55,7 @@ The editor is object-based (D-012): the captured image stays unchanged, annotati
 
 - `EditorScene` (a `QGraphicsScene`) is the document: base image, annotation items, the undo stack, and `renderImage()` for export.
 - `EditorView` turns mouse input into commands: drawing with the active tool, moving (one `MoveItemsCommand` per drag), middle-button panning, Ctrl + wheel zoom.
-- Annotation items (`FrameItem` so far) paint themselves, show handles when selected and push their own resize commands.
+- Annotation items (`FrameItem` so far) paint themselves, show handles when selected and push their own resize commands. A numbered frame is a `FrameItem` with a badge position; its number is computed by the scene from the creation order (`FrameItem::order`), so it renumbers itself and survives undo.
 - `Commands.h` holds all undo commands; commands that take items out of the scene own them.
 - The properties panel shows the style of the selected frames, or the style for new ones, and pushes `SetFrameStyleCommand`s (slider drags merge into one step).
 

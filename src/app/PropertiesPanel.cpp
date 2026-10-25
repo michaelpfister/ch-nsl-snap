@@ -173,10 +173,16 @@ PropertiesPanel::PropertiesPanel(QWidget *parent)
 
     // Number badge position (F-24).
     layout->addWidget(sectionLabel(tr("Nummer"), this));
-    auto *badge = new QComboBox(this);
-    badge->addItems({tr("Oben rechts"), tr("Oben links"), tr("Unten rechts"), tr("Unten links"), tr("Ohne Nummer")});
-    badge->setAccessibleName(tr("Nummer"));
-    layout->addWidget(badge);
+    m_badge = new QComboBox(this);
+    m_badge->addItem(tr("Oben rechts"), int(BadgePosition::TopRight));
+    m_badge->addItem(tr("Oben links"), int(BadgePosition::TopLeft));
+    m_badge->addItem(tr("Unten rechts"), int(BadgePosition::BottomRight));
+    m_badge->addItem(tr("Unten links"), int(BadgePosition::BottomLeft));
+    m_badge->addItem(tr("Ohne Nummer"), int(BadgePosition::None));
+    m_badge->setAccessibleName(tr("Nummer"));
+    m_badge->setFocusPolicy(Qt::NoFocus);
+    connect(m_badge, &QComboBox::activated, this, [this] { emit frameStyleChanged(frameStyle()); });
+    layout->addWidget(m_badge);
 
     layout->addSpacing(16);
     layout->addWidget(separator(this));
@@ -225,6 +231,7 @@ FrameStyle PropertiesPanel::frameStyle() const
     style.color = m_color;
     style.width = m_width->value();
     style.rounded = m_rounded->isChecked();
+    style.badge = BadgePosition(m_badge->currentData().toInt());
     return style;
 }
 
@@ -238,6 +245,7 @@ void PropertiesPanel::setFrameStyle(const FrameStyle &style)
     }
     m_width->setValue(style.width);
     (style.rounded ? m_rounded : m_square)->setChecked(true);
+    m_badge->setCurrentIndex(m_badge->findData(int(style.badge)));
     m_updating = false;
 }
 
@@ -275,6 +283,6 @@ void PropertiesPanel::showTool(ToolId id)
 
 void PropertiesPanel::showSelection(int count)
 {
-    m_title->setText(tr("Rahmen"));
+    m_title->setText(tr("Rahmen"));  // numbered or not; the "Nummer" field tells
     m_hint->setText(count == 1 ? tr("1 ausgewählt") : tr("%1 ausgewählt").arg(count));
 }
