@@ -133,3 +133,17 @@ Each entry: context, decision, rationale, consequences. Entries marked **(assump
 - Qt 6.4 from the Ubuntu/Zorin packages is too old; Qt 6.8 LTS is installed separately (Qt online installer or `aqtinstall`) on every platform.
 - Qt is used under the LGPL v3, linked dynamically.
 - Code must stay readable for C++ newcomers: modern C++, Qt idioms, no template tricks, comments where Qt or platform APIs are not obvious.
+
+## D-014 Own look: Fusion, a token-based style sheet and line icons
+
+**Context:** The skeleton used Qt's default look. The team approved a design mockup (2026-10-25: top bar with capture modes, tool rail on the left, properties panel on the right, light and dark).
+**Decision:**
+- Qt's **Fusion** style on all platforms, overridden by one style sheet generated from colour tokens (`src/ui/Theme`). Light and dark follow the system setting and switch live.
+- **Line icons** as SVG files in `resources/icons/`, drawn with `currentColor`; `src/ui/Icons` recolours them per theme and state.
+- **Inter** as UI font where installed, otherwise the system font.
+- Widgets are selected in the style sheet by object name (`#TopBar`, `#ToolRail`, `#PropertiesPanel`) or by a `role` property (`primary`, `secondary`, `segment`, `icon`, `section`, …), never by class alone, so new widgets do not change look by accident.
+**Rationale:** The same look on Windows, macOS and GNOME, and a single place to change colours. The mockup can be followed closely without custom painting.
+**Rejected:** Native styles per platform (three different looks, and GTK/libadwaita cannot be matched from Qt anyway); QML (D-013).
+**Consequences:**
+- The design mockup is the reference for later UI work: https://claude.ai/artifact/8EMjZ49MFf7EebwCPkaywZ (private, shared by the owner as needed).
+- Inter is not bundled yet (Q-17).

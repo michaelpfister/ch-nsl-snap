@@ -22,9 +22,13 @@ public:
     bool hasImage() const { return !m_image.isNull(); }
     QImage image() const { return m_image; }
 
+    // 1.0 = the image at its logical size (100 %).
+    double zoom() const;
+
 signals:
     // A local file was dropped onto the view (F-06).
     void fileDropped(const QString &path);
+    void zoomChanged();
 
 protected:
     void drawBackground(QPainter *painter, const QRectF &rect) override;
@@ -38,5 +42,6 @@ private:
     void zoomToFit(double scale);
 
     QImage m_image;
+    double m_scale = 1.0; // image pixels per logical pixel
     QGraphicsPixmapItem *m_pixmapItem = nullptr;
 };

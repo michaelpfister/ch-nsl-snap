@@ -43,6 +43,7 @@ void EditorView::setImage(const QImage &image, double scale)
 {
     clear();
     m_image = image;
+    m_scale = scale;
     m_pixmapItem = scene()->addPixmap(QPixmap::fromImage(image));
     scene()->setSceneRect(m_pixmapItem->boundingRect());
     zoomToFit(scale);
@@ -53,8 +54,15 @@ void EditorView::clear()
     scene()->clear(); // also deletes m_pixmapItem
     m_pixmapItem = nullptr;
     m_image = QImage();
+    m_scale = 1.0;
     resetTransform();
     viewport()->update();
+    emit zoomChanged();
+}
+
+double EditorView::zoom() const
+{
+    return transform().m11() * m_scale;
 }
 
 void EditorView::zoomToFit(double scale)
@@ -70,6 +78,7 @@ void EditorView::zoomToFit(double scale)
     const double factor = fit / scale;
     QGraphicsView::scale(factor, factor);
     centerOn(m_pixmapItem);
+    emit zoomChanged();
 }
 
 void EditorView::drawBackground(QPainter *painter, const QRectF &rect)
@@ -117,6 +126,7 @@ void EditorView::wheelEvent(QWheelEvent *event)
     }
     const double factor = event->angleDelta().y() > 0 ? 1.25 : 0.8;
     QGraphicsView::scale(factor, factor);
+    emit zoomChanged();
 }
 
 void EditorView::dragEnterEvent(QDragEnterEvent *event)

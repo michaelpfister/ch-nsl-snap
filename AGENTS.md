@@ -6,7 +6,7 @@ Read [docs/README.md](docs/README.md) before changing behaviour. Decisions live 
 
 - Code, identifiers, comments, docs and commit messages: English.
 - UI text: German (Switzerland), no "ß".
-- App: C++20, Qt 6.8 Widgets, CMake (D-013). Write for C++ newcomers: modern C++, Qt idioms, no template tricks, comments where Qt or platform APIs are not obvious.
+- App: C++20, Qt 6.8 Widgets, CMake (D-013). Look: colour tokens and style sheet in `src/ui/Theme.cpp`, icons in `resources/icons/` (D-014); select widgets by object name or `role` property, and follow the design mockup. Write for C++ newcomers: modern C++, Qt idioms, no template tricks, comments where Qt or platform APIs are not obvious.
 - The GNOME Shell extension stays thin: pick, capture, return image bytes. Logic belongs in the app (docs/01-architecture.md).
 - Every capture method of the extension must require an interactive pick by the user. Never add a D-Bus method that lists windows or captures without user interaction (docs/02-decisions.md, D-003).
 - No shadows, backgrounds or margins in captured images, neither from the system nor from the app; the instruction pages add shadows via CSS (D-004).
