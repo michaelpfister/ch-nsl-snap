@@ -1,14 +1,77 @@
 # Features
 
-The feature scope is **not defined yet**. This file collects the reference and will become the scope list. Each feature gets a platform column, so it is visible early what is realistic where (see [03-platform-capabilities.md](03-platform-capabilities.md)).
+Feature scope for version 1, as defined on 2026-10-25. Each feature has a platform assessment so it is visible early what is realistic where (see [03-platform-capabilities.md](03-platform-capabilities.md)).
 
-## Fixed so far
+**Platform columns:** ✓ = straightforward · ◐ = possible with restrictions or extra work · ✗ = not possible. "Ext." = needs the GNOME Shell extension (D-003).
+**Effort:** S = days · M = about a week · L = several weeks (one person, rough).
 
-| Feature | Windows | GNOME | Notes |
+Most of the work is in the **editor**, which is platform-independent. Only capture (F-01 to F-05) differs per platform.
+
+## Capture
+
+| ID | Feature | Windows | GNOME | Effort | Notes |
+|---|---|---|---|---|---|
+| F-01 | **Screen capture**: one monitor or all monitors | ✓ | ✓ Ext. | S | The screen is frozen first; on GNOME one click on the monitor (or Enter for all) confirms (D-011). |
+| F-02 | **Window capture** with clean edges and rounded corners | ✓ | ✓ Ext. | done (PoC) on GNOME, M on Windows | D-003, D-005, D-009, D-010. Shows the window as it was at the freeze (D-011). Popup menus and tooltips are separate surfaces and are not part of a window capture (Q-07); use F-03 for those. |
+| F-03 | **Region capture**: drag a rectangle on the frozen screen | ✓ | ✓ Ext. | M | Open menus, tooltips and hover states are kept, because the freeze happens before the selection. |
+| F-04 | **Delayed capture** in seconds, with a countdown shown on screen | ✓ | ✓ Ext. | S | The countdown is drawn by the extension (GNOME) or a topmost window (Windows). When it reaches zero it disappears, the screen is frozen, and the normal selection of F-01 to F-03 follows on the frozen picture (D-011). Esc cancels. |
+| F-05 | **Never capture the mouse pointer** | ✓ | ✓ | – | Default and only behaviour. The extension already does not draw it. |
+| F-06 | **Import an existing image**: file dialog or drag & drop onto the editor | ✓ | ✓ | S | PNG, JPEG, WebP. |
+
+## Editor basics
+
+| ID | Feature | Windows | GNOME | Effort | Notes |
+|---|---|---|---|---|---|
+| F-10 | **Clear editor**: remove the image and all annotations, start from scratch | ✓ | ✓ | S | Asks for confirmation if there are unsaved changes. |
+| F-11 | **Undo / redo** with many steps | ✓ | ✓ | M | Every edit is a command on a stack (D-012). |
+| F-12 | **Crop** the image | ✓ | ✓ | S | Annotations outside the crop are kept but hidden, so undoing the crop restores them. |
+
+## Annotations
+
+All annotations are objects on top of the image: they can be selected, moved, resized, restyled and deleted at any time until export (D-012).
+
+| ID | Feature | Windows | GNOME | Effort | Notes |
+|---|---|---|---|---|---|
+| F-20 | **Highlight frame**: draw a rectangle around an element | ✓ | ✓ | M | Example: red and yellow frames around settings. As many as needed. |
+| F-21 | Highlights can be **moved and resized** afterwards | ✓ | ✓ | (in F-20) | Handles on corners and edges. |
+| F-22 | **Frame colour** per highlight | ✓ | ✓ | S | Preset palette (red, yellow, green, blue, …) plus custom colour; the last used colour is remembered. |
+| F-23 | **Square or rounded** frame corners | ✓ | ✓ | S | Per highlight; default configurable. Line width configurable. |
+| F-24 | **Numbered callouts**: a highlight with a number badge, numbered automatically 1, 2, 3, … | ✓ | ✓ | M | Like the A–D example, but with numbers. Deleting or reordering renumbers the rest. Badge in the frame colour, placed at a corner of the frame (choosable). Matches step lists in instructions ("1. Klicken Sie auf …"). |
+| F-25 | **Text**: free text with colour and font size | ✓ | ✓ | M | Editable afterwards; optional background box for legibility. |
+| F-26 | **Pixelate or blur** a selected area | ✓ | ✓ | S | Choice per area. Strength adjustable. The export contains only the obscured pixels, never the original. |
+| F-27 | **Dim the background**: darken and/or slightly blur everything except the highlights | ✓ | ✓ | M | Like the "Enter code" example: highlights keep full brightness. One global switch with strength sliders; the cut-outs follow the highlight frames automatically. |
+| F-28 | **Text marker** (highlighter): semi-transparent colour over text, like a felt pen | ✓ | ✓ | S | Like the WinSnap example (yellow, orange, green, cyan). Multiply blending so the text stays black. |
+| F-29 | **Replace text**: overwrite a text in the screenshot with another text, e.g. a real name with "Firstname Lastname" | ✓ | ✓ | L | See below. |
+
+### F-29 Replace text
+
+The goal is to replace personal data (names, e-mail addresses, codes) in forms and dialogs without editing HTML before taking the screenshot.
+
+**Version 1 (manual, reliable):**
+1. Select the text with a rectangle.
+2. The app fills the rectangle with the surrounding background colour (sampled from the border of the selection).
+3. The app suggests font size and colour from the selection (text height, darkest/most frequent foreground colour). The font is the platform's UI font (Segoe UI on Windows, Cantarell on GNOME) or one chosen by the user.
+4. The user types the replacement text, which is drawn in place and stays editable.
+
+Works well on flat backgrounds (forms, dialogs, lists). On gradients or images the fill is visible.
+
+**Later (OCR-assisted, Q-12):** recognise text in the image locally (Tesseract on both platforms, or Windows' built-in OCR), so that a click on a word selects it precisely, or "Michael Pfister" can be replaced by "Firstname Lastname" in all places at once.
+
+## Basics
+
+Not on the original list, added and confirmed on 2026-10-25 (Q-11).
+
+| ID | Feature | Windows | GNOME |
 |---|---|---|---|
-| Capture a single window with clean edges and transparent rounded corners | planned | PoC | The key feature (D-003, D-005) |
-| Shadow / background added afterwards | planned | planned | D-004 |
+| F-40 | Copy result to the clipboard | ✓ | ✓ |
+| F-41 | Save as PNG with a naming scheme and default folder; "save as" | ✓ | ✓ |
+| F-44 | Arrows (WinSnap has them) | ✓ | ✓ |
+| F-45 | Tray icon | ✓ | ◐ needs the AppIndicator extension (installed on Zorin) |
 
-## Reference: WinSnap
+## Not planned
 
-To be filled in when we define the scope: which WinSnap features are in daily use, which are missing, and which additions we want.
+- Scrolling capture (not possible on Wayland, see 03-platform-capabilities.md).
+- Video / GIF recording.
+- Including the mouse pointer (F-05).
+- Global hotkeys (former F-42): captures are started from the app.
+- Shadow, background or margin around captures (former F-43): the instruction pages add the shadow via CSS (D-004).

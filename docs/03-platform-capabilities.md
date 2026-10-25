@@ -21,7 +21,7 @@ What each platform lets an application do, and the way we use. "Extension" means
 
 | Capability | Windows | GNOME / Wayland |
 |---|---|---|
-| Global hotkey (e.g. Print) | `RegisterHotKey` | Extension keybinding, or GNOME custom shortcut that starts the app with an argument |
+| Global hotkey (e.g. Print), not planned | `RegisterHotKey` | Extension keybinding, or GNOME custom shortcut that starts the app with an argument |
 | Tray icon | yes | Only with the AppIndicator extension (installed on Zorin by default) |
 | Clipboard with PNG | yes | yes (Wayland clipboard, also from the extension via `St.Clipboard`) |
 | Start with session | Autostart / registry | XDG autostart `.desktop` file |

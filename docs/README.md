@@ -1,6 +1,6 @@
 # Project documentation
 
-Concept, decisions and rules for **NSL Snap** (working title): a screenshot tool for **Windows** and **Linux (GNOME on Wayland)**, inspired by [WinSnap](https://www.ntwind.com/software/winsnap.html). Its key feature is capturing a single window cleanly: only that window, with clean edges and transparent rounded corners, optionally with a shadow or background added afterwards.
+Concept, decisions and rules for **NSL Snap** (working title): a screenshot tool for **Windows** and **Linux (GNOME on Wayland)**, inspired by [WinSnap](https://www.ntwind.com/software/winsnap.html). Its key feature is capturing a single window cleanly: only that window, with clean edges and transparent rounded corners. No shadow is added; the instruction pages do that via CSS.
 
 These files record **why** the tool is built the way it is. The code says how it works; this says which alternatives were rejected and on what grounds. Anyone wanting to change a decision a year from now should be able to read here what argued against it at the time.
 

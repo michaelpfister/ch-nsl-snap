@@ -2,7 +2,7 @@
 
 ## Purpose
 
-A screenshot tool for daily work on Windows and on Linux with GNOME (Wayland). The reference is WinSnap, whose strongest feature is capturing **one window** cleanly: nothing from neighbouring windows or the desktop, clean edges, transparent rounded corners, and effects (shadow, background, border) added afterwards. Captures can be annotated, copied to the clipboard and saved with a naming scheme.
+A screenshot tool for daily work on Windows and on Linux with GNOME (Wayland). The reference is WinSnap, whose strongest feature is capturing **one window** cleanly: nothing from neighbouring windows or the desktop, clean edges and transparent rounded corners. No shadow is added: the instruction pages add it via CSS (D-004). Captures can be annotated, copied to the clipboard and saved with a naming scheme.
 
 The development machine is Zorin OS with GNOME Shell 46 on Wayland.
 
@@ -14,14 +14,13 @@ Capturing is the only part that differs fundamentally between platforms. Wayland
 |---|---|---|---|
 | Window capture | Windows API (DWM/Graphics Capture) | NSL Snap Shell extension (D-Bus) | ScreenCast portal, window source |
 | Full screen / area | Windows API | Shell extension, or Screenshot portal | Screenshot portal |
-| Global hotkey | `RegisterHotKey` | Shell extension keybinding | GNOME custom shortcut running `nsl-snap --capture …` |
 | Window list / geometry | Windows API | Shell extension | not available |
 
 ## Components
 
 ```
                 ┌──────────────────────── NSL Snap app (shared core) ───────────────────────┐
- user ─hotkey─▶ │ Capture service ──▶ Effects (crop, shadow, background) ──▶ Editor ──▶ Export│
+ user ─button─▶ │ Capture service ──▶ Crop & clean (D-009, D-010) ──────────▶ Editor ──▶ Export│
                 │       │                                                    (annotate)  (file, clipboard)
                 │       ▼                                                                    │
                 │  CaptureBackend interface                                                   │
@@ -35,7 +34,7 @@ Capturing is the only part that differs fundamentally between platforms. Wayland
 
 ### Capture backends
 
-Each backend delivers a **capture result**: a PNG/RGBA image with alpha, plus metadata (window title, application id, geometry in logical pixels, scale factor). Effects such as shadows are **never** taken from the system. The backend delivers the bare window and the core draws the shadow (D-004).
+Each backend delivers a **capture result**: a PNG/RGBA image with alpha, plus metadata (window title, application id, geometry in logical pixels, scale factor). Shadows are never part of the image, neither from the system nor from the app (D-004).
 
 ### GNOME Shell extension
 
@@ -43,11 +42,14 @@ Each backend delivers a **capture result**: a PNG/RGBA image with alpha, plus me
 - It owns the D-Bus name `ch.netslash.Snap.Shell` and exports `ch.netslash.Snap1` at `/ch/netslash/Snap`.
 - Every capture method is **interactive**: the user must pick the window with a click. No caller can silently grab a window's contents (D-003).
 - The capture uses the same path as GNOME's own screenshot UI: `MetaWindowActor.paint_to_content()` renders the window offscreen into a texture with alpha. Overlapping windows therefore do not matter. The extension can crop the texture to the window's frame rectangle (D-005), but the app requests the whole buffer and crops to the window's opaque core itself (D-010).
+- Planned (D-011): freeze the screen and all windows at the moment of capture (after the countdown, if a delay is set), then one overlay to select window, region or screen on the frozen picture. A D-Bus caller can only open the overlay.
 - The extension stays as thin as possible: pick, capture, return PNG bytes. All logic belongs in the app, because extension code has to be adapted to new GNOME versions.
 
 ### Shared core
 
-Not built yet. Planned: effects, annotation editor, export (file with naming scheme, clipboard), settings, tray icon. The technology is open (Q-01).
+Not built yet. Planned: annotation editor, export (file with naming scheme, clipboard), settings, tray icon. Feature scope in [04-features.md](04-features.md). The technology is open (Q-01).
+
+The editor is object-based (D-012): the captured image stays unchanged, annotations are objects with properties, every change is an undoable command, pixels are only computed on render and export.
 
 ## Repository layout
 

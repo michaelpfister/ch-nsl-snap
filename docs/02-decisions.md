@@ -33,10 +33,12 @@ Each entry: context, decision, rationale, consequences. Entries marked **(assump
 - The extension must be installed once, and adapted when GNOME changes its JavaScript API (roughly once a year).
 - It only works on GNOME.
 
-## D-004 Shadows and backgrounds are drawn by the app, not captured
+## D-004 No shadows or backgrounds in the image
 
-**Decision:** Backends deliver the bare window with an alpha channel. Shadow, background, border and margins are effects applied by the shared core.
-**Rationale:** System shadows differ per platform, toolkit and theme, and on Wayland they are part of the client's buffer (GTK) or are not available at all. Drawing them ourselves gives the same result everywhere and lets users configure them.
+**Context:** The screenshots are used on instruction pages (e.g. knowit.unibe.ch), which add a shadow via CSS. A shadow baked into the image would double it.
+**Decision:** A window capture is the bare window with an alpha channel: no system shadow, and the app adds no shadow, background or margin either. Transparent rounded corners are kept so the CSS shadow follows the window shape.
+**Rationale:** System shadows differ per platform, toolkit and theme, and on Wayland they are part of the client's buffer (GTK). The page decides how the image is presented.
+**Rejected:** An app-drawn shadow/background effect (former F-43): not needed, and harmful for the pages' own styling (2026-10-25).
 
 ## D-005 Crop to the frame rectangle
 
@@ -74,8 +76,34 @@ Each entry: context, decision, rationale, consequences. Entries marked **(assump
 
 **Context:** Toolkits draw a soft outline of about 1 logical px around the window. With Files it straddles the frame rectangle on three sides but lies completely outside it on the right, so a frame crop has three soft edges and one hard edge (PoC finding 2).
 **Decision:** The app crops to the window's **opaque core**: for each side it takes the outermost line within 4 logical px of the frame edge whose middle half is fully opaque. All four edges are then hard; the rounded corners keep their anti-aliasing and are cleaned by D-009. If no opaque core is found (translucent windows), it falls back to the frame rectangle.
-**Rationale:** Symmetric, clean edges regardless of how a toolkit aligns its outline. The soft outline is part of the system look, like the shadow, and the app draws its own (D-004).
+**Rationale:** Symmetric, clean edges regardless of how a toolkit aligns its outline. The soft outline is part of the system look, like the shadow, which the instruction pages add via CSS (D-004).
 **Consequences:**
 - The app requests the uncropped buffer from the extension (`crop: "buffer"`) and does all cropping itself. The extension's `frame` crop (D-005) stays available but the app does not use it.
 - The image loses up to 1 logical px per side compared with the frame rectangle.
 - The PoC client offers `--crop core` (default), `frame` and `buffer`.
+
+## D-011 Freeze first, then select, in one capture overlay
+
+**Context:** Screen and region capture (F-01, F-03) and delayed capture (F-04) also need the extension on GNOME. The user wants the screen to be frozen **at the moment of the capture** in every mode, so nothing changes while selecting (2026-10-25).
+**Decision:**
+- Every capture starts with a **freeze**: the extension takes a picture of the whole screen and, at the same moment, renders every window offscreen (`paint_to_content`, as GNOME's own screenshot UI does). Without delay this happens immediately; with a delay, the extension shows a countdown, hides it, and freezes when it reaches zero.
+- Then the extension shows one overlay over the frozen picture, with three modes: **window** (hover and click; the image comes from the frozen window render, so it shows the window as it was at the freeze), **region** (drag a rectangle) and **screen** (click a monitor, or Enter for all monitors). Esc cancels at any time.
+- Captures are started from the app (no global hotkeys, F-42 dropped). The app hides its own window before the freeze, so it does not appear in screen and region captures.
+**Rationale:**
+- Freezing first means open menus, hover states and tooltips are kept for region and screen captures, and a window looks exactly as at the moment of the capture.
+- A D-Bus caller can only open the overlay; the image is returned only after the user's selection. D-003 holds.
+**Consequences:**
+- The extension grows from a picker to a small capture UI, but still contains no editing logic.
+- Screen capture always needs one click (or Enter) on GNOME.
+- Window captures still contain no popup menus or tooltips: they are separate surfaces (Q-07). With region capture they are included.
+- The pointer is never composited (F-05).
+
+## D-012 Object-based editor with a command stack
+
+**Context:** Highlights must stay movable, resizable and restylable (F-21–F-24), callouts renumber themselves (F-24), the dim effect follows the highlights (F-27), and undo/redo must cover many steps (F-11).
+**Decision:** The editor keeps the captured image unchanged as the base layer. Every annotation (frame, callout, text, marker, pixelate/blur area, replaced text, dim effect, crop) is an object with properties. Every change is a command on an undo stack. Pixels are only computed when rendering and exporting.
+**Rationale:** Editing a pixel image directly would make later moves and restyling impossible and undo memory-hungry.
+**Consequences:**
+- Exported PNGs contain only the rendered result. Pixelated or blurred areas cannot be recovered from the export.
+- The toolkit must offer a good 2D scene graph with hit testing, handles and blur effects. This argues for Qt (QGraphicsScene) in Q-01.
+- An editable project format becomes possible later (Q-13).

@@ -8,7 +8,8 @@ Read [docs/README.md](docs/README.md) before changing behaviour. Decisions live 
 - UI text: German (Switzerland), no "ß".
 - The GNOME Shell extension stays thin: pick, capture, return image bytes. Logic belongs in the app (docs/01-architecture.md).
 - Every capture method of the extension must require an interactive pick by the user. Never add a D-Bus method that lists windows or captures without user interaction (docs/02-decisions.md, D-003).
-- Shadows and backgrounds are drawn by the app, never taken from the system (D-004).
+- No shadows, backgrounds or margins in captured images, neither from the system nor from the app; the instruction pages add shadows via CSS (D-004).
+- Every capture freezes the screen first (after the countdown if delayed), then the user selects on the frozen picture (D-011).
 
 ## Development
 
