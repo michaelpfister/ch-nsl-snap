@@ -5,6 +5,10 @@
 #include "editor/EditorScene.h"
 #include "editor/FrameItem.h"
 #include "editor/RedactItem.h"
+#include "editor/ReplaceItem.h"
+#include "imaging/TextSample.h"
+
+#include <QPainter>
 
 #include <QBuffer>
 #include <QTest>
@@ -354,6 +358,106 @@ private slots:
         QCOMPARE(item->label(), QStringLiteral("Weichgezeichnet"));
         m_stack->undo();
         QCOMPARE(item->style().mode, RedactMode::Pixelate);
+    }
+
+    // White image with "Hxg" in dark grey, 40 px font, baseline at y = 60.
+    QImage textImage()
+    {
+        QImage image(300, 100, QImage::Format_ARGB32);
+        image.fill(Qt::white);
+        QPainter p(&image);
+        QFont font = p.font();
+        font.setPixelSize(40);
+        p.setFont(font);
+        p.setPen(QColor(40, 40, 40));
+        p.drawText(QPointF(30, 60), QStringLiteral("Hxg Hxg"));
+        return image;
+    }
+
+    void textSampleMatchesTheOriginal()
+    {
+        const TextSample sample = TextSample::analyze(textImage(), QRect(10, 10, 280, 80));
+        QCOMPARE(sample.background, QColor(Qt::white));
+        QVERIFY(sample.text.lightness() < 80);
+        QVERIFY2(std::abs(sample.baseline - 60) <= 2, qPrintable(QStringLiteral("baseline %1 capTop %2 size %3 ink %4-%5").arg(sample.baseline).arg(sample.capTop).arg(sample.fontPixelSize).arg(sample.ink.top()).arg(sample.ink.bottom())));
+        QVERIFY(sample.fontPixelSize >= 32 && sample.fontPixelSize <= 48); // 40 ± 20 %
+        QVERIFY(std::abs(sample.ink.left() - 30) <= 4);
+        QVERIFY(!sample.touchesEdge);
+        QVERIFY(TextSample::analyze(textImage(), QRect(10, 10, 280, 52)).touchesEdge); // cuts the "g"
+    }
+
+    void replacedTextRemovesTheOriginal()
+    {
+        m_scene->setBaseImage(textImage(), 1.0);
+        ReplaceStyle style;
+        style.text = QString(); // nothing new: only the background remains
+        auto *item = new ReplaceItem(QRectF(10, 10, 280, 80), style, 1.0);
+        m_scene->addItem(item);
+        QCOMPARE(item->matchOriginal(), ReplaceItem::Match::Ok);
+        m_scene->removeItem(item);
+        m_stack->push(new AddItemsCommand(m_scene, {item}, QStringLiteral("add")));
+        const QImage out = m_scene->renderImage();
+        for (int y = 10; y < 90; ++y)
+            for (int x = 10; x < 290; ++x)
+                if (out.pixelColor(x, y) != QColor(Qt::white))
+                    QFAIL(qPrintable(QStringLiteral("original pixel left at %1,%2").arg(x).arg(y)));
+
+        // Typing merges into one undo step; undo restores the old text.
+        const int steps = m_stack->count();
+        ReplaceStyle typed = item->style();
+        for (const QString &text : {QStringLiteral("M"), QStringLiteral("Ma"), QStringLiteral("Max")}) {
+            typed.text = text;
+            m_stack->push(new SetReplaceStyleCommand(item, typed));
+        }
+        QCOMPARE(m_stack->count(), steps + 1);
+        QCOMPARE(item->label(), QStringLiteral("Text: Max"));
+        m_stack->undo();
+        QCOMPARE(item->style().text, QString());
+    }
+
+    void busyBackgroundIsNotTakenForText()
+    {
+        // A "photo": random colours everywhere.
+        QImage image(300, 120, QImage::Format_ARGB32);
+        quint32 seed = 1;
+        for (int y = 0; y < image.height(); ++y)
+            for (int x = 0; x < image.width(); ++x) {
+                seed = seed * 1664525u + 1013904223u;
+                image.setPixel(x, y, 0xff000000u | (seed >> 8));
+            }
+        QVERIFY(!TextSample::analyze(image, QRect(20, 20, 200, 60)).reliable);
+        QVERIFY(TextSample::analyze(textImage(), QRect(10, 10, 280, 80)).reliable);
+
+        m_scene->setBaseImage(image, 1.0);
+        ReplaceStyle style;
+        style.text = QStringLiteral("Firstname Lastname");
+        auto *item = new ReplaceItem(QRectF(20, 40, 200, 40), style, 1.0);
+        m_scene->addItem(item);
+        QCOMPARE(item->matchOriginal(), ReplaceItem::Match::NoPlainBackground);
+        // Without a usable original the text is centred in the area.
+        QCOMPARE(item->style().textBaseline, 0.0);
+        m_scene->removeItem(item);
+        delete item;
+    }
+
+    void textIsClampedIntoTheArea()
+    {
+        ReplaceStyle style;
+        style.text = QStringLiteral("Hxg");
+        style.fontSize = 14;
+        style.textBaseline = 500; // far below the area
+        style.textLeft = -50;
+        auto *item = new ReplaceItem(QRectF(20, 20, 200, 40), style, 1.0);
+        m_stack->push(new AddItemsCommand(m_scene, {item}, QStringLiteral("add")));
+        const QImage out = m_scene->renderImage();
+        // Some text pixels inside the area, none below it.
+        bool inside = false;
+        for (int y = 20; y < 60; ++y)
+            for (int x = 20; x < 220; ++x)
+                inside |= out.pixelColor(x, y).lightness() < 128;
+        QVERIFY(inside);
+        for (int x = 0; x < 200; ++x)
+            QCOMPARE(out.pixelColor(x, 75), QColor(Qt::white));
     }
 
 private:

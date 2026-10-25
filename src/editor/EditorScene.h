@@ -3,6 +3,7 @@
 #include "editor/DimSettings.h"
 #include "editor/FrameStyle.h"
 #include "editor/RedactStyle.h"
+#include "editor/ReplaceStyle.h"
 
 #include <QGraphicsScene>
 #include <QHash>
@@ -75,6 +76,10 @@ public:
     // The dark veil for the current strength.
     QColor dimVeil() const;
 
+    // Text for new replaced texts: the last one typed (F-29).
+    QString replaceText() const { return m_replaceText; }
+    void setReplaceText(const QString &text) { m_replaceText = text; }
+
     // Style for new pixelated areas; follows the properties panel.
     RedactStyle redactStyle() const { return m_redactStyle; }
     void setRedactStyle(const RedactStyle &style) { m_redactStyle = style; }
@@ -98,6 +103,7 @@ private:
     bool m_smoothBase = true;
     FrameStyle m_frameStyle;
     RedactStyle m_redactStyle;
+    QString m_replaceText = QStringLiteral("Firstname Lastname");
     DimSettings m_dim;
     DimItem *m_dimItem = nullptr;
     // Caches for dimLayer(): the blur is the slow part, so it is kept per

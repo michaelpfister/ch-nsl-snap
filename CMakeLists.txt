@@ -45,10 +45,15 @@ add_library(nsl_snap_core STATIC
     src/editor/RedactItem.cpp
     src/editor/RedactItem.h
     src/editor/RedactStyle.h
+    src/editor/ReplaceItem.cpp
+    src/editor/ReplaceItem.h
+    src/editor/ReplaceStyle.h
     src/editor/Tool.cpp
     src/editor/Tool.h
     src/imaging/Blur.cpp
     src/imaging/Blur.h
+    src/imaging/TextSample.cpp
+    src/imaging/TextSample.h
     src/imaging/WindowImage.cpp
     src/imaging/WindowImage.h
     src/ui/Icons.cpp

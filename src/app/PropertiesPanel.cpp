@@ -1,11 +1,17 @@
 #include "app/PropertiesPanel.h"
 
+#include "editor/ReplaceItem.h"
 #include "ui/Theme.h"
 
 #include <QAbstractButton>
 #include <QButtonGroup>
 #include <QCheckBox>
+#include <QColorDialog>
 #include <QComboBox>
+#include <QFontComboBox>
+#include <QLineEdit>
+#include <QSpinBox>
+#include <QToolButton>
 #include <QFrame>
 #include <QHBoxLayout>
 #include <QLabel>
@@ -100,6 +106,13 @@ protected:
             onMove(from, std::clamp(to, 0, count() - 1));
     }
 };
+
+QPushButton *textButtonFor(const QString &text, QWidget *parent)
+{
+    auto *button = new QPushButton(text, parent);
+    button->setProperty("role", QStringLiteral("secondary"));
+    return button;
+}
 
 QLabel *sectionLabel(const QString &text, QWidget *parent)
 {
@@ -269,6 +282,84 @@ PropertiesPanel::PropertiesPanel(QWidget *parent)
     m_redactSection->hide();
     layout->addWidget(m_redactSection);
 
+    // Replaced text (F-29).
+    m_replaceSection = new QWidget(this);
+    auto *replaceLayout = new QVBoxLayout(m_replaceSection);
+    replaceLayout->setContentsMargins(0, 0, 0, 0);
+    replaceLayout->setSpacing(8);
+    replaceLayout->addWidget(sectionLabel(tr("Neuer Text"), this));
+    m_replaceText = new QLineEdit(this);
+    m_replaceText->setPlaceholderText(tr("z. B. Firstname Lastname"));
+    m_replaceText->setAccessibleName(tr("Neuer Text"));
+    replaceLayout->addWidget(m_replaceText);
+    replaceLayout->addSpacing(8);
+
+    replaceLayout->addWidget(sectionLabel(tr("Schrift"), this));
+    m_replaceFont = new QFontComboBox(this);
+    m_replaceFont->setAccessibleName(tr("Schrift"));
+    replaceLayout->addWidget(m_replaceFont);
+    auto *sizeRow = new QHBoxLayout;
+    m_replaceSize = new QSpinBox(this);
+    m_replaceSize->setRange(6, 96);
+    m_replaceSize->setSuffix(QStringLiteral(" px"));
+    m_replaceSize->setAccessibleName(tr("Schriftgrösse"));
+    m_replaceBold = new QCheckBox(tr("Fett"), this);
+    sizeRow->addWidget(m_replaceSize, 1);
+    sizeRow->addWidget(m_replaceBold);
+    replaceLayout->addLayout(sizeRow);
+    replaceLayout->addSpacing(8);
+
+    // Colours: a swatch button each, opening the colour dialog.
+    const auto colorButton = [this](const QString &name) {
+        auto *button = new QToolButton(this);
+        button->setText(name);
+        button->setToolButtonStyle(Qt::ToolButtonTextBesideIcon);
+        button->setIconSize(QSize(18, 18));
+        button->setAccessibleName(name);
+        button->setProperty("role", QStringLiteral("icon"));
+        return button;
+    };
+    auto *colorRow = new QHBoxLayout;
+    m_replaceColor = colorButton(tr("Text"));
+    m_replaceBackground = colorButton(tr("Hintergrund"));
+    colorRow->addWidget(m_replaceColor);
+    colorRow->addWidget(m_replaceBackground);
+    colorRow->addStretch(1);
+    replaceLayout->addWidget(sectionLabel(tr("Farben"), this));
+    replaceLayout->addLayout(colorRow);
+
+    auto *rematch = textButtonFor(tr("Original neu erkennen"), this);
+    rematch->setToolTip(tr("Hintergrund, Textfarbe, Grösse und Position wieder aus dem Bild übernehmen"));
+    replaceLayout->addWidget(rematch);
+    auto *replaceHint = new QLabel(tr("Die Fläche wird mit der Hintergrundfarbe gefüllt; "
+                                      "das Original ist danach nicht mehr im Bild."), this);
+    replaceHint->setProperty("role", QStringLiteral("hint"));
+    replaceHint->setWordWrap(true);
+    replaceLayout->addWidget(replaceHint);
+    m_replaceSection->hide();
+    layout->addWidget(m_replaceSection);
+
+    const auto emitReplace = [this] {
+        if (!m_updating)
+            emit replaceStyleChanged(replaceStyle());
+    };
+    connect(m_replaceText, &QLineEdit::textEdited, this, emitReplace);
+    connect(m_replaceFont, &QFontComboBox::currentFontChanged, this, emitReplace);
+    connect(m_replaceSize, &QSpinBox::valueChanged, this, emitReplace);
+    connect(m_replaceBold, &QCheckBox::toggled, this, emitReplace);
+    const auto pickColor = [this, emitReplace](QColor *target, const QString &title) {
+        const QColor color = QColorDialog::getColor(*target, this, title);
+        if (!color.isValid())
+            return;
+        *target = color;
+        updateColorButtons();
+        emitReplace();
+    };
+    connect(m_replaceColor, &QToolButton::clicked, this, [this, pickColor] { pickColor(&m_replaceTextColor, tr("Textfarbe")); });
+    connect(m_replaceBackground, &QToolButton::clicked, this,
+            [this, pickColor] { pickColor(&m_replaceBackgroundColor, tr("Hintergrundfarbe")); });
+    connect(rematch, &QPushButton::clicked, this, &PropertiesPanel::rematchRequested);
+
     layout->addSpacing(16);
     layout->addWidget(separator(this));
     layout->addSpacing(16);
@@ -391,10 +482,67 @@ void PropertiesPanel::setRedactStyle(const RedactStyle &style)
     m_redactLevel->button(int(style.level))->setChecked(true);
 }
 
-void PropertiesPanel::showSections(bool frame, bool redact)
+void PropertiesPanel::showSections(bool frame, bool redact, bool replace)
 {
     m_frameSection->setVisible(frame);
     m_redactSection->setVisible(redact);
+    m_replaceSection->setVisible(replace);
+}
+
+void PropertiesPanel::showReplaceSelection()
+{
+    m_title->setText(tr("Text ersetzen"));
+    m_hint->setText(tr("1 ausgewählt"));
+}
+
+ReplaceStyle PropertiesPanel::replaceStyle() const
+{
+    ReplaceStyle style = m_replaceBase;
+    style.text = m_replaceText->text();
+    style.fontFamily = m_replaceFont->currentFont().family();
+    style.fontSize = m_replaceSize->value();
+    style.bold = m_replaceBold->isChecked();
+    style.color = m_replaceTextColor;
+    style.background = m_replaceBackgroundColor;
+    return style;
+}
+
+void PropertiesPanel::setReplaceStyle(const ReplaceStyle &style)
+{
+    m_updating = true;
+    m_replaceBase = style; // keeps the position fields the panel does not show
+    // Only when it differs, so typing keeps its cursor position.
+    if (m_replaceText->text() != style.text)
+        m_replaceText->setText(style.text);
+    m_replaceFont->setCurrentFont(QFont(style.fontFamily.isEmpty() ? ReplaceItem::defaultFontFamily() : style.fontFamily));
+    m_replaceSize->setValue(style.fontSize);
+    m_replaceBold->setChecked(style.bold);
+    m_replaceTextColor = style.color;
+    m_replaceBackgroundColor = style.background;
+    updateColorButtons();
+    m_updating = false;
+}
+
+void PropertiesPanel::focusReplaceText()
+{
+    m_replaceText->setFocus();
+    m_replaceText->selectAll();
+}
+
+void PropertiesPanel::updateColorButtons()
+{
+    const auto swatch = [](const QColor &color) {
+        QPixmap pixmap(18, 18);
+        pixmap.fill(Qt::transparent);
+        QPainter p(&pixmap);
+        p.setRenderHint(QPainter::Antialiasing);
+        p.setPen(QColor(0, 0, 0, 60));
+        p.setBrush(color);
+        p.drawRoundedRect(QRectF(0.5, 0.5, 17, 17), 4, 4);
+        return QIcon(pixmap);
+    };
+    m_replaceColor->setIcon(swatch(m_replaceTextColor));
+    m_replaceBackground->setIcon(swatch(m_replaceBackgroundColor));
 }
 
 void PropertiesPanel::showRedactSelection(int count)

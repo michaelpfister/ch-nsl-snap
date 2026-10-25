@@ -10,11 +10,19 @@
 #include <QUndoStack>
 
 #include <algorithm>
+#include <cmath>
 
 namespace {
 
 constexpr qreal kHandleSize = 8.0; // screen pixels
 constexpr qreal kMinSize = 4.0;    // image pixels
+
+QRectF snapped(const QRectF &rect)
+{
+    const QRectF r = rect.normalized();
+    return QRectF(QPointF(std::round(r.left()), std::round(r.top())),
+                  QPointF(std::round(r.right()), std::round(r.bottom())));
+}
 
 qint64 nextOrder()
 {
@@ -24,9 +32,10 @@ qint64 nextOrder()
 
 } // namespace
 
-RectItem::RectItem(const QRectF &rect, double scale)
-    : m_rect(rect.normalized())
+RectItem::RectItem(const QRectF &rect, double scale, bool snapToPixels)
+    : m_rect(snapToPixels ? snapped(rect) : rect.normalized())
     , m_scale(scale)
+    , m_snap(snapToPixels)
     , m_order(nextOrder())
 {
     setFlags(ItemIsSelectable | ItemIsMovable | ItemSendsGeometryChanges);
@@ -35,10 +44,11 @@ RectItem::RectItem(const QRectF &rect, double scale)
 
 void RectItem::setRect(const QRectF &rect)
 {
-    if (rect.normalized() == m_rect)
+    const QRectF r = m_snap ? snapped(rect) : rect.normalized();
+    if (r == m_rect)
         return;
     prepareGeometryChange();
-    m_rect = rect.normalized();
+    m_rect = r;
 }
 
 qreal RectItem::screenToItem(qreal pixels) const
@@ -124,6 +134,8 @@ QVariant RectItem::itemChange(GraphicsItemChange change, const QVariant &value)
             pos.rx() += std::clamp(r.left(), bounds.left(), bounds.right() - r.width()) - r.left();
         if (r.height() <= bounds.height())
             pos.ry() += std::clamp(r.top(), bounds.top(), bounds.bottom() - r.height()) - r.top();
+        if (m_snap)
+            pos = QPointF(std::round(pos.x()), std::round(pos.y()));
         return pos;
     }
     return QGraphicsItem::itemChange(change, value);

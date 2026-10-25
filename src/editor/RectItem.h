@@ -8,11 +8,13 @@
 class RectItem : public QGraphicsItem
 {
 public:
-    // `scale` is image pixels per logical pixel (D-015).
-    RectItem(const QRectF &rect, double scale);
+    // `scale` is image pixels per logical pixel (D-015). Items that replace
+    // image pixels keep their rectangle on whole pixels (`snapToPixels`),
+    // so no original pixel shows at the edges (D-018).
+    RectItem(const QRectF &rect, double scale, bool snapToPixels = false);
 
     QRectF rect() const { return m_rect; }
-    virtual void setRect(const QRectF &rect);
+    void setRect(const QRectF &rect);
     double imageScale() const { return m_scale; }
 
     // Creation order: the order in the object list, and the numbering of
@@ -53,6 +55,7 @@ private:
 
     QRectF m_rect;
     double m_scale = 1.0;
+    bool m_snap = false;
     qint64 m_order = 0;
 
     Handle m_dragHandle = None;

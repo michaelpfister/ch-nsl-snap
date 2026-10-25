@@ -10,19 +10,8 @@
 #include <algorithm>
 #include <cmath>
 
-namespace {
-
-QRectF snapped(const QRectF &rect)
-{
-    const QRectF r = rect.normalized();
-    return QRectF(QPointF(std::round(r.left()), std::round(r.top())),
-                  QPointF(std::round(r.right()), std::round(r.bottom())));
-}
-
-} // namespace
-
 RedactItem::RedactItem(const QRectF &rect, const RedactStyle &style, double scale)
-    : RectItem(snapped(rect), scale)
+    : RectItem(rect, scale, true)
     , m_style(style)
 {
     // Above the dimmed background, so the dim layer never paints over it;
@@ -42,21 +31,6 @@ void RedactItem::setStyle(const RedactStyle &style)
         return;
     m_style = style;
     update();
-}
-
-void RedactItem::setRect(const QRectF &rect)
-{
-    RectItem::setRect(snapped(rect));
-}
-
-QVariant RedactItem::itemChange(GraphicsItemChange change, const QVariant &value)
-{
-    const QVariant result = RectItem::itemChange(change, value);
-    if (change == ItemPositionChange) {
-        const QPointF pos = result.toPointF();
-        return QPointF(std::round(pos.x()), std::round(pos.y()));
-    }
-    return result;
 }
 
 QRectF RedactItem::boundingRect() const

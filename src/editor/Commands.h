@@ -3,6 +3,7 @@
 #include "editor/DimSettings.h"
 #include "editor/FrameStyle.h"
 #include "editor/RedactStyle.h"
+#include "editor/ReplaceStyle.h"
 
 #include <QList>
 #include <QPointF>
@@ -13,6 +14,7 @@ class EditorScene;
 class FrameItem;
 class RectItem;
 class RedactItem;
+class ReplaceItem;
 class QGraphicsItem;
 
 // Undo commands for the editor (D-012). Each command changes the scene in
@@ -136,4 +138,21 @@ private:
     QList<RedactItem *> m_items;
     QList<RedactStyle> m_before;
     RedactStyle m_after;
+};
+
+class SetReplaceStyleCommand : public QUndoCommand
+{
+public:
+    SetReplaceStyleCommand(ReplaceItem *item, const ReplaceStyle &style);
+    void redo() override;
+    void undo() override;
+
+    // Typing merges into one step per item, like slider drags.
+    int id() const override { return 4; }
+    bool mergeWith(const QUndoCommand *other) override;
+
+private:
+    ReplaceItem *m_item;
+    ReplaceStyle m_before;
+    ReplaceStyle m_after;
 };

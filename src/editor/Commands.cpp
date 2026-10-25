@@ -4,6 +4,7 @@
 #include "editor/FrameItem.h"
 #include "editor/RectItem.h"
 #include "editor/RedactItem.h"
+#include "editor/ReplaceItem.h"
 
 #include <QCoreApplication>
 
@@ -243,4 +244,33 @@ void SetRedactStyleCommand::undo()
 {
     for (qsizetype i = 0; i < m_items.size(); ++i)
         m_items[i]->setStyle(m_before[i]);
+}
+
+// --- Replaced text -----------------------------------------------------
+
+SetReplaceStyleCommand::SetReplaceStyleCommand(ReplaceItem *item, const ReplaceStyle &style)
+    : QUndoCommand(tr("Text ändern"))
+    , m_item(item)
+    , m_before(item->style())
+    , m_after(style)
+{
+}
+
+void SetReplaceStyleCommand::redo()
+{
+    m_item->setStyle(m_after);
+}
+
+void SetReplaceStyleCommand::undo()
+{
+    m_item->setStyle(m_before);
+}
+
+bool SetReplaceStyleCommand::mergeWith(const QUndoCommand *other)
+{
+    const auto *next = static_cast<const SetReplaceStyleCommand *>(other);
+    if (next->m_item != m_item)
+        return false;
+    m_after = next->m_after;
+    return true;
 }

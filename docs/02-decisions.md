@@ -190,3 +190,17 @@ Each entry: context, decision, rationale, consequences. Entries marked **(assump
 - It lies above the dimmed background and darkens itself outside the frames, so the dim layer (computed from the original image) never paints over it.
 **Rationale:** Covering the pixels is the only safe way; lightly pixelated text can stay readable, hence medium as default and a hint in the panel.
 **Consequences:** The dim layer's blur can spread a few pixels of heavily blurred original just outside a pixelated area. Not readable; accepted.
+
+## D-019 Replace text: fill with the background, draw the new text on the original's baseline
+
+**Context:** F-29 version 1, without OCR (Q-12): replace names, e-mail addresses or codes in forms and dialogs.
+**Decision:**
+- Tool E: the user marks the text. The area (`ReplaceItem`) is filled with the **background colour** and so replaces the original pixels, like a pixelated area (D-018), whole pixels, above the dim layer.
+- `imaging/TextSample` recognises from the marked area: background = most common colour along its edge; text colour = most common colour of the strongest text pixels; left edge of the text; **baseline** = the row where the number of text pixels drops most in the lower half (below it only descenders); top of the capitals with a low threshold; **font size** = (baseline − cap top) / 0.70.
+- The new text is drawn with the **system UI font** by default (screenshots mostly show applications of the same system), left-aligned at the original's left edge, on its baseline. Font, size, bold, text and background colour can be changed in the panel; "Original neu erkennen" repeats the recognition.
+- Right after drawing, the cursor is in the text field with the last text used (initially "Firstname Lastname"); typing merges into one undo step.
+- If the area cuts the original text, the status bar says so, because the cut parts stay visible.
+- The recognition is only trusted on a **plain background** (at least 60 % of the edge pixels share one colour) with text that stands out (under 45 % of the text box). Otherwise (photo, gradient) the area is filled with its main colour, the text is centred in a contrasting colour at the current size, and the status bar says so.
+- The new text always stays **inside the filled area**: its baseline and left edge are clamped to the area, so letters never stand on the unchanged image (found when testing on a photo background, 2026-10-25).
+**Rationale:** Flat backgrounds (forms, lists, dialogs) are the common case; there the result is indistinguishable from the original. Matching the baseline matters more for the look than the exact font.
+**Consequences:** On gradients or images the fill is visible; blurring instead of filling would be an option there (Q-19). The exact font of the screenshot is not detected; the system font is a good default on the same system.

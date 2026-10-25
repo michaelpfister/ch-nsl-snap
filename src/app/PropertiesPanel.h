@@ -3,6 +3,7 @@
 #include "editor/DimSettings.h"
 #include "editor/FrameStyle.h"
 #include "editor/RedactStyle.h"
+#include "editor/ReplaceStyle.h"
 #include "editor/Tool.h"
 
 #include <QColor>
@@ -11,6 +12,10 @@
 class QButtonGroup;
 class QCheckBox;
 class QComboBox;
+class QFontComboBox;
+class QLineEdit;
+class QSpinBox;
+class QToolButton;
 class QLabel;
 class QListWidget;
 class QPushButton;
@@ -33,7 +38,15 @@ public:
 
     // Which property groups are visible: frame (colour, corners, line,
     // number) and/or pixelate (kind, strength).
-    void showSections(bool frame, bool redact);
+    void showSections(bool frame, bool redact, bool replace = false);
+    // "Text ersetzen" for a selected replaced text.
+    void showReplaceSelection();
+
+    ReplaceStyle replaceStyle() const;
+    // Shows `style` without emitting replaceStyleChanged.
+    void setReplaceStyle(const ReplaceStyle &style);
+    // Puts the cursor into the text field, for typing right after drawing.
+    void focusReplaceText();
     // "Verpixeln" with the number of selected areas.
     void showRedactSelection(int count);
 
@@ -64,6 +77,10 @@ signals:
     void frameStyleChanged(const FrameStyle &style);
     // The user changed kind or strength of pixelating (F-26).
     void redactStyleChanged(const RedactStyle &style);
+    // The user changed the replaced text or its look (F-29).
+    void replaceStyleChanged(const ReplaceStyle &style);
+    // "Original neu erkennen".
+    void rematchRequested();
     // The user clicked an entry in the object list.
     void objectClicked(int index);
     // The user dragged an entry in the object list to a new place (F-24).
@@ -72,8 +89,20 @@ signals:
     void dimSettingsChanged(const DimSettings &settings);
 
 private:
+    void updateColorButtons();
+
     QWidget *m_frameSection = nullptr;
     QWidget *m_redactSection = nullptr;
+    QWidget *m_replaceSection = nullptr;
+    QLineEdit *m_replaceText = nullptr;
+    QFontComboBox *m_replaceFont = nullptr;
+    QSpinBox *m_replaceSize = nullptr;
+    QCheckBox *m_replaceBold = nullptr;
+    QToolButton *m_replaceColor = nullptr;
+    QToolButton *m_replaceBackground = nullptr;
+    QColor m_replaceTextColor;
+    QColor m_replaceBackgroundColor;
+    ReplaceStyle m_replaceBase;
     QButtonGroup *m_redactMode = nullptr;
     QButtonGroup *m_redactLevel = nullptr;
     QLabel *m_title = nullptr;

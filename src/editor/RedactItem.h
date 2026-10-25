@@ -21,7 +21,6 @@ public:
 
     RedactStyle style() const { return m_style; }
     void setStyle(const RedactStyle &style);
-    void setRect(const QRectF &rect) override;
 
     QRectF boundingRect() const override;
     QPainterPath shape() const override;
@@ -29,9 +28,6 @@ public:
 
     // The obscured pixels for an image region; public for the tests.
     static QImage obscure(const QImage &image, const QRect &region, const RedactStyle &style, double scale);
-
-protected:
-    QVariant itemChange(GraphicsItemChange change, const QVariant &value) override;
 
 private:
     QPixmap obscured() const;

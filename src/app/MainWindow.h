@@ -18,6 +18,8 @@ class ToolRail;
 struct CaptureResult;
 struct FrameStyle;
 struct RedactStyle;
+struct ReplaceStyle;
+class ReplaceItem;
 class RedactItem;
 struct Theme;
 
@@ -61,6 +63,8 @@ private:
     void onSelectionChanged();
     void onFrameStyleChanged(const FrameStyle &style);
     void onRedactStyleChanged(const RedactStyle &style);
+    void onReplaceStyleChanged(const ReplaceStyle &style);
+    ReplaceItem *selectedReplace() const;
     QList<RedactItem *> selectedRedactions() const;
     void updateObjectList();
     void selectObject(int index);

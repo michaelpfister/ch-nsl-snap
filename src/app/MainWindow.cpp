@@ -10,6 +10,7 @@
 #include "editor/EditorView.h"
 #include "editor/FrameItem.h"
 #include "editor/RedactItem.h"
+#include "editor/ReplaceItem.h"
 #include "imaging/WindowImage.h"
 #include "ui/Icons.h"
 #include "ui/Theme.h"
@@ -152,6 +153,30 @@ MainWindow::MainWindow(QWidget *parent)
     connect(m_undoStack, &QUndoStack::indexChanged, this, &MainWindow::onSelectionChanged);
     connect(m_properties, &PropertiesPanel::frameStyleChanged, this, &MainWindow::onFrameStyleChanged);
     connect(m_properties, &PropertiesPanel::redactStyleChanged, this, &MainWindow::onRedactStyleChanged);
+    connect(m_properties, &PropertiesPanel::replaceStyleChanged, this, &MainWindow::onReplaceStyleChanged);
+    connect(m_properties, &PropertiesPanel::rematchRequested, this, [this] {
+        if (ReplaceItem *item = selectedReplace()) {
+            // Recognise on a copy, then push the result as one undo step.
+            const ReplaceStyle before = item->style();
+            item->matchOriginal();
+            const ReplaceStyle matched = item->style();
+            item->setStyle(before);
+            m_undoStack->push(new SetReplaceStyleCommand(item, matched));
+        }
+    });
+    connect(m_view, &EditorView::replaceCutsText, this, [this] {
+        statusBar()->showMessage(tr("Der Bereich schneidet den Originaltext an: Teile davon bleiben sichtbar. "
+                                    "Bereich an den Griffen vergrössern."), 8000);
+    });
+    connect(m_view, &EditorView::replaceNoPlainBackground, this, [this] {
+        statusBar()->showMessage(tr("Kein einfarbiger Hintergrund: Die Fläche ist mit der Hauptfarbe gefüllt, "
+                                    "der Text mittig gesetzt. Farben und Grösse im Panel anpassen."), 8000);
+    });
+    // Right after drawing a replaced text, the cursor is in the text field.
+    connect(m_view, &EditorView::annotationCreated, this, [this](RectItem *item) {
+        if (item->type() == ReplaceItem::Type)
+            m_properties->focusReplaceText();
+    });
     connect(m_properties, &PropertiesPanel::objectClicked, this, &MainWindow::selectObject);
     connect(m_properties, &PropertiesPanel::objectMoved, this, [this](int from, int to) {
         m_undoStack->push(new ReorderItemsCommand(m_view->editorScene(), from, to));
@@ -444,7 +469,14 @@ void MainWindow::onSelectionChanged()
     if (!redactions.isEmpty())
         m_properties->setRedactStyle(redactions.first()->style());
 
-    if (selected.isEmpty() && !redactions.isEmpty()) {
+    ReplaceItem *replace = selectedReplace();
+    if (replace)
+        m_properties->setReplaceStyle(replace->style());
+
+    if (selected.isEmpty() && redactions.isEmpty() && replace) {
+        m_properties->showReplaceSelection();
+        m_properties->showSections(false, false, true);
+    } else if (selected.isEmpty() && !redactions.isEmpty()) {
         m_properties->showRedactSelection(int(redactions.size()));
         m_properties->showSections(false, true);
     } else if (selected.isEmpty()) {
@@ -456,7 +488,11 @@ void MainWindow::onSelectionChanged()
         m_properties->showTool(tool);
         m_properties->setFrameStyle(style);
         m_properties->setRedactStyle(scene->redactStyle());
-        m_properties->showSections(tool != ToolId::Pixelate, tool == ToolId::Pixelate);
+        ReplaceStyle replaceDefaults;
+        replaceDefaults.text = scene->replaceText();
+        m_properties->setReplaceStyle(replaceDefaults);
+        m_properties->showSections(tool != ToolId::Pixelate && tool != ToolId::ReplaceText,
+                                   tool == ToolId::Pixelate, tool == ToolId::ReplaceText);
         m_properties->setBadgeOptions({BadgePosition::TopRight, BadgePosition::TopLeft,
                                        BadgePosition::BottomRight, BadgePosition::BottomLeft});
     } else {
@@ -500,6 +536,23 @@ QList<RedactItem *> MainWindow::selectedRedactions() const
             result << static_cast<RedactItem *>(item);
     }
     return result;
+}
+
+ReplaceItem *MainWindow::selectedReplace() const
+{
+    // Replaced texts are edited one at a time: the text and its position
+    // belong to one place in the image.
+    const QList<RectItem *> selected = m_view->editorScene()->selectedAnnotations();
+    if (selected.size() == 1 && selected.first()->type() == ReplaceItem::Type)
+        return static_cast<ReplaceItem *>(selected.first());
+    return nullptr;
+}
+
+void MainWindow::onReplaceStyleChanged(const ReplaceStyle &style)
+{
+    m_view->editorScene()->setReplaceText(style.text); // default for the next one
+    if (ReplaceItem *item = selectedReplace())
+        m_undoStack->push(new SetReplaceStyleCommand(item, style));
 }
 
 void MainWindow::onRedactStyleChanged(const RedactStyle &style)

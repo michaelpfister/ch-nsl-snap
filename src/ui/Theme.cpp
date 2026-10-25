@@ -115,6 +115,12 @@ QComboBox {
     padding: 0 8px; min-height: 32px;
 }
 QComboBox:hover { border-color: @muted; }
+QLineEdit, QSpinBox {
+    background: @panel; color: @text; border: 1px solid @border; border-radius: 8px;
+    padding: 0 8px; min-height: 32px; selection-background-color: @accent;
+}
+QLineEdit:focus, QSpinBox:focus, QComboBox:focus { border-color: @accent; }
+QSpinBox::up-button, QSpinBox::down-button { width: 0; border: none; }
 QComboBox:disabled { color: @muted; }
 QComboBox::drop-down { border: none; width: 24px; }
 QComboBox::down-arrow { image: url(@chevron); width: 14px; height: 14px; }

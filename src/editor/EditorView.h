@@ -54,6 +54,11 @@ signals:
     // A local file was dropped onto the view (F-06).
     void fileDropped(const QString &path);
     void zoomChanged();
+    // The user drew a new annotation (already on the undo stack).
+    void annotationCreated(RectItem *item);
+    // Problems when recognising the original under a new replaced text (F-29).
+    void replaceCutsText();
+    void replaceNoPlainBackground();
 
 protected:
     void drawBackground(QPainter *painter, const QRectF &rect) override;

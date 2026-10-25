@@ -4,6 +4,7 @@
 #include "editor/EditorScene.h"
 #include "editor/FrameItem.h"
 #include "editor/RedactItem.h"
+#include "editor/ReplaceItem.h"
 
 #include <QDragEnterEvent>
 #include <QDropEvent>
@@ -93,7 +94,8 @@ void EditorView::setTool(ToolId tool)
 bool EditorView::isDrawingTool() const
 {
     // Frame and numbered frame draw so far; the others follow (docs/04-features.md).
-    return m_tool == ToolId::Frame || m_tool == ToolId::Number || m_tool == ToolId::Pixelate;
+    return m_tool == ToolId::Frame || m_tool == ToolId::Number || m_tool == ToolId::Pixelate
+           || m_tool == ToolId::ReplaceText;
 }
 
 bool EditorView::deleteSelection()
@@ -274,7 +276,11 @@ void EditorView::mousePressEvent(QMouseEvent *event)
         m_scene->clearSelection();
         m_drawStart = mapToScene(event->position().toPoint());
         const QRectF start(m_drawStart, m_drawStart);
-        if (m_tool == ToolId::Pixelate) {
+        if (m_tool == ToolId::ReplaceText) {
+            ReplaceStyle style;
+            style.text = m_scene->replaceText();
+            m_drawing = new ReplaceItem(start, style, m_scene->imageScale());
+        } else if (m_tool == ToolId::Pixelate) {
             // Alt switches this area to blur ("Alt für Weichzeichnen").
             RedactStyle style = m_scene->redactStyle();
             if (event->modifiers() & Qt::AltModifier)
@@ -341,6 +347,10 @@ void EditorView::mouseReleaseEvent(QMouseEvent *event)
     if (m_drawing && event->button() == Qt::LeftButton) {
         RectItem *item = m_drawing;
         m_drawing = nullptr;
+        // A replaced text takes colours, size and position from the original.
+        const ReplaceItem::Match match = item->type() == ReplaceItem::Type
+                                             ? static_cast<ReplaceItem *>(item)->matchOriginal()
+                                             : ReplaceItem::Match::Ok;
         m_scene->removeItem(item);
         const QSizeF onScreen = transform().mapRect(item->rect()).size();
         if (onScreen.width() < kMinDrawSize || onScreen.height() < kMinDrawSize) {
@@ -350,9 +360,16 @@ void EditorView::mouseReleaseEvent(QMouseEvent *event)
         QString text = tr("Rahmen zeichnen");
         if (item->type() == RedactItem::Type)
             text = tr("Verpixeln");
+        else if (item->type() == ReplaceItem::Type)
+            text = tr("Text ersetzen");
         else if (static_cast<FrameItem *>(item)->isNumbered())
             text = tr("Nummer setzen");
         m_scene->undoStack()->push(new AddItemsCommand(m_scene, {item}, text));
+        emit annotationCreated(item);
+        if (match == ReplaceItem::Match::CutsText)
+            emit replaceCutsText();
+        else if (match == ReplaceItem::Match::NoPlainBackground)
+            emit replaceNoPlainBackground();
         return;
     }
 
