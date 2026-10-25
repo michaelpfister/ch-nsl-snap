@@ -42,7 +42,7 @@ Each backend delivers a **capture result**: a PNG/RGBA image with alpha, plus me
 - A small extension (`gnome-extension/nsl-snap@netslash.ch/`) runs inside GNOME Shell. Only code there can enumerate windows and read their contents on Wayland.
 - It owns the D-Bus name `ch.netslash.Snap.Shell` and exports `ch.netslash.Snap1` at `/ch/netslash/Snap`.
 - Every capture method is **interactive**: the user must pick the window with a click. No caller can silently grab a window's contents (D-003).
-- The capture uses the same path as GNOME's own screenshot UI: `MetaWindowActor.paint_to_content()` renders the window offscreen into a texture with alpha. Overlapping windows therefore do not matter. The texture is cropped to the window's frame rectangle, which removes the client-side shadow margins of GTK/libadwaita windows (D-005).
+- The capture uses the same path as GNOME's own screenshot UI: `MetaWindowActor.paint_to_content()` renders the window offscreen into a texture with alpha. Overlapping windows therefore do not matter. The extension can crop the texture to the window's frame rectangle (D-005), but the app requests the whole buffer and crops to the window's opaque core itself (D-010).
 - The extension stays as thin as possible: pick, capture, return PNG bytes. All logic belongs in the app, because extension code has to be adapted to new GNOME versions.
 
 ### Shared core

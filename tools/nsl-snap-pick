@@ -25,15 +25,76 @@ OBJECT_PATH = "/ch/netslash/Snap"
 INTERFACE = "ch.netslash.Snap1"
 
 
-# Corner cleanup (docs/02-decisions.md, D-009). The client-side shadow lies
-# under the window and shows through the transparent corner cut-outs. Pixels
-# below this alpha that are connected to a corner are shadow, not window.
+# Edge trimming (docs/02-decisions.md, D-010). Toolkits draw a soft outline
+# around the window that does not line up with the frame rectangle (it was
+# 1 logical px off on one side with Files). We crop to the opaque core so all
+# four edges are hard; the app draws its own shadow later (D-004).
+# How far from the frame edge we look for the opaque core, in logical px.
+EDGE_SEARCH = 4
+
+# Corner cleanup (D-009). The client-side shadow lies under the window and
+# shows through the transparent corner cut-outs. Pixels below this alpha that
+# are connected to a corner are shadow, not window.
 CORNER_ALPHA_THRESHOLD = 80
 # Largest corner radius we expect, in logical px (libadwaita uses 12-15).
 CORNER_MAX_RADIUS = 24
 
 
-def clean_corners(png: bytes, scale: float) -> tuple[bytes, int]:
+def load_png(png: bytes) -> GdkPixbuf.Pixbuf:
+    loader = GdkPixbuf.PixbufLoader.new_with_type("png")
+    loader.write(png)
+    loader.close()
+    return loader.get_pixbuf()
+
+
+def save_png(pixbuf: GdkPixbuf.Pixbuf) -> bytes:
+    _, out = pixbuf.save_to_bufferv("png", [], [])
+    return bytes(out)
+
+
+def frame_in_image(info: dict) -> tuple[int, int, int, int]:
+    """The frame rectangle in image px of a "buffer" capture."""
+    fx, fy, fw, fh = info["frame-rect"]
+    bx, by, _, _ = info["buffer-rect"]
+    scale = info["scale"]
+    return (round((fx - bx) * scale), round((fy - by) * scale), round(fw * scale), round(fh * scale))
+
+
+def opaque_core(pixbuf: GdkPixbuf.Pixbuf, frame: tuple[int, int, int, int], scale: float):
+    """Finds the opaque core of the window near the frame rectangle.
+
+    For each side, looks within EDGE_SEARCH logical px of the frame edge for
+    the outermost line whose middle half is fully opaque. Returns the core as
+    (x, y, width, height), or None if a side has no opaque line, e.g. for a
+    translucent window.
+    """
+    if not pixbuf.get_has_alpha():
+        return None
+    w, h = pixbuf.get_width(), pixbuf.get_height()
+    n, rs = pixbuf.get_n_channels(), pixbuf.get_rowstride()
+    data = pixbuf.get_pixels()
+    fx, fy, fw, fh = frame
+    margin = max(1, round(EDGE_SEARCH * scale))
+
+    def column_opaque(x: int) -> bool:
+        return all(data[y * rs + x * n + 3] == 255 for y in range(fy + fh // 4, fy + 3 * fh // 4))
+
+    def row_opaque(y: int) -> bool:
+        return all(data[y * rs + x * n + 3] == 255 for x in range(fx + fw // 4, fx + 3 * fw // 4))
+
+    def search(candidates, opaque):
+        return next((c for c in candidates if opaque(c)), None)
+
+    left = search(range(max(0, fx - margin), min(w, fx + margin + 1)), column_opaque)
+    right = search(range(min(w - 1, fx + fw - 1 + margin), max(-1, fx + fw - 1 - margin - 1), -1), column_opaque)
+    top = search(range(max(0, fy - margin), min(h, fy + margin + 1)), row_opaque)
+    bottom = search(range(min(h - 1, fy + fh - 1 + margin), max(-1, fy + fh - 1 - margin - 1), -1), row_opaque)
+    if None in (left, right, top, bottom):
+        return None
+    return (left, top, right - left + 1, bottom - top + 1)
+
+
+def clean_corners(pixbuf: GdkPixbuf.Pixbuf, scale: float) -> tuple[GdkPixbuf.Pixbuf, int]:
     """Makes shadow residue in the four corners fully transparent.
 
     Flood-fills from each corner pixel through pixels with alpha below
@@ -41,14 +102,10 @@ def clean_corners(png: bytes, scale: float) -> tuple[bytes, int]:
     anti-aliased window edge has a higher alpha and is kept. Square corners
     (opaque corner pixel) are left alone.
 
-    Returns the new PNG and the number of cleared pixels.
+    Returns the new pixbuf and the number of cleared pixels.
     """
-    loader = GdkPixbuf.PixbufLoader.new_with_type("png")
-    loader.write(png)
-    loader.close()
-    pixbuf = loader.get_pixbuf()
     if not pixbuf.get_has_alpha():
-        return png, 0
+        return pixbuf, 0
 
     w, h = pixbuf.get_width(), pixbuf.get_height()
     n, rs = pixbuf.get_n_channels(), pixbuf.get_rowstride()
@@ -76,12 +133,32 @@ def clean_corners(png: bytes, scale: float) -> tuple[bytes, int]:
             stack += [(i + 1, j), (i, j + 1), (i - 1, j), (i, j - 1)]
 
     if not cleared:
-        return png, 0
+        return pixbuf, 0
     cleaned = GdkPixbuf.Pixbuf.new_from_bytes(
         GLib.Bytes.new(bytes(data)), GdkPixbuf.Colorspace.RGB, True, 8, w, h, rs
     )
-    _, out = cleaned.save_to_bufferv("png", [], [])
-    return bytes(out), cleared
+    return cleaned, cleared
+
+
+def process(png: bytes, info: dict, edges: str, clean: bool) -> bytes:
+    """Turns a "buffer" capture into the final image; adds details to info."""
+    pixbuf = load_png(png)
+    scale = info.get("scale", 1.0)
+    frame = frame_in_image(info)
+    rect = frame
+    if edges == "core":
+        core = opaque_core(pixbuf, frame, scale)
+        info["edges"] = "core" if core else "frame (no opaque core found)"
+        rect = core or frame
+    else:
+        info["edges"] = "frame"
+    x, y, w, h = rect
+    pixbuf = pixbuf.new_subpixbuf(x, y, w, h).copy()
+    info["trim"] = [rect[0] - frame[0], rect[1] - frame[1], (frame[0] + frame[2]) - (x + w), (frame[1] + frame[3]) - (y + h)]
+    if clean:
+        pixbuf, info["corner-pixels-cleared"] = clean_corners(pixbuf, scale)
+    info["width"], info["height"] = pixbuf.get_width(), pixbuf.get_height()
+    return save_png(pixbuf)
 
 
 def default_output(title: str) -> pathlib.Path:
@@ -97,9 +174,10 @@ def main() -> int:
     parser.add_argument("-o", "--output", type=pathlib.Path, help="PNG file to write")
     parser.add_argument(
         "--crop",
-        choices=["frame", "buffer"],
-        default="frame",
-        help="frame: visible window only (default); buffer: keep shadow margins",
+        choices=["core", "frame", "buffer"],
+        default="core",
+        help="core: opaque window with hard edges (default); frame: frame rectangle, "
+        "keeps the soft outline where it lies inside; buffer: raw, with shadow margins",
     )
     parser.add_argument(
         "--no-clean-corners",
@@ -112,7 +190,8 @@ def main() -> int:
     args = parser.parse_args()
 
     bus = Gio.bus_get_sync(Gio.BusType.SESSION)
-    options = {"crop": GLib.Variant("s", args.crop)}
+    # The app always takes the whole buffer and does the cropping itself.
+    options = {"crop": GLib.Variant("s", "buffer")}
     try:
         result = bus.call_sync(
             BUS_NAME,
@@ -139,8 +218,9 @@ def main() -> int:
     png = result.get_child_value(0).get_data_as_bytes().get_data()
     info = result.get_child_value(1).unpack()
 
-    if args.clean_corners and info.get("crop") == "frame":
-        png, info["corner-pixels-cleared"] = clean_corners(png, info.get("scale", 1.0))
+    if args.crop != "buffer":
+        png = process(png, info, args.crop, args.clean_corners)
+    info["crop"] = args.crop
 
     output = args.output or default_output(info.get("title", ""))
     output.parent.mkdir(parents=True, exist_ok=True)

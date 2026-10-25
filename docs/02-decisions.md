@@ -69,3 +69,13 @@ Each entry: context, decision, rationale, consequences. Entries marked **(assump
 **Consequences:**
 - The edge pixels kept still contain a little shadow. Not visible in practice.
 - Windows with their own transparency near the corners (e.g. a translucent terminal) could lose low-alpha pixels in the corner squares. Accepted for now.
+
+## D-010 Crop to the opaque core (hard edges)
+
+**Context:** Toolkits draw a soft outline of about 1 logical px around the window. With Files it straddles the frame rectangle on three sides but lies completely outside it on the right, so a frame crop has three soft edges and one hard edge (PoC finding 2).
+**Decision:** The app crops to the window's **opaque core**: for each side it takes the outermost line within 4 logical px of the frame edge whose middle half is fully opaque. All four edges are then hard; the rounded corners keep their anti-aliasing and are cleaned by D-009. If no opaque core is found (translucent windows), it falls back to the frame rectangle.
+**Rationale:** Symmetric, clean edges regardless of how a toolkit aligns its outline. The soft outline is part of the system look, like the shadow, and the app draws its own (D-004).
+**Consequences:**
+- The app requests the uncropped buffer from the extension (`crop: "buffer"`) and does all cropping itself. The extension's `frame` crop (D-005) stays available but the app does not use it.
+- The image loses up to 1 logical px per side compared with the frame rectangle.
+- The PoC client offers `--crop core` (default), `frame` and `buffer`.
