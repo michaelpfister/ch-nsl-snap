@@ -68,10 +68,65 @@ Not on the original list, added and confirmed on 2026-10-25 (Q-11).
 | F-44 | Arrows (WinSnap has them) | ✓ | ✓ |
 | F-45 | Tray icon | ✓ | ◐ needs the AppIndicator extension (installed on Zorin) |
 
+## Keyboard shortcuts
+
+Modelled on [WinSnap's shortcuts](https://www.ntwind.com/software/winsnap/shortcuts.html), so the team keeps its muscle memory. Decided on 2026-10-25, revising the earlier "no hotkeys" (D-011).
+
+### F-42 Global hotkeys (work while the app is hidden)
+
+| Key | Action | WinSnap |
+|---|---|---|
+| Print | Capture in the last used mode | same |
+| Shift + Print | Screen | same |
+| Alt + Print | Active window, without picking | same |
+| Ctrl + Alt + Print | Region | same |
+
+- Reassignable in the settings. All global captures respect the timer setting (F-04).
+- **GNOME:** registered by the extension (D-011). GNOME itself uses Print, Shift + Print and Alt + Print for its screenshot UI; the extension takes them over while enabled (Q-14).
+- **Windows:** `RegisterHotKey`. Windows 11 opens the Snipping Tool on Print by default; that setting has to be switched off, or we use a keyboard hook (Q-15).
+- **macOS:** Macs have no Print key; the defaults there are still open (Q-16).
+- Not adopted: Ctrl + Print (active application, all its windows) and Ctrl + Shift + Print (multi-object selection), because these capture modes are not in our scope.
+
+### F-46 Shortcuts in the app
+
+| Key | Action | WinSnap |
+|---|---|---|
+| Ctrl + N | New capture in the last used mode | same |
+| Ctrl + 1 | Capture screen | same |
+| Ctrl + 3 | Capture window | same |
+| Ctrl + 5 | Capture region | same (Ctrl + 2 and 4 are WinSnap modes we do not have) |
+| Ctrl + O | Open image (F-06) | same |
+| Ctrl + V | Paste image from the clipboard (F-06) | same |
+| Ctrl + S | Save to the default folder with the naming scheme, no dialog (F-41) | same |
+| Ctrl + Shift + S | Save as… | same |
+| Ctrl + E | Show the saved file in the file manager | same |
+| Ctrl + C | Copy image (F-40) | same |
+| Ctrl + Alt + C | Copy file path of the saved image | same |
+| Ctrl + Z / Ctrl + Y, Ctrl + Shift + Z | Undo / redo (F-11) | – |
+| Delete | Delete the selected annotation | WinSnap: clear image |
+| Ctrl + Delete | Clear the editor (F-10), with confirmation | – |
+| Escape | Cancel the current tool or selection; if there is none, hide to the tray | WinSnap: hide to tray |
+| F2 | Settings | same |
+| V, C, R, N, T, A, M, P, E | Tools: select, crop, frame, numbered frame, text, arrow, marker, pixelate, replace text | – |
+
+Delete differs from WinSnap on purpose: in an editor with movable objects it must delete the selected object, not the whole image.
+
+### F-47 Shortcuts in the capture overlay
+
+| Key | Action | WinSnap |
+|---|---|---|
+| Enter, Space, left click | Accept the selection | same |
+| Arrow keys / Ctrl + arrow keys | Move the pointer by 1 / 10 px | same |
+| Backspace, Delete | Discard the current region and start again | same |
+| Escape | Cancel the capture | same |
+| F1 | Show / hide the hint bar | same (helper window) |
+| W, R, S | Switch mode: window, region, screen | – |
+
+Not adopted from WinSnap: print (Ctrl + P, Ctrl + Shift + P), thumbnail copy (Ctrl + Shift + C), custom commands (Alt + 1–9).
+
 ## Not planned
 
 - Scrolling capture (not possible on Wayland, see 03-platform-capabilities.md).
 - Video / GIF recording.
 - Including the mouse pointer (F-05).
-- Global hotkeys (former F-42): captures are started from the app.
 - Shadow, background or margin around captures (former F-43): the instruction pages add the shadow via CSS (D-004).

@@ -44,7 +44,7 @@ Each backend delivers a **capture result**: a PNG/RGBA image with alpha, plus me
 - It owns the D-Bus name `ch.netslash.Snap.Shell` and exports `ch.netslash.Snap1` at `/ch/netslash/Snap`.
 - Every capture method is **interactive**: the user must pick the window with a click. No caller can silently grab a window's contents (D-003).
 - The capture uses the same path as GNOME's own screenshot UI: `MetaWindowActor.paint_to_content()` renders the window offscreen into a texture with alpha. Overlapping windows therefore do not matter. The extension can crop the texture to the window's frame rectangle (D-005), but the app requests the whole buffer and crops to the window's opaque core itself (D-010).
-- Planned (D-011): freeze the screen and all windows at the moment of capture (after the countdown, if a delay is set), then one overlay to select window, region or screen on the frozen picture. A D-Bus caller can only open the overlay.
+- Planned (D-011): freeze the screen and all windows at the moment of capture (after the countdown, if a delay is set), then one overlay to select window, region or screen on the frozen picture. The extension also owns the global hotkeys (F-42) and hands hotkey captures to the app. A D-Bus caller can only open the overlay.
 - The extension stays as thin as possible: pick, capture, return PNG bytes. All logic belongs in the app, because extension code has to be adapted to new GNOME versions.
 
 ### Shared core

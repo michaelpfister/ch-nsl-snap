@@ -89,17 +89,19 @@ Each entry: context, decision, rationale, consequences. Entries marked **(assump
 
 ## D-011 Freeze first, then select, in one capture overlay
 
-**Context:** Screen and region capture (F-01, F-03) and delayed capture (F-04) also need the extension on GNOME. The user wants the screen to be frozen **at the moment of the capture** in every mode, so nothing changes while selecting (2026-10-25).
+**Context:** Screen and region capture (F-01, F-03), delayed capture (F-04) and global hotkeys (F-42, re-added on 2026-10-25 after first being dropped) also need the extension on GNOME. The user wants the screen to be frozen **at the moment of the capture** in every mode, so nothing changes while selecting (2026-10-25).
 **Decision:**
 - Every capture starts with a **freeze**: the extension takes a picture of the whole screen and, at the same moment, renders every window offscreen (`paint_to_content`, as GNOME's own screenshot UI does). Without delay this happens immediately; with a delay, the extension shows a countdown, hides it, and freezes when it reaches zero.
 - Then the extension shows one overlay over the frozen picture, with three modes: **window** (hover and click; the image comes from the frozen window render, so it shows the window as it was at the freeze), **region** (drag a rectangle) and **screen** (click a monitor, or Enter for all monitors). Esc cancels at any time.
-- Captures are started from the app (no global hotkeys, F-42 dropped). The app hides its own window before the freeze, so it does not appear in screen and region captures.
+- Captures are started from the app or by a **global hotkey** (F-42). The app hides its own window before the freeze, so it does not appear in screen and region captures.
+- The **global hotkeys** are registered by the extension itself (`Main.wm.addKeybinding`), never by a D-Bus caller. A key press is genuine user interaction, so a hotkey may capture without the overlay: Shift + Print captures the screen and Alt + Print the active window directly (after the countdown, if a timer is set). A D-Bus caller can still only open the overlay.
+- After a hotkey capture the extension hands the image to the app over D-Bus and starts it if it is not running (D-Bus activation).
 **Rationale:**
 - Freezing first means open menus, hover states and tooltips are kept for region and screen captures, and a window looks exactly as at the moment of the capture.
 - A D-Bus caller can only open the overlay; the image is returned only after the user's selection. D-003 holds.
 **Consequences:**
 - The extension grows from a picker to a small capture UI, but still contains no editing logic.
-- Screen capture always needs one click (or Enter) on GNOME.
+- A screen capture started from the app needs one click (or Enter); started by Shift + Print it needs none.
 - Window captures still contain no popup menus or tooltips: they are separate surfaces (Q-07). With region capture they are included.
 - The pointer is never composited (F-05).
 

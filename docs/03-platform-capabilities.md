@@ -23,7 +23,7 @@ macOS (ScreenCaptureKit, macOS 14+) supports everything in the Windows column ex
 
 | Capability | Windows | GNOME / Wayland |
 |---|---|---|
-| Global hotkey (e.g. Print), not planned | `RegisterHotKey` | Extension keybinding, or GNOME custom shortcut that starts the app with an argument |
+| Global hotkey (e.g. Print), F-42 | `RegisterHotKey`; Windows 11 binds Print to the Snipping Tool by default (Q-15) | Extension keybinding; GNOME binds Print to its own screenshot UI (Q-14) |
 | Tray icon | yes | Only with the AppIndicator extension (installed on Zorin by default) |
 | Clipboard with PNG | yes | yes (Wayland clipboard, also from the extension via `St.Clipboard`) |
 | Start with session | Autostart / registry | XDG autostart `.desktop` file |
