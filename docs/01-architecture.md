@@ -53,6 +53,12 @@ Skeleton since 2026-10-25, with the approved design (D-014): top bar with captur
 
 The editor is object-based (D-012): the captured image stays unchanged, annotations are objects with properties, every change is an undoable command, pixels are only computed on render and export.
 
+- `EditorScene` (a `QGraphicsScene`) is the document: base image, annotation items, the undo stack, and `renderImage()` for export.
+- `EditorView` turns mouse input into commands: drawing with the active tool, moving (one `MoveItemsCommand` per drag), middle-button panning, Ctrl + wheel zoom.
+- Annotation items (`FrameItem` so far) paint themselves, show handles when selected and push their own resize commands.
+- `Commands.h` holds all undo commands; commands that take items out of the scene own them.
+- The properties panel shows the style of the selected frames, or the style for new ones, and pushes `SetFrameStyleCommand`s (slider drags merge into one step).
+
 ## Repository layout
 
 | Path | Contents |

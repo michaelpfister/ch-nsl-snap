@@ -132,9 +132,10 @@ PropertiesPanel::PropertiesPanel(QWidget *parent)
         button->setAccessibleName(tr(swatch.name));
         m_swatches->addButton(button);
         swatchRow->addWidget(button);
+        button->setProperty("color", swatch.color);
         connect(button, &QAbstractButton::clicked, this, [this, color = swatch.color] {
             m_color = color;
-            emit frameColorChanged(color);
+            emit frameStyleChanged(frameStyle());
         });
     }
     m_swatches->buttons().first()->setChecked(true);
@@ -158,11 +159,16 @@ PropertiesPanel::PropertiesPanel(QWidget *parent)
         segmentLayout->addWidget(button);
     }
     m_rounded->setChecked(true);
+    connect(corners, &QButtonGroup::buttonClicked, this, [this] { emit frameStyleChanged(frameStyle()); });
     layout->addWidget(segment);
     layout->addSpacing(12);
 
     // Line width (F-23).
     m_width = labelledSlider(layout, tr("Linienstärke"), 1, 8, 3, QStringLiteral("px"), this);
+    connect(m_width, &QSlider::valueChanged, this, [this] {
+        if (!m_updating)
+            emit frameStyleChanged(frameStyle());
+    });
     layout->addSpacing(12);
 
     // Number badge position (F-24).
@@ -201,20 +207,61 @@ PropertiesPanel::PropertiesPanel(QWidget *parent)
     layout->addWidget(sectionLabel(tr("Objekte"), this));
     m_objects = new QListWidget(this);
     m_objects->setAccessibleName(tr("Objekte"));
-    auto *empty = new QListWidgetItem(tr("Noch keine Objekte"), m_objects);
-    empty->setFlags(Qt::NoItemFlags);
+    m_objects->setSelectionMode(QAbstractItemView::NoSelection);
+    m_objects->setFocusPolicy(Qt::NoFocus);
+    connect(m_objects, &QListWidget::itemClicked, this, [this](QListWidgetItem *item) {
+        if (item->flags() != Qt::NoItemFlags)
+            emit objectClicked(m_objects->row(item));
+    });
     layout->addWidget(m_objects, 1);
+    setObjects({}, {});
 
     showTool(ToolId::Select);
 }
 
-bool PropertiesPanel::roundedCorners() const
+FrameStyle PropertiesPanel::frameStyle() const
 {
-    return m_rounded->isChecked();
+    FrameStyle style;
+    style.color = m_color;
+    style.width = m_width->value();
+    style.rounded = m_rounded->isChecked();
+    return style;
+}
+
+void PropertiesPanel::setFrameStyle(const FrameStyle &style)
+{
+    m_updating = true;
+    m_color = style.color;
+    for (QAbstractButton *button : m_swatches->buttons()) {
+        if (button->property("color").value<QColor>() == style.color)
+            button->setChecked(true);
+    }
+    m_width->setValue(style.width);
+    (style.rounded ? m_rounded : m_square)->setChecked(true);
+    m_updating = false;
+}
+
+void PropertiesPanel::setObjects(const QStringList &labels, const QList<bool> &selected)
+{
+    m_objects->clear();
+    if (labels.isEmpty()) {
+        auto *empty = new QListWidgetItem(tr("Noch keine Objekte"), m_objects);
+        empty->setFlags(Qt::NoItemFlags);
+        empty->setForeground(m_mutedText);
+        return;
+    }
+    for (qsizetype i = 0; i < labels.size(); ++i) {
+        auto *item = new QListWidgetItem(labels[i], m_objects);
+        // Selection is shown with the font, the list itself does not select.
+        QFont font = item->font();
+        font.setWeight(selected.value(i) ? QFont::DemiBold : QFont::Normal);
+        item->setFont(font);
+    }
 }
 
 void PropertiesPanel::applyTheme(const Theme &theme)
 {
+    m_mutedText = theme.muted;
     if (QListWidgetItem *item = m_objects->item(0); item && item->flags() == Qt::NoItemFlags)
         item->setForeground(theme.muted);
 }
@@ -223,5 +270,11 @@ void PropertiesPanel::showTool(ToolId id)
 {
     const ToolInfo &tool = toolInfo(id);
     m_title->setText(tool.name);
-    m_hint->setText(id == ToolId::Select ? tr("nichts ausgewählt") : tr("neues Objekt"));
+    m_hint->setText(id == ToolId::Select ? tr("nichts ausgewählt") : tr("für neue Objekte"));
+}
+
+void PropertiesPanel::showSelection(int count)
+{
+    m_title->setText(tr("Rahmen"));
+    m_hint->setText(count == 1 ? tr("1 ausgewählt") : tr("%1 ausgewählt").arg(count));
 }

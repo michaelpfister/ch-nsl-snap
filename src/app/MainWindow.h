@@ -16,6 +16,7 @@ class QToolButton;
 class QUndoStack;
 class ToolRail;
 struct CaptureResult;
+struct FrameStyle;
 struct Theme;
 
 class MainWindow : public QMainWindow
@@ -54,13 +55,18 @@ private:
 
     void setImage(const QImage &image, double scale, const QString &name, const QString &source);
     void onToolChanged(ToolId id);
+    void onSelectionChanged();
+    void onFrameStyleChanged(const FrameStyle &style);
+    void updateObjectList();
+    void selectObject(int index);
     void updateActions();
     void updateZoomLabel();
 
+    // Declared before m_view, which needs it at construction.
+    QUndoStack *m_undoStack = nullptr;
     EditorView *m_view = nullptr;
     ToolRail *m_toolRail = nullptr;
     PropertiesPanel *m_properties = nullptr;
-    QUndoStack *m_undoStack = nullptr;
     std::unique_ptr<CaptureBackend> m_capture;
 
     QString m_imageName;  // for the suggested file name (F-41)

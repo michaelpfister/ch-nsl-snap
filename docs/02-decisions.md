@@ -147,3 +147,12 @@ Each entry: context, decision, rationale, consequences. Entries marked **(assump
 **Consequences:**
 - The design mockup is the reference for later UI work: https://claude.ai/artifact/8EMjZ49MFf7EebwCPkaywZ (private, shared by the owner as needed).
 - Inter is not bundled yet (Q-17).
+
+## D-015 Annotation sizes in logical pixels; scale stored in the PNG
+
+**Context:** HiDPI captures have 2 image pixels per logical pixel. A 3 px frame drawn in image pixels would look half as thick on such a capture as on a normal one.
+**Decision:**
+- Line widths, radii and later font sizes are set in **logical pixels** and multiplied by the image scale when drawn.
+- The app writes the scale into the PNG's resolution (96 dpi × scale, e.g. 192 dpi for scale 2) and reads it back when opening a file. Files without it, or with odd values, count as scale 1.
+**Rationale:** Frames look the same on every capture, and a saved HiDPI capture opens with the right scale again. Browsers ignore the PNG resolution, so the instruction pages are not affected.
+**Consequences:** Images from other tools open as scale 1; their frames are then thinner relative to the content. Acceptable.

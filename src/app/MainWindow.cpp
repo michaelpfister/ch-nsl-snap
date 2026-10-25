@@ -3,7 +3,10 @@
 #include "app/PropertiesPanel.h"
 #include "app/ToolRail.h"
 #include "capture/CaptureBackend.h"
+#include "editor/Commands.h"
+#include "editor/EditorScene.h"
 #include "editor/EditorView.h"
+#include "editor/FrameItem.h"
 #include "imaging/WindowImage.h"
 #include "ui/Icons.h"
 #include "ui/Theme.h"
@@ -103,10 +106,10 @@ QPushButton *textButton(const QString &text, const QString &role, QWidget *paren
 
 MainWindow::MainWindow(QWidget *parent)
     : QMainWindow(parent)
-    , m_view(new EditorView(this))
+    , m_undoStack(new QUndoStack(this))
+    , m_view(new EditorView(m_undoStack, this))
     , m_toolRail(new ToolRail(this))
     , m_properties(new PropertiesPanel(this))
-    , m_undoStack(new QUndoStack(this))
     , m_capture(createCaptureBackend())
 {
     setWindowTitle(QStringLiteral("NSL Snap"));
@@ -137,6 +140,15 @@ MainWindow::MainWindow(QWidget *parent)
     connect(m_view, &EditorView::zoomChanged, this, &MainWindow::updateZoomLabel);
     connect(m_toolRail, &ToolRail::toolChanged, this, &MainWindow::onToolChanged);
 
+    // Selection and object list (D-012).
+    EditorScene *scene = m_view->editorScene();
+    scene->setFrameStyle(m_properties->frameStyle());
+    connect(scene, &QGraphicsScene::selectionChanged, this, &MainWindow::onSelectionChanged);
+    connect(scene, &EditorScene::annotationsChanged, this, &MainWindow::updateObjectList);
+    connect(m_undoStack, &QUndoStack::indexChanged, this, &MainWindow::onSelectionChanged);
+    connect(m_properties, &PropertiesPanel::frameStyleChanged, this, &MainWindow::onFrameStyleChanged);
+    connect(m_properties, &PropertiesPanel::objectClicked, this, &MainWindow::selectObject);
+
     // The dim toggle exists twice (rail and panel); keep them in sync.
     connect(m_toolRail->dimButton(), &QToolButton::toggled, m_properties->dimCheckBox(), &QAbstractButton::setChecked);
     connect(m_properties->dimCheckBox(), &QAbstractButton::toggled, m_toolRail->dimButton(), &QAbstractButton::setChecked);
@@ -157,7 +169,13 @@ MainWindow::MainWindow(QWidget *parent)
     updateZoomLabel();
 }
 
-MainWindow::~MainWindow() = default;
+MainWindow::~MainWindow()
+{
+    // The scene emits selection signals while it deletes its items; the
+    // panels may already be gone by then.
+    m_view->editorScene()->disconnect(this);
+    m_undoStack->disconnect(this);
+}
 
 QWidget *MainWindow::createTopBar()
 {
@@ -262,6 +280,11 @@ void MainWindow::createShortcuts()
     add(QKeySequence::Copy, &MainWindow::copyImage);
     add(QKeySequence(Qt::CTRL | Qt::ALT | Qt::Key_C), &MainWindow::copyFilePath);
     add(QKeySequence(Qt::CTRL | Qt::Key_Delete), &MainWindow::clearEditor);
+    // Delete removes the selected annotations, not the image (F-46).
+    auto *remove = new QAction(this);
+    remove->setShortcuts({QKeySequence::Delete, QKeySequence(Qt::Key_Backspace)});
+    connect(remove, &QAction::triggered, m_view, &EditorView::deleteSelection);
+    addAction(remove);
 
     add(QKeySequence::Undo, [this] { m_undoStack->undo(); });
     auto *redo = new QAction(this);
@@ -276,6 +299,10 @@ void MainWindow::keyPressEvent(QKeyEvent *event)
     // follows with the tray icon (F-45).
     if (event->key() == Qt::Key_Escape && m_toolRail->currentTool() != ToolId::Select) {
         m_toolRail->setCurrentTool(ToolId::Select);
+        return;
+    }
+    if (event->key() == Qt::Key_Escape && !m_view->editorScene()->selectedItems().isEmpty()) {
+        m_view->editorScene()->clearSelection();
         return;
     }
     QMainWindow::keyPressEvent(event);
@@ -302,8 +329,55 @@ void MainWindow::applyTheme(const Theme &theme)
 
 void MainWindow::onToolChanged(ToolId id)
 {
-    m_properties->showTool(id);
+    m_view->setTool(id);
     m_toolHint->setText(toolInfo(id).hint);
+    onSelectionChanged();
+}
+
+void MainWindow::onSelectionChanged()
+{
+    const QList<FrameItem *> selected = m_view->editorScene()->selectedFrames();
+    if (selected.isEmpty()) {
+        m_properties->showTool(m_toolRail->currentTool());
+        m_properties->setFrameStyle(m_view->editorScene()->frameStyle());
+    } else {
+        m_properties->showSelection(int(selected.size()));
+        m_properties->setFrameStyle(selected.first()->style());
+    }
+    updateObjectList();
+}
+
+void MainWindow::onFrameStyleChanged(const FrameStyle &style)
+{
+    // The panel style becomes the default for new frames (F-22) and is
+    // applied to the selected frames as one undo step.
+    EditorScene *scene = m_view->editorScene();
+    scene->setFrameStyle(style);
+    const QList<FrameItem *> selected = scene->selectedFrames();
+    if (!selected.isEmpty())
+        m_undoStack->push(new SetFrameStyleCommand(selected, style));
+}
+
+void MainWindow::updateObjectList()
+{
+    QStringList labels;
+    QList<bool> selected;
+    int number = 0;
+    for (const FrameItem *frame : m_view->editorScene()->frames()) {
+        labels << tr("Rahmen %1").arg(++number);
+        selected << frame->isSelected();
+    }
+    m_properties->setObjects(labels, selected);
+}
+
+void MainWindow::selectObject(int index)
+{
+    const QList<FrameItem *> frames = m_view->editorScene()->frames();
+    if (index < 0 || index >= frames.size())
+        return;
+    m_view->editorScene()->clearSelection();
+    frames[index]->setSelected(true);
+    m_view->ensureVisible(frames[index]);
 }
 
 void MainWindow::updateActions()
@@ -382,7 +456,7 @@ void MainWindow::loadImageFile(const QString &path)
         return;
     }
     const QString name = QFileInfo(path).completeBaseName();
-    setImage(image, 1.0, name, QFileInfo(path).fileName());
+    setImage(image, EditorScene::scaleFromMetadata(image), name, QFileInfo(path).fileName());
 }
 
 void MainWindow::setImage(const QImage &image, double scale, const QString &name, const QString &source)
@@ -422,7 +496,7 @@ void MainWindow::saveImageAs()
 
 bool MainWindow::writeImage(const QString &path)
 {
-    if (!m_view->image().save(path, "PNG")) {
+    if (!m_view->renderedImage().save(path, "PNG")) {
         QMessageBox::warning(this, tr("Bild speichern"), tr("«%1» konnte nicht gespeichert werden.").arg(path));
         return false;
     }
@@ -454,7 +528,7 @@ void MainWindow::copyImage()
 {
     if (!m_view->hasImage())
         return;
-    QApplication::clipboard()->setImage(m_view->image());
+    QApplication::clipboard()->setImage(m_view->renderedImage());
     statusBar()->showMessage(tr("In die Zwischenablage kopiert."), 3000);
 }
 

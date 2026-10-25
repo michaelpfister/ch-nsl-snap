@@ -1,5 +1,6 @@
 #pragma once
 
+#include "editor/FrameStyle.h"
 #include "editor/Tool.h"
 
 #include <QColor>
@@ -13,9 +14,8 @@ class QPushButton;
 class QSlider;
 struct Theme;
 
-// The panel on the right: properties of the active tool or selected object
-// (design mockup). The values are not wired to annotations yet; that comes
-// with the tools themselves (D-012).
+// The panel on the right: style of the selected frames, or of new frames
+// when nothing is selected, plus the list of objects (design mockup).
 class PropertiesPanel : public QWidget
 {
     Q_OBJECT
@@ -25,13 +25,23 @@ public:
 
     void applyTheme(const Theme &theme);
     void showTool(ToolId id);
+    // "Rahmen" with the number of selected frames.
+    void showSelection(int count);
 
-    QColor frameColor() const { return m_color; }
-    bool roundedCorners() const;
+    FrameStyle frameStyle() const;
+    // Shows `style` without emitting frameStyleChanged.
+    void setFrameStyle(const FrameStyle &style);
+
+    // One entry per annotation; `selected` marks the selected ones.
+    void setObjects(const QStringList &labels, const QList<bool> &selected);
+
     QCheckBox *dimCheckBox() const { return m_dim; }
 
 signals:
-    void frameColorChanged(const QColor &color);
+    // The user changed colour, corners or line width.
+    void frameStyleChanged(const FrameStyle &style);
+    // The user clicked an entry in the object list.
+    void objectClicked(int index);
 
 private:
     QLabel *m_title = nullptr;
@@ -43,4 +53,6 @@ private:
     QCheckBox *m_dim = nullptr;
     QListWidget *m_objects = nullptr;
     QColor m_color;
+    QColor m_mutedText;
+    bool m_updating = false; // true while setFrameStyle/setObjects run
 };

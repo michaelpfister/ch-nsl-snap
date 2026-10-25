@@ -24,8 +24,15 @@ add_library(nsl_snap_core STATIC
     src/capture/CaptureBackend.cpp
     src/capture/CaptureBackend.h
     src/capture/CaptureResult.h
+    src/editor/Commands.cpp
+    src/editor/Commands.h
+    src/editor/EditorScene.cpp
+    src/editor/EditorScene.h
     src/editor/EditorView.cpp
     src/editor/EditorView.h
+    src/editor/FrameItem.cpp
+    src/editor/FrameItem.h
+    src/editor/FrameStyle.h
     src/editor/Tool.cpp
     src/editor/Tool.h
     src/imaging/WindowImage.cpp
