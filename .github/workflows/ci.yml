@@ -1,0 +1,86 @@
+# Builds the app and runs the tests on every pull request and on main
+# (AGENTS.md: ctest must pass and the build must have no warnings).
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  app:
+    name: Build and test (Linux, Qt 6.8.3)
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+
+      # docs/07-development-setup.md, step 1.
+      - name: Install system packages
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y ninja-build libgl-dev libegl-dev libopengl-dev libxkbcommon-dev libvulkan-dev libxcb-cursor0
+
+      # Qt 6.8.3 via aqtinstall, as on the development machines (D-013);
+      # never the distribution's Qt 6.4.
+      - name: Install Qt
+        uses: jurplel/install-qt-action@v4
+        with:
+          version: 6.8.3
+          host: linux
+          target: desktop
+          arch: linux_gcc_64
+          modules: qtimageformats
+          cache: true
+
+      # Warnings fail the build, like the rule for commits.
+      - name: Configure
+        run: >
+          cmake -S . -B build -G Ninja
+          -DCMAKE_PREFIX_PATH="$QT_ROOT_DIR"
+          -DCMAKE_BUILD_TYPE=Debug
+          -DCMAKE_CXX_FLAGS="-Wall -Wextra"
+          -DCMAKE_COMPILE_WARNING_AS_ERROR=ON
+
+      - name: Build
+        run: cmake --build build
+
+      # No display on the runner: Qt draws offscreen.
+      - name: Test
+        env:
+          QT_QPA_PLATFORM: offscreen
+        run: ctest --test-dir build --output-on-failure
+
+  extension:
+    name: Check GNOME extension and tools
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      # The extension is ES modules (GNOME 45+); node only parses them as
+      # modules with the .mjs extension (AGENTS.md).
+      - name: Syntax check of the extension
+        run: |
+          mkdir -p "$RUNNER_TEMP/ext"
+          for file in gnome-extension/*/*.js; do
+            copy="$RUNNER_TEMP/ext/$(basename "$file" .js).mjs"
+            cp "$file" "$copy"
+            node --check "$copy"
+            echo "ok: $file"
+          done
+
+      - name: Syntax check of the PoC client and scripts
+        run: |
+          python3 -m py_compile tools/nsl-snap-pick
+          for script in scripts/*.sh; do
+            bash -n "$script"
+            echo "ok: $script"
+          done
