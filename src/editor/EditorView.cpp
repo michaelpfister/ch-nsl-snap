@@ -7,7 +7,9 @@
 #include <QDragEnterEvent>
 #include <QDropEvent>
 #include <QMimeData>
+#include <QKeyEvent>
 #include <QMouseEvent>
+#include <QNativeGestureEvent>
 #include <QPainter>
 #include <QScrollBar>
 #include <QUndoStack>
@@ -43,7 +45,7 @@ EditorView::EditorView(QUndoStack *undoStack, QWidget *parent)
     setScene(m_scene);
     setAcceptDrops(true);
     setDragMode(QGraphicsView::RubberBandDrag);
-    setTransformationAnchor(QGraphicsView::AnchorUnderMouse);
+    setTransformationAnchor(QGraphicsView::NoAnchor); // applyZoom anchors itself
     setRenderHint(QPainter::Antialiasing);
     setRenderHint(QPainter::SmoothPixmapTransform);
     setBackgroundRole(QPalette::Dark);
@@ -54,7 +56,7 @@ EditorView::EditorView(QUndoStack *undoStack, QWidget *parent)
 void EditorView::setImage(const QImage &image, double scale)
 {
     m_scene->setBaseImage(image, scale);
-    zoomToFit(scale);
+    fitToWindow();
 }
 
 void EditorView::clear()
@@ -104,23 +106,84 @@ bool EditorView::deleteSelection()
     return true;
 }
 
-void EditorView::zoomToFit(double scale)
+namespace {
+
+// Steps for zoom in/out (buttons, Ctrl + plus/minus), in percent.
+const double kZoomSteps[] = {0.10, 0.25, 0.33, 0.50, 0.67, 0.75, 1.00, 1.25, 1.50,
+                             2.00, 3.00, 4.00, 6.00, 8.00};
+// Free space around the image in fit mode, in screen pixels.
+constexpr int kFitMargin = 24;
+
+} // namespace
+
+void EditorView::fitToWindow()
 {
-    // Logical size (100 %), but never larger than the visible area.
-    const QSizeF logical = QSizeF(m_scene->baseImage().size()) / scale;
-    const QSizeF available = viewport()->size() - QSize(20, 20);
-    const double fit = std::min({1.0, available.width() / logical.width(),
-                                 available.height() / logical.height()});
-    // One scene unit is one image pixel; at 100 % it covers 1/scale logical
-    // pixels, i.e. one physical pixel on the screen it was taken from.
-    resetTransform();
-    applyZoom(fit / scale);
+    m_fitMode = true;
+    updateFit();
+}
+
+void EditorView::updateFit()
+{
+    if (!hasImage())
+        return;
+    // Fill the visible area, larger than 100 % too, so the image grows
+    // with the window and details become readable (D-017).
+    const QSizeF logical = QSizeF(m_scene->baseImage().size()) / m_scene->imageScale();
+    const QSizeF available = QSizeF(viewport()->size()) - QSizeF(2 * kFitMargin, 2 * kFitMargin);
+    const double fit = std::min(available.width() / logical.width(), available.height() / logical.height());
+    applyZoom(std::clamp(fit, kMinZoom, kMaxZoom));
     centerOn(m_scene->sceneRect().center());
 }
 
-void EditorView::applyZoom(double factor)
+void EditorView::setZoom(double zoom)
 {
-    QGraphicsView::scale(factor, factor);
+    m_fitMode = false;
+    applyZoom(zoom);
+}
+
+void EditorView::zoomIn()
+{
+    for (double step : kZoomSteps) {
+        if (step > zoom() + 0.001) {
+            setZoom(step);
+            return;
+        }
+    }
+    setZoom(kMaxZoom);
+}
+
+void EditorView::zoomOut()
+{
+    for (auto it = std::rbegin(kZoomSteps); it != std::rend(kZoomSteps); ++it) {
+        if (*it < zoom() - 0.001) {
+            setZoom(*it);
+            return;
+        }
+    }
+    setZoom(kMinZoom);
+}
+
+void EditorView::applyZoom(double zoom, const QPoint *anchor)
+{
+    if (!hasImage())
+        return;
+    zoom = std::clamp(zoom, kMinZoom, kMaxZoom);
+    const QPoint anchorPos = anchor ? *anchor : viewport()->rect().center();
+    const QPointF anchorScene = mapToScene(anchorPos);
+
+    // One scene unit is one image pixel; at 100 % it covers 1/scale logical
+    // pixels, i.e. one physical pixel on the screen it was taken from.
+    const double m = zoom / m_scene->imageScale();
+    setTransform(QTransform::fromScale(m, m));
+
+    // Keep the anchor point under the mouse (or the centre) in place.
+    const QPointF moved = mapFromScene(anchorScene) - QPointF(anchorPos);
+    horizontalScrollBar()->setValue(horizontalScrollBar()->value() + qRound(moved.x()));
+    verticalScrollBar()->setValue(verticalScrollBar()->value() + qRound(moved.y()));
+
+    // From two screen pixels per image pixel on, show crisp pixels instead
+    // of a blurry upscale, so details can be read exactly.
+    m_scene->setSmoothBase(m * devicePixelRatioF() < 2.0);
     for (FrameItem *frame : m_scene->frames())
         frame->viewZoomChanged();
     emit zoomChanged();
@@ -135,18 +198,77 @@ QGraphicsItem *EditorView::annotationAt(const QPoint &viewPos) const
     return nullptr;
 }
 
+void EditorView::startPan(const QPoint &pos)
+{
+    m_panning = true;
+    m_panLast = pos;
+    viewport()->setCursor(Qt::ClosedHandCursor);
+}
+
+void EditorView::restoreCursor()
+{
+    if (m_spaceHeld)
+        viewport()->setCursor(Qt::OpenHandCursor);
+    else
+        viewport()->setCursor(isDrawingTool() ? Qt::CrossCursor : Qt::ArrowCursor);
+}
+
+void EditorView::resizeEvent(QResizeEvent *event)
+{
+    QGraphicsView::resizeEvent(event);
+    if (m_fitMode)
+        updateFit(); // the image grows and shrinks with the window
+}
+
+bool EditorView::viewportEvent(QEvent *event)
+{
+    // Touchpad pinch (Wayland pointer gestures, macOS trackpad).
+    if (event->type() == QEvent::NativeGesture) {
+        auto *gesture = static_cast<QNativeGestureEvent *>(event);
+        if (gesture->gestureType() == Qt::ZoomNativeGesture && hasImage()) {
+            m_fitMode = false;
+            const QPoint anchor = gesture->position().toPoint();
+            applyZoom(zoom() * (1.0 + gesture->value()), &anchor);
+            return true;
+        }
+    }
+    return QGraphicsView::viewportEvent(event);
+}
+
+void EditorView::keyPressEvent(QKeyEvent *event)
+{
+    // Space + drag pans, for touchpads without a middle button.
+    if (event->key() == Qt::Key_Space && !event->isAutoRepeat()) {
+        m_spaceHeld = true;
+        restoreCursor();
+        return;
+    }
+    QGraphicsView::keyPressEvent(event);
+}
+
+void EditorView::keyReleaseEvent(QKeyEvent *event)
+{
+    if (event->key() == Qt::Key_Space && !event->isAutoRepeat()) {
+        m_spaceHeld = false;
+        m_panning = false;
+        restoreCursor();
+        return;
+    }
+    QGraphicsView::keyReleaseEvent(event);
+}
+
 void EditorView::mousePressEvent(QMouseEvent *event)
 {
-    if (event->button() == Qt::MiddleButton) {
-        m_panning = true;
-        m_panLast = event->position().toPoint();
-        viewport()->setCursor(Qt::ClosedHandCursor);
+    if (event->button() == Qt::MiddleButton || (event->button() == Qt::LeftButton && m_spaceHeld)) {
+        startPan(event->position().toPoint());
         return;
     }
 
     // Frame tool on empty space: start a new frame. On an existing frame the
     // tool behaves like Select, so the frame just drawn can be adjusted.
+    // Frames start only on the image; outside it the press selects as usual.
     if (event->button() == Qt::LeftButton && isDrawingTool() && hasImage()
+        && m_scene->sceneRect().contains(mapToScene(event->position().toPoint()))
         && !annotationAt(event->position().toPoint())) {
         m_scene->clearSelection();
         m_drawStart = mapToScene(event->position().toPoint());
@@ -177,12 +299,20 @@ void EditorView::mouseMoveEvent(QMouseEvent *event)
     }
 
     if (m_drawing) {
+        // Clamped to the image, so frames never reach outside it.
+        const QRectF bounds = m_scene->sceneRect();
         QPointF end = mapToScene(event->position().toPoint());
+        end = QPointF(std::clamp(end.x(), bounds.left(), bounds.right()),
+                      std::clamp(end.y(), bounds.top(), bounds.bottom()));
         if (event->modifiers() & Qt::ShiftModifier) {
             // Square ("Shift für Quadrat").
-            const qreal side = std::max(std::abs(end.x() - m_drawStart.x()), std::abs(end.y() - m_drawStart.y()));
-            end = m_drawStart + QPointF(end.x() < m_drawStart.x() ? -side : side,
-                                        end.y() < m_drawStart.y() ? -side : side);
+            const bool left = end.x() < m_drawStart.x();
+            const bool up = end.y() < m_drawStart.y();
+            // As large as the drag, but only as far as the image reaches.
+            const qreal side = std::min({std::max(std::abs(end.x() - m_drawStart.x()), std::abs(end.y() - m_drawStart.y())),
+                                         left ? m_drawStart.x() - bounds.left() : bounds.right() - m_drawStart.x(),
+                                         up ? m_drawStart.y() - bounds.top() : bounds.bottom() - m_drawStart.y()});
+            end = m_drawStart + QPointF(left ? -side : side, up ? -side : side);
         }
         m_drawing->setRect(QRectF(m_drawStart, end));
         return;
@@ -192,9 +322,9 @@ void EditorView::mouseMoveEvent(QMouseEvent *event)
 
 void EditorView::mouseReleaseEvent(QMouseEvent *event)
 {
-    if (m_panning && event->button() == Qt::MiddleButton) {
+    if (m_panning && (event->button() == Qt::MiddleButton || event->button() == Qt::LeftButton)) {
         m_panning = false;
-        viewport()->setCursor(isDrawingTool() ? Qt::CrossCursor : Qt::ArrowCursor);
+        restoreCursor();
         return;
     }
 
@@ -265,10 +395,14 @@ void EditorView::drawForeground(QPainter *painter, const QRectF &rect)
 void EditorView::wheelEvent(QWheelEvent *event)
 {
     if (!(event->modifiers() & Qt::ControlModifier) || !hasImage()) {
-        QGraphicsView::wheelEvent(event);
+        QGraphicsView::wheelEvent(event); // scrolls; Shift scrolls sideways
         return;
     }
-    applyZoom(event->angleDelta().y() > 0 ? 1.25 : 0.8);
+    // Proportional to the wheel/touchpad movement: one wheel notch (120)
+    // zooms by 20 %, small touchpad deltas by a little.
+    m_fitMode = false;
+    const QPoint anchor = event->position().toPoint();
+    applyZoom(zoom() * std::pow(1.2, event->angleDelta().y() / 120.0), &anchor);
 }
 
 void EditorView::dragEnterEvent(QDragEnterEvent *event)

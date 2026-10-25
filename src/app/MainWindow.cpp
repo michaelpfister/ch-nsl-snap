@@ -28,6 +28,7 @@
 #include <QKeyEvent>
 #include <QLabel>
 #include <QLocale>
+#include <QMenu>
 #include <QMessageBox>
 #include <QMimeData>
 #include <QPushButton>
@@ -286,11 +287,44 @@ QWidget *MainWindow::createTopBar()
 
     layout->addStretch(1);
 
-    m_zoomLabel = new QLabel(bar);
-    m_zoomLabel->setProperty("role", QStringLiteral("muted"));
-    m_zoomLabel->setMinimumWidth(48); // room for "100 %"
-    m_zoomLabel->setAlignment(Qt::AlignRight | Qt::AlignVCenter);
-    layout->addWidget(m_zoomLabel);
+    // Zoom (D-017): minus, the current zoom with a menu, plus.
+    auto *zoom = new QFrame(bar);
+    zoom->setProperty("role", QStringLiteral("segment"));
+    auto *zoomLayout = new QHBoxLayout(zoom);
+    zoomLayout->setContentsMargins(3, 3, 3, 3);
+    zoomLayout->setSpacing(0);
+    m_zoomOutButton = iconButton(tr("Verkleinern (Ctrl+Minus)"), zoom);
+    m_zoomInButton = iconButton(tr("Vergrössern (Ctrl+Plus)"), zoom);
+    m_zoomButton = new QToolButton(zoom);
+    m_zoomButton->setToolTip(tr("Zoomstufe"));
+    m_zoomButton->setPopupMode(QToolButton::InstantPopup);
+    m_zoomButton->setFocusPolicy(Qt::NoFocus);
+    m_zoomButton->setMinimumWidth(78); // room for "Einpassen"
+    auto *zoomMenu = new QMenu(m_zoomButton);
+    m_fitAction = zoomMenu->addAction(tr("Einpassen"), QKeySequence(Qt::CTRL | Qt::Key_0), m_view, &EditorView::fitToWindow);
+    m_fitAction->setCheckable(true);
+    zoomMenu->addSeparator();
+    for (int percent : {50, 100, 200, 400}) {
+        QAction *action = zoomMenu->addAction(QStringLiteral("%1 %").arg(percent), this,
+                                              [this, percent] { m_view->setZoom(percent / 100.0); });
+        if (percent == 100)
+            action->setShortcut(QKeySequence(Qt::CTRL | Qt::ALT | Qt::Key_0));
+    }
+    m_zoomButton->setMenu(zoomMenu);
+    connect(m_zoomOutButton, &QToolButton::clicked, m_view, &EditorView::zoomOut);
+    connect(m_zoomInButton, &QToolButton::clicked, m_view, &EditorView::zoomIn);
+    zoomLayout->addWidget(m_zoomOutButton);
+    zoomLayout->addWidget(m_zoomButton);
+    zoomLayout->addWidget(m_zoomInButton);
+    // Back to "fills the area" in one click; shown pressed while active.
+    m_fitButton = iconButton(tr("Einpassen: Bild füllt die Fläche (Ctrl+0)"), zoom);
+    m_fitButton->setCheckable(true);
+    connect(m_fitButton, &QToolButton::clicked, this, [this] {
+        m_view->fitToWindow();
+        updateZoomLabel(); // keeps the button pressed even if the zoom did not change
+    });
+    zoomLayout->addWidget(m_fitButton);
+    layout->addWidget(zoom);
 
     m_settingsButton = iconButton(tr("Einstellungen (F2)"), bar);
     connect(m_settingsButton, &QToolButton::clicked, this, &MainWindow::showSettings);
@@ -329,6 +363,19 @@ void MainWindow::createShortcuts()
     add(QKeySequence(Qt::CTRL | Qt::ALT | Qt::Key_C), &MainWindow::copyFilePath);
     add(QKeySequence(Qt::CTRL | Qt::Key_Delete), &MainWindow::clearEditor);
     add(QKeySequence(Qt::Key_F2), &MainWindow::showSettings);
+
+    // Zoom (D-017). Ctrl+0 (fit) and Ctrl+Alt+0 (100 %) sit in the zoom menu.
+    auto *zoomIn = new QAction(this);
+    // Ctrl + "=" too: on many layouts "+" needs Shift.
+    zoomIn->setShortcuts({QKeySequence::ZoomIn, QKeySequence(Qt::CTRL | Qt::Key_Equal)});
+    connect(zoomIn, &QAction::triggered, m_view, &EditorView::zoomIn);
+    addAction(zoomIn);
+    auto *zoomOut = new QAction(this);
+    zoomOut->setShortcuts(QKeySequence::ZoomOut);
+    connect(zoomOut, &QAction::triggered, m_view, &EditorView::zoomOut);
+    addAction(zoomOut);
+    // Menu shortcuts only work while the menu is open; make them global.
+    addActions(m_zoomButton->menu()->actions());
     // Delete removes the selected annotations, not the image (F-46).
     auto *remove = new QAction(this);
     remove->setShortcuts({QKeySequence::Delete, QKeySequence(Qt::Key_Backspace)});
@@ -370,6 +417,9 @@ void MainWindow::applyTheme(const Theme &theme)
     m_undoButton->setIcon(Icons::icon(QStringLiteral("undo"), theme.muted));
     m_redoButton->setIcon(Icons::icon(QStringLiteral("redo"), theme.muted));
     m_settingsButton->setIcon(Icons::icon(QStringLiteral("settings"), theme.muted));
+    m_zoomOutButton->setIcon(Icons::icon(QStringLiteral("zoom-out"), theme.muted));
+    m_zoomInButton->setIcon(Icons::icon(QStringLiteral("zoom-in"), theme.muted));
+    m_fitButton->setIcon(Icons::toggleIcon(QStringLiteral("fit"), theme.muted, theme.softText));
     m_copyButton->setIcon(Icons::icon(QStringLiteral("copy"), theme.text));
     m_saveButton->setIcon(Icons::icon(QStringLiteral("save"), QColor(Qt::white)));
 
@@ -394,9 +444,21 @@ void MainWindow::onSelectionChanged()
             style.badge = BadgePosition::None;
         m_properties->showTool(m_toolRail->currentTool());
         m_properties->setFrameStyle(style);
+        m_properties->setBadgeOptions({BadgePosition::TopRight, BadgePosition::TopLeft,
+                                       BadgePosition::BottomRight, BadgePosition::BottomLeft});
     } else {
         m_properties->showSelection(int(selected.size()));
-        m_properties->setFrameStyle(selected.first()->style());
+        // Show where the number really is, and offer only corners where it
+        // fits for every selected frame.
+        FrameStyle style = selected.first()->style();
+        style.badge = selected.first()->effectiveBadge();
+        m_properties->setFrameStyle(style);
+        QList<BadgePosition> fitting = selected.first()->fittingBadgePositions();
+        for (const FrameItem *frame : selected)
+            fitting.removeIf([frame](BadgePosition p) { return !frame->fittingBadgePositions().contains(p); });
+        if (fitting.isEmpty() && style.badge != BadgePosition::None)
+            fitting << style.badge; // nothing fits: keep the current one selectable
+        m_properties->setBadgeOptions(fitting);
     }
     updateObjectList();
 }
@@ -449,7 +511,16 @@ void MainWindow::updateActions()
 
 void MainWindow::updateZoomLabel()
 {
-    m_zoomLabel->setText(m_view->hasImage() ? QStringLiteral("%1 %").arg(qRound(m_view->zoom() * 100)) : QString());
+    const bool hasImage = m_view->hasImage();
+    m_zoomButton->setText(hasImage ? QStringLiteral("%1 %").arg(qRound(m_view->zoom() * 100)) : QStringLiteral("–"));
+    m_fitAction->setChecked(hasImage && m_view->isFitMode());
+    m_fitButton->setChecked(hasImage && m_view->isFitMode());
+    m_fitButton->setEnabled(hasImage);
+    for (QWidget *w : {static_cast<QWidget *>(m_zoomOutButton), static_cast<QWidget *>(m_zoomButton),
+                       static_cast<QWidget *>(m_zoomInButton)})
+        w->setEnabled(hasImage);
+    m_zoomOutButton->setEnabled(hasImage && m_view->zoom() > EditorView::kMinZoom + 0.001);
+    m_zoomInButton->setEnabled(hasImage && m_view->zoom() < EditorView::kMaxZoom - 0.001);
 }
 
 void MainWindow::captureWindow()

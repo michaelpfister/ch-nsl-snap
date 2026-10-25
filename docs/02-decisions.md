@@ -162,8 +162,20 @@ Each entry: context, decision, rationale, consequences. Entries marked **(assump
 **Context:** The first version of F-27 had a switch plus sliders for strength and blur. Blurring a HiDPI capture took about half a second in the debug build, on every slider step, so dimming felt slow (user feedback, 2026-10-25).
 **Decision:**
 - The switch in the tool rail always dims with **45 %** and **no blur**.
-- While dimmed, three small buttons below the switch choose **no blur, light (1 px) or strong (3 px)**.
+- While dimmed, three small buttons **above** the switch choose **no blur, light (1 px) or strong (3 px)**. The switch keeps its place, so dimming can be toggled without moving the mouse.
 - The sliders for strength and blur are only shown in the **advanced mode**, a setting in the new settings dialog (F2, gear button in the top bar). Their changes apply when the slider is released.
 - Performance: the blur reads memory in order (columns via a transposed copy) and is compiled with `-O2` even in debug builds; the blurred image is cached per radius and the finished dimmed layer per setting.
 **Rationale:** Three fixed levels cover the instruction pages and keep them consistent; fine-tuning is rarely needed.
 **Consequences:** Measured on a 2292 × 1318 capture: dimming 17 ms, the first use of a blur level about 100 ms (with a wait cursor), every later switch under 10 ms.
+
+## D-017 Zoom: fit mode that follows the window, steps, crisp pixels
+
+**Context:** New images were shown at most at 100 % and never grew with the window, so details of a capture were hard to read on a laptop screen (user feedback, 2026-10-25).
+**Decision:**
+- **Fit mode** ("Einpassen", Ctrl+0, and a button next to the zoom controls that stays pressed while active): the image fills the editor area, also beyond 100 %, and follows every window resize. New images start in fit mode.
+- Any manual zoom leaves fit mode: zoom buttons and steps (10 % … 800 %), Ctrl+Plus / Ctrl+Minus, Ctrl+wheel and touchpad pinch (proportional, around the pointer), the zoom menu (50/100/200/400 %, Ctrl+Alt+0 = 100 %).
+- From two screen pixels per image pixel on, the image is drawn with **crisp pixels** (nearest neighbour) instead of a blurry upscale.
+- Panning: scroll (Shift for sideways), middle button, or **Space + drag** for touchpads.
+**Rationale:** Reading details needs large, sharp pixels; a window that is enlarged should show the image larger without an extra click.
+**Rejected:** Capping fit mode at 100 %: that was the cause of the complaint.
+**Consequences:** Small captures (e.g. a little dialog) appear magnified in fit mode; Ctrl+Alt+0 shows them at their real size. 100 % means logical size (D-015): a scale-2 capture at 100 % looks as on the screen it was taken from.

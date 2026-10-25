@@ -82,7 +82,12 @@ private:
     QComboBox *m_timer = nullptr;
     QToolButton *m_undoButton = nullptr;
     QToolButton *m_redoButton = nullptr;
-    QLabel *m_zoomLabel = nullptr;
+    // Zoom (D-017): minus, percentage with a menu, plus.
+    QToolButton *m_zoomOutButton = nullptr;
+    QToolButton *m_zoomButton = nullptr;
+    QToolButton *m_zoomInButton = nullptr;
+    QToolButton *m_fitButton = nullptr;
+    QAction *m_fitAction = nullptr;
     QToolButton *m_settingsButton = nullptr;
     QPushButton *m_copyButton = nullptr;
     QPushButton *m_saveButton = nullptr;

@@ -26,6 +26,7 @@ void EditorScene::setBaseImage(const QImage &image, double scale)
     m_scale = scale;
     m_base = addPixmap(QPixmap::fromImage(image));
     m_base->setZValue(-1); // always below the annotations
+    m_base->setTransformationMode(m_smoothBase ? Qt::SmoothTransformation : Qt::FastTransformation);
     setSceneRect(m_base->boundingRect());
     m_dimItem = new DimItem(this);
     addItem(m_dimItem);
@@ -76,6 +77,16 @@ void EditorScene::clearAll()
     emit dimSettingsChanged();
     setSceneRect(QRectF());
     emit annotationsChanged();
+}
+
+void EditorScene::setSmoothBase(bool smooth)
+{
+    if (smooth == m_smoothBase)
+        return;
+    m_smoothBase = smooth;
+    if (m_base)
+        m_base->setTransformationMode(smooth ? Qt::SmoothTransformation : Qt::FastTransformation);
+    update();
 }
 
 QImage EditorScene::renderImage()

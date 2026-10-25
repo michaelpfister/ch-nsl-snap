@@ -38,6 +38,11 @@ public:
     QImage renderImage();
     bool isExporting() const { return m_exporting; }
 
+    // Smooth or crisp (nearest-pixel) drawing of the image; the view
+    // switches to crisp at high zoom (D-017).
+    void setSmoothBase(bool smooth);
+    bool smoothBase() const { return m_smoothBase; }
+
     // The image scale is stored in the PNG's resolution (96 dpi × scale), so
     // a saved HiDPI capture opens with the same scale again.
     static void setScaleMetadata(QImage &image, double scale);
@@ -75,6 +80,7 @@ private:
     QImage m_baseImage;
     double m_scale = 1.0;
     bool m_exporting = false;
+    bool m_smoothBase = true;
     FrameStyle m_frameStyle;
     DimSettings m_dim;
     DimItem *m_dimItem = nullptr;

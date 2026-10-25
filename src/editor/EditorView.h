@@ -33,8 +33,18 @@ public:
     // The result with annotations, as saved and copied.
     QImage renderedImage() const;
 
-    // 1.0 = the image at its logical size (100 %).
+    // Zoom (D-017). 1.0 = the image at its logical size (100 %).
+    static constexpr double kMinZoom = 0.05;
+    static constexpr double kMaxZoom = 8.0;
     double zoom() const;
+    // Fit mode: the image fills the visible area and follows window resizes.
+    // New images start in it; any manual zoom leaves it.
+    bool isFitMode() const { return m_fitMode; }
+    void fitToWindow();
+    // Sets the zoom around the centre of the view and leaves fit mode.
+    void setZoom(double zoom);
+    void zoomIn();
+    void zoomOut();
 
     void setTool(ToolId tool);
     // Deletes the selected annotations (Delete key, F-46). False if none.
@@ -49,6 +59,10 @@ protected:
     void drawBackground(QPainter *painter, const QRectF &rect) override;
     void drawForeground(QPainter *painter, const QRectF &rect) override;
     void wheelEvent(QWheelEvent *event) override;
+    void resizeEvent(QResizeEvent *event) override;
+    bool viewportEvent(QEvent *event) override;
+    void keyPressEvent(QKeyEvent *event) override;
+    void keyReleaseEvent(QKeyEvent *event) override;
     void mousePressEvent(QMouseEvent *event) override;
     void mouseMoveEvent(QMouseEvent *event) override;
     void mouseReleaseEvent(QMouseEvent *event) override;
@@ -57,8 +71,12 @@ protected:
     void dropEvent(QDropEvent *event) override;
 
 private:
-    void zoomToFit(double scale);
-    void applyZoom(double factor);
+    // Sets the zoom; `anchor` (viewport position) stays in place, or the
+    // view centre if null.
+    void applyZoom(double zoom, const QPoint *anchor = nullptr);
+    void updateFit();
+    void startPan(const QPoint &pos);
+    void restoreCursor();
     bool isDrawingTool() const;
     QGraphicsItem *annotationAt(const QPoint &viewPos) const;
 
@@ -72,7 +90,10 @@ private:
     // Positions of the selected items when a drag started, for the undo step.
     QHash<QGraphicsItem *, QPointF> m_positionsAtPress;
 
-    // Middle-button panning.
+    // Panning with the middle button, or Space + left button (touchpads).
     bool m_panning = false;
+    bool m_spaceHeld = false;
     QPoint m_panLast;
+
+    bool m_fitMode = true;
 };

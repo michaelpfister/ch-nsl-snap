@@ -70,18 +70,15 @@ ToolRail::ToolRail(QWidget *parent)
 
     layout->addStretch(1);
 
-    // Dim background (F-27): one switch, always 45 % without blur.
-    m_dimButton = railButton(this, tr("Hintergrund abdunkeln"));
-    layout->addWidget(m_dimButton, 0, Qt::AlignHCenter);
-    connect(m_dimButton, &QToolButton::clicked, this, &ToolRail::dimToggled);
-
-    // Below it, while dimmed: the three blur levels.
+    // While dimmed: the three blur levels, above the dim switch, so the
+    // switch itself never moves and can be toggled without moving the mouse.
     m_blurButtons = new QWidget(this);
     auto *blurLayout = new QVBoxLayout(m_blurButtons);
-    blurLayout->setContentsMargins(0, 2, 0, 0);
+    blurLayout->setContentsMargins(0, 0, 0, 2);
     blurLayout->setSpacing(2);
     auto *blurGroup = new QButtonGroup(this);
-    for (const BlurLevel &level : kBlurLevels) {
+    // Strongest at the top, "none" right above the switch.
+    for (const BlurLevel &level : {kBlurLevels[2], kBlurLevels[1], kBlurLevels[0]}) {
         QToolButton *button = railButton(m_blurButtons, tr(level.name), QSize(44, 28));
         button->setProperty("blurIcon", QString::fromLatin1(level.icon));
         blurGroup->addButton(button);
@@ -91,6 +88,12 @@ ToolRail::ToolRail(QWidget *parent)
     }
     m_blurButtons->hide();
     layout->addWidget(m_blurButtons, 0, Qt::AlignHCenter);
+
+    // Dim background (F-27): one switch, always 45 % without blur. Last in
+    // the rail, below the stretch, so its position is fixed.
+    m_dimButton = railButton(this, tr("Hintergrund abdunkeln"));
+    layout->addWidget(m_dimButton, 0, Qt::AlignHCenter);
+    connect(m_dimButton, &QToolButton::clicked, this, &ToolRail::dimToggled);
 
     setCurrentTool(ToolId::Select);
 }

@@ -34,6 +34,10 @@ public:
     // Shows `style` without emitting frameStyleChanged.
     void setFrameStyle(const FrameStyle &style);
 
+    // Number positions offered in the "Nummer" field; "Ohne Nummer" is
+    // always there. Positions where the number would be cut off are hidden.
+    void setBadgeOptions(const QList<BadgePosition> &positions);
+
     // One entry per annotation; `selected` marks the selected ones.
     void setObjects(const QStringList &labels, const QList<bool> &selected);
 

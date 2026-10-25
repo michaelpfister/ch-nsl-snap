@@ -76,6 +76,11 @@ QFrame[role="segment"] QToolButton, QFrame[role="segment"] QPushButton {
     color: @muted; padding: 0 12px; min-height: 30px; font-weight: 500;
 }
 QFrame[role="segment"] QToolButton:hover, QFrame[role="segment"] QPushButton:hover { color: @text; }
+QFrame[role="segment"] QToolButton::menu-indicator { image: none; width: 0; }
+QMenu { background: @panel; color: @text; border: 1px solid @border; padding: 4px; }
+QMenu::item { padding: 6px 24px 6px 12px; border-radius: 6px; }
+QMenu::item:selected { background: @soft; }
+QMenu::separator { height: 1px; background: @border; margin: 4px 6px; }
 QFrame[role="segment"] QToolButton:checked, QFrame[role="segment"] QPushButton:checked {
     background: @panel; color: @text; border: 1px solid @border;
 }
@@ -83,6 +88,7 @@ QFrame[role="segment"] QToolButton:checked, QFrame[role="segment"] QPushButton:c
 /* Plain icon buttons (undo, redo). */
 QToolButton[role="icon"] { background: transparent; border: none; border-radius: 8px; padding: 6px; }
 QToolButton[role="icon"]:hover { background: @hover; }
+QToolButton[role="icon"]:checked { background: @soft; }
 
 /* Tool rail. */
 #ToolRail QToolButton { background: transparent; border: none; border-radius: 10px; padding: 0; }

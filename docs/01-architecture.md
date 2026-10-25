@@ -54,7 +54,7 @@ Skeleton since 2026-10-25, with the approved design (D-014): top bar with captur
 The editor is object-based (D-012): the captured image stays unchanged, annotations are objects with properties, every change is an undoable command, pixels are only computed on render and export.
 
 - `EditorScene` (a `QGraphicsScene`) is the document: base image, annotation items, the undo stack, and `renderImage()` for export.
-- `EditorView` turns mouse input into commands: drawing with the active tool, moving (one `MoveItemsCommand` per drag), middle-button panning, Ctrl + wheel zoom.
+- `EditorView` turns mouse input into commands: drawing with the active tool, moving (one `MoveItemsCommand` per drag). It also owns the zoom (D-017): fit mode that follows resizes, steps, Ctrl + wheel and pinch around the pointer, crisp pixels at high zoom, panning with Space + drag or the middle button.
 - Annotation items (`FrameItem` so far) paint themselves, show handles when selected and push their own resize commands. A numbered frame is a `FrameItem` with a badge position; its number is computed by the scene from the creation order (`FrameItem::order`), so it renumbers itself and survives undo.
 - The dimmed background (F-27) is a document setting, not an object: `DimItem` sits between the base image and the annotations and paints a blurred copy of the image (`imaging/Blur`, cached per radius) plus a dark veil, clipped to everything outside the frames. The scene caches the blurred image per radius and the finished layer per setting (D-016). It paints with `SourceAtop`, so transparent window corners stay transparent.
 - `Commands.h` holds all undo commands; commands that take items out of the scene own them.

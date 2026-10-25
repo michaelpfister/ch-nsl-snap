@@ -66,7 +66,7 @@ void FrameItem::setStyle(const FrameStyle &style)
 bool FrameItem::isHiddenHandle(Handle handle) const
 {
     // The corner handle under the number badge would hide the number.
-    switch (m_style.badge) {
+    switch (effectiveBadge()) {
     case BadgePosition::TopRight: return handle == TopRight;
     case BadgePosition::TopLeft: return handle == TopLeft;
     case BadgePosition::BottomRight: return handle == BottomRight;
@@ -80,11 +80,77 @@ QRectF FrameItem::badgeRect() const
 {
     if (!isNumbered())
         return {};
+    const BadgePosition position = effectiveBadge();
+    QRectF badge = badgeRectAt(position);
+    // If no corner fits (frame about as large as the image), the circle
+    // moves inwards until it is on the image.
+    if (scene() && !badgeFits(position)) {
+        const QRectF bounds = mapRectFromScene(scene()->sceneRect());
+        badge.moveLeft(std::clamp(badge.left(), bounds.left(), std::max(bounds.left(), bounds.right() - badge.width())));
+        badge.moveTop(std::clamp(badge.top(), bounds.top(), std::max(bounds.top(), bounds.bottom() - badge.height())));
+    }
+    return badge;
+}
+
+bool FrameItem::badgeFits(BadgePosition position) const
+{
+    // Fits if the whole circle is on the image, so the export shows it.
+    return !scene() || scene()->sceneRect().contains(mapRectToScene(badgeRectAt(position)));
+}
+
+QList<BadgePosition> FrameItem::fittingBadgePositions() const
+{
+    QList<BadgePosition> result;
+    for (BadgePosition position : {BadgePosition::TopRight, BadgePosition::TopLeft,
+                                   BadgePosition::BottomRight, BadgePosition::BottomLeft}) {
+        if (badgeFits(position))
+            result << position;
+    }
+    return result;
+}
+
+BadgePosition FrameItem::effectiveBadge() const
+{
+    const BadgePosition wanted = m_style.badge;
+    if (wanted == BadgePosition::None || badgeFits(wanted))
+        return wanted;
+    // Nearest corner that fits: same edge mirrored first, then the other
+    // edge, then the opposite corner. The wish is kept in the style, so the
+    // number returns when the frame moves away from the edge.
+    const auto mirrorX = [](BadgePosition p) {
+        switch (p) {
+        case BadgePosition::TopRight: return BadgePosition::TopLeft;
+        case BadgePosition::TopLeft: return BadgePosition::TopRight;
+        case BadgePosition::BottomRight: return BadgePosition::BottomLeft;
+        case BadgePosition::BottomLeft: return BadgePosition::BottomRight;
+        case BadgePosition::None: break;
+        }
+        return p;
+    };
+    const auto mirrorY = [](BadgePosition p) {
+        switch (p) {
+        case BadgePosition::TopRight: return BadgePosition::BottomRight;
+        case BadgePosition::TopLeft: return BadgePosition::BottomLeft;
+        case BadgePosition::BottomRight: return BadgePosition::TopRight;
+        case BadgePosition::BottomLeft: return BadgePosition::TopLeft;
+        case BadgePosition::None: break;
+        }
+        return p;
+    };
+    for (BadgePosition candidate : {mirrorX(wanted), mirrorY(wanted), mirrorX(mirrorY(wanted))}) {
+        if (badgeFits(candidate))
+            return candidate;
+    }
+    return wanted; // nothing fits (frame as large as the image): see badgeRect
+}
+
+QRectF FrameItem::badgeRectAt(BadgePosition position) const
+{
     // Centred on the corner of the line, like the mockup.
     const qreal inset = penWidth() / 2;
     const QRectF line = m_rect.adjusted(inset, inset, -inset, -inset);
     QPointF corner;
-    switch (m_style.badge) {
+    switch (position) {
     case BadgePosition::TopRight: corner = line.topRight(); break;
     case BadgePosition::TopLeft: corner = line.topLeft(); break;
     case BadgePosition::BottomRight: corner = line.bottomRight(); break;
@@ -111,7 +177,14 @@ qreal FrameItem::screenToItem(qreal pixels) const
 QRectF FrameItem::boundingRect() const
 {
     const qreal margin = std::max(penWidth(), screenToItem(kHandleSize + kGrabMargin));
-    return m_rect.adjusted(-margin, -margin, margin, margin).united(badgeRect().adjusted(-2, -2, 2, 2));
+    QRectF bounds = m_rect.adjusted(-margin, -margin, margin, margin);
+    // All four corners, because the badge can switch corners while the
+    // frame moves (effectiveBadge), without a geometry change.
+    if (isNumbered()) {
+        const qreal r = FrameStyle::kBadgeDiameter * m_scale / 2 + 2;
+        bounds = bounds.united(m_rect.adjusted(-r, -r, r, r));
+    }
+    return bounds;
 }
 
 QPainterPath FrameItem::shape() const
@@ -212,6 +285,22 @@ FrameItem::Handle FrameItem::handleAt(const QPointF &pos) const
     return None;
 }
 
+QVariant FrameItem::itemChange(GraphicsItemChange change, const QVariant &value)
+{
+    if (change == ItemPositionChange && scene()) {
+        // Shift the new position so the frame stays inside the image.
+        const QRectF bounds = scene()->sceneRect();
+        QPointF pos = value.toPointF();
+        const QRectF r = m_rect.translated(pos);
+        if (r.width() <= bounds.width())
+            pos.rx() += std::clamp(r.left(), bounds.left(), bounds.right() - r.width()) - r.left();
+        if (r.height() <= bounds.height())
+            pos.ry() += std::clamp(r.top(), bounds.top(), bounds.bottom() - r.height()) - r.top();
+        return pos;
+    }
+    return QGraphicsItem::itemChange(change, value);
+}
+
 void FrameItem::hoverMoveEvent(QGraphicsSceneHoverEvent *event)
 {
     switch (handleAt(event->pos())) {
@@ -258,6 +347,9 @@ void FrameItem::mouseMoveEvent(QGraphicsSceneMouseEvent *event)
     case Left: r.setLeft(p.x()); break;
     case None: break;
     }
+    // Stay inside the image: its rectangle in item coordinates.
+    if (scene())
+        r = r.normalized().intersected(scene()->sceneRect().translated(-pos()));
     r = r.normalized();
     if (r.width() >= kMinSize && r.height() >= kMinSize)
         setRect(r);

@@ -12,7 +12,7 @@ struct Theme;
 
 // The vertical tool bar on the left (design mockup, F-20 ff.). At the
 // bottom: the "dim background" switch and, while it is on, three buttons
-// for the blur level (F-27).
+// above it for the blur level (F-27).
 class ToolRail : public QWidget
 {
     Q_OBJECT

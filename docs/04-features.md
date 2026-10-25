@@ -33,13 +33,13 @@ All annotations are objects on top of the image: they can be selected, moved, re
 | ID | Feature | Windows | GNOME | Effort | Notes |
 |---|---|---|---|---|---|
 | F-20 | **Highlight frame**: draw a rectangle around an element | ✓ | ✓ | M | Example: red and yellow frames around settings. As many as needed. **Done** (2026-10-25): tool R, Shift for a square. |
-| F-21 | Highlights can be **moved and resized** afterwards | ✓ | ✓ | (in F-20) | Handles on corners and edges. **Done.** Middle mouse button pans the view. |
+| F-21 | Highlights can be **moved and resized** afterwards | ✓ | ✓ | (in F-20) | Handles on corners and edges. **Done.** Frames stay inside the image when drawn, moved or resized. |
 | F-22 | **Frame colour** per highlight | ✓ | ✓ | S | Preset palette (red, yellow, green, blue, …) plus custom colour; the last used colour is remembered. **Done** for the palette (custom colour and remembering across restarts still open). |
 | F-23 | **Square or rounded** frame corners | ✓ | ✓ | S | Per highlight; default configurable. Line width configurable. **Done** (in logical px, D-015). |
-| F-24 | **Numbered callouts**: a highlight with a number badge, numbered automatically 1, 2, 3, … | ✓ | ✓ | M | Like the A–D example, but with numbers. Deleting or reordering renumbers the rest. Badge in the frame colour, placed at a corner of the frame (choosable). Matches step lists in instructions ("1. Klicken Sie auf …"). **Done** (2026-10-25): tool N; numbers follow creation order and survive undo; deleting or switching a number off renumbers the rest; position or "Ohne Nummer" per frame. Reorder by dragging entries in the object list (Q-18), undoable. |
+| F-24 | **Numbered callouts**: a highlight with a number badge, numbered automatically 1, 2, 3, … | ✓ | ✓ | M | Like the A–D example, but with numbers. Deleting or reordering renumbers the rest. Badge in the frame colour, placed at a corner of the frame (choosable). Matches step lists in instructions ("1. Klicken Sie auf …"). **Done** (2026-10-25): tool N; numbers follow creation order and survive undo; deleting or switching a number off renumbers the rest; position or "Ohne Nummer" per frame. Reorder by dragging entries in the object list (Q-18), undoable. Near the image edge the number moves to the nearest corner where it is fully visible, and the "Nummer" field offers only such corners; the chosen corner returns when the frame moves away from the edge. |
 | F-25 | **Text**: free text with colour and font size | ✓ | ✓ | M | Editable afterwards; optional background box for legibility. |
 | F-26 | **Pixelate or blur** a selected area | ✓ | ✓ | S | Choice per area. Strength adjustable. The export contains only the obscured pixels, never the original. |
-| F-27 | **Dim the background**: darken and/or slightly blur everything except the highlights | ✓ | ✓ | M | Like the "Enter code" example: highlights keep full brightness. One global switch with strength sliders; the cut-outs follow the highlight frames automatically. **Done** (2026-10-25, D-016): switch in the tool rail (always 45 %, no blur); while on, three buttons below it for no, light (1 px) and strong (3 px) blur. Strength and blur sliders only in the advanced mode (settings, F2). Undoable; transparent window corners stay transparent. |
+| F-27 | **Dim the background**: darken and/or slightly blur everything except the highlights | ✓ | ✓ | M | Like the "Enter code" example: highlights keep full brightness. One global switch with strength sliders; the cut-outs follow the highlight frames automatically. **Done** (2026-10-25, D-016): switch in the tool rail (always 45 %, no blur); while on, three buttons above it for no, light (1 px) and strong (3 px) blur, so the switch never moves. Strength and blur sliders only in the advanced mode (settings, F2). Undoable; transparent window corners stay transparent. |
 | F-28 | **Text marker** (highlighter): semi-transparent colour over text, like a felt pen | ✓ | ✓ | S | Like the WinSnap example (yellow, orange, green, cyan). Multiply blending so the text stays black. |
 | F-29 | **Replace text**: overwrite a text in the screenshot with another text, e.g. a real name with "Firstname Lastname" | ✓ | ✓ | L | See below. |
 
@@ -107,6 +107,11 @@ Modelled on [WinSnap's shortcuts](https://www.ntwind.com/software/winsnap/shortc
 | Ctrl + Delete | Clear the editor (F-10), with confirmation | – |
 | Escape | Cancel the current tool or selection; if there is none, hide to the tray | WinSnap: hide to tray |
 | F2 | Settings | same |
+| Ctrl + Plus / Ctrl + Minus | Zoom in / out in steps (D-017) | – |
+| Ctrl + 0 | Fit to window; follows window resizes | – |
+| Ctrl + Alt + 0 | 100 % | – |
+| Ctrl + wheel, touchpad pinch | Zoom around the pointer | – |
+| Space + drag, middle button | Pan | – |
 | V, C, R, N, T, A, M, P, E | Tools: select, crop, frame, numbered frame, text, arrow, marker, pixelate, replace text | – |
 
 Delete differs from WinSnap on purpose: in an editor with movable objects it must delete the selected object, not the whole image.

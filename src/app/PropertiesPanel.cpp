@@ -10,6 +10,7 @@
 #include <QHBoxLayout>
 #include <QLabel>
 #include <QDropEvent>
+#include <QListView>
 #include <QListWidget>
 
 #include <algorithm>
@@ -331,6 +332,15 @@ void PropertiesPanel::setFrameStyle(const FrameStyle &style)
     (style.rounded ? m_rounded : m_square)->setChecked(true);
     m_badge->setCurrentIndex(m_badge->findData(int(style.badge)));
     m_updating = false;
+}
+
+void PropertiesPanel::setBadgeOptions(const QList<BadgePosition> &positions)
+{
+    auto *list = static_cast<QListView *>(m_badge->view());
+    for (int row = 0; row < m_badge->count(); ++row) {
+        const auto position = BadgePosition(m_badge->itemData(row).toInt());
+        list->setRowHidden(row, position != BadgePosition::None && !positions.contains(position));
+    }
 }
 
 void PropertiesPanel::setObjects(const QStringList &labels, const QList<bool> &selected)

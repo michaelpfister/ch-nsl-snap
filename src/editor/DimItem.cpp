@@ -49,6 +49,7 @@ void DimItem::paint(QPainter *painter, const QStyleOptionGraphicsItem *, QWidget
 
     painter->save();
     painter->setRenderHint(QPainter::Antialiasing);
+    painter->setRenderHint(QPainter::SmoothPixmapTransform, m_scene->smoothBase());
     painter->setClipPath(dimmedArea());
     // The layer is the whole image already blurred and darkened (cached in
     // the scene); here it is only drawn outside the frames. SourceAtop paints

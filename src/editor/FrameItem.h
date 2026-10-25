@@ -24,6 +24,12 @@ public:
     void setStyle(const FrameStyle &style);
     bool isNumbered() const { return m_style.badge != BadgePosition::None; }
 
+    // Where the number is actually drawn: the position from the style if
+    // the circle fits on the image, otherwise the nearest corner that does.
+    BadgePosition effectiveBadge() const;
+    // Corners where the number would be fully visible; the panel offers only these.
+    QList<BadgePosition> fittingBadgePositions() const;
+
     // Creation order; numbers follow it (F-24). Kept through undo/redo, so
     // a deleted and restored frame gets its old number back.
     qint64 order() const { return m_order; }
@@ -39,6 +45,8 @@ public:
     void paint(QPainter *painter, const QStyleOptionGraphicsItem *option, QWidget *widget) override;
 
 protected:
+    // Keeps the frame inside the image when it is moved.
+    QVariant itemChange(GraphicsItemChange change, const QVariant &value) override;
     void hoverMoveEvent(QGraphicsSceneHoverEvent *event) override;
     void mousePressEvent(QGraphicsSceneMouseEvent *event) override;
     void mouseMoveEvent(QGraphicsSceneMouseEvent *event) override;
@@ -55,6 +63,8 @@ private:
     Handle handleAt(const QPointF &pos) const;
     bool showsHandles() const;
     QRectF badgeRect() const;
+    QRectF badgeRectAt(BadgePosition position) const;
+    bool badgeFits(BadgePosition position) const;
     bool isHiddenHandle(Handle handle) const;
     int number() const;
 
