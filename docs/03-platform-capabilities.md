@@ -4,6 +4,8 @@ What each platform lets an application do, and the way we use. "Extension" means
 
 ## Capture
 
+macOS (ScreenCaptureKit, macOS 14+) supports everything in the Windows column except scrolling capture, after the user has granted the "Screen Recording" permission (D-002).
+
 | Capability | Windows | GNOME / Wayland | KDE / Wayland (not a target) |
 |---|---|---|---|
 | Full screen, one monitor | Windows API | Extension or Screenshot portal | KWin ScreenShot2 or portal |

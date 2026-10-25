@@ -13,10 +13,15 @@ Each entry: context, decision, rationale, consequences. Entries marked **(assump
 - Flameshot/Ksnip: no real window capture on GNOME/Wayland (they only get the full screen through the portal).
 **Consequences:** If the feature list later turns out to be close to Flameshot or Ksnip, a fork remains an option for the editor part.
 
-## D-002 Target platforms: Windows and GNOME on Wayland
+## D-002 Target platforms: Windows, macOS and GNOME on Wayland
 
-**Decision:** Windows 10/11 and GNOME (46 and later) on Wayland are first-class. Other Wayland desktops only get the portal fallback. X11 is not a goal.
-**Rationale:** These are the platforms in daily use. KDE would allow more (KWin ScreenShot2), but nobody uses it here.
+**Decision:** Windows 10/11, macOS 14 or later, and GNOME (46 and later) on Wayland are first-class. Other Wayland desktops only get the portal fallback. X11 is not a goal.
+**Rationale:** Windows and GNOME are in daily use. macOS was added on 2026-10-25 so that screenshots look the same on all platforms the team uses. KDE would allow more (KWin ScreenShot2), but nobody uses it here.
+**Consequences (macOS):**
+- Capture via ScreenCaptureKit: windows can be listed and captured individually, also when covered, without system shadow and with transparent corners. No extension needed. macOS 14 is required for `SCScreenshotManager`.
+- The user grants the "Screen Recording" permission once; macOS 15 asks again periodically.
+- The app must be signed and notarised (Apple Developer account, about 99 USD per year). The permission is tied to the signature, so unsigned builds lose it on every update.
+- A Mac for building and testing is available in the office.
 
 ## D-003 Window capture on GNOME via our own Shell extension
 
@@ -57,7 +62,7 @@ Each entry: context, decision, rationale, consequences. Entries marked **(assump
 **Decision:** Extension UUID `nsl-snap@netslash.ch`, D-Bus name `ch.netslash.Snap.Shell`, interface `ch.netslash.Snap1`, object path `/ch/netslash/Snap`.
 **Consequences:** Renaming the product later (Q-03) does not require changing these, but it is cheaper before the first public release.
 
-## D-008 PoC client in Python (assumption)
+## D-008 PoC client in Python
 
 **Decision:** The PoC command-line client `tools/nsl-snap-pick` is written in Python with PyGObject, which is already present on GNOME systems.
 **Rationale:** It only exists to test the extension. The technology of the real app is still open (Q-01) and does not have to be decided for the PoC.
@@ -107,3 +112,22 @@ Each entry: context, decision, rationale, consequences. Entries marked **(assump
 - Exported PNGs contain only the rendered result. Pixelated or blurred areas cannot be recovered from the export.
 - The toolkit must offer a good 2D scene graph with hit testing, handles and blur effects. This argues for Qt (QGraphicsScene) in Q-01.
 - An editable project format becomes possible later (Q-13).
+
+## D-013 Qt 6 with C++ for the app
+
+**Context:** Three platforms (D-002) with native capture APIs (Win32/WinRT, ScreenCaptureKit, D-Bus) and an object-based editor (D-012). The team knows web technology (TypeScript, React), not C++.
+**Decision:** The app is written in **C++20 with Qt 6 Widgets**, built with CMake. The editor uses `QGraphicsScene`/`QGraphicsView`. Platform backends: C++/WinRT and DWM on Windows, Objective-C++ (`.mm`) with ScreenCaptureKit on macOS, QtDBus to the extension on GNOME. All platforms use the same Qt LTS version (6.8).
+**Rationale:**
+- One renderer on all platforms, so exported images are identical everywhere.
+- `QGraphicsScene` provides selectable, movable, resizable items, hit testing and effects out of the box, which D-012 needs.
+- C++ reaches all three native capture APIs directly, without bridges.
+- The development is handed over to Claude; the team accepts learning C++ for its own changes later (2026-10-25).
+**Rejected:**
+- Tauri 2 with a TypeScript/React editor: familiar to the team, but three different web views (WebKitGTK on Linux is the weakest) and a Rust layer in between.
+- Qt with QML: a JavaScript-like UI language, but still a new world for the team, and the editor's needs fit Widgets/`QGraphicsScene` better.
+- PySide6 (Python): packaging and notarising Python bundles on three platforms is cumbersome, and the native capture APIs are only reachable via bridges.
+- Transpiling TypeScript to C++: no usable tool exists.
+**Consequences:**
+- Qt 6.4 from the Ubuntu/Zorin packages is too old; Qt 6.8 LTS is installed separately (Qt online installer or `aqtinstall`) on every platform.
+- Qt is used under the LGPL v3, linked dynamically.
+- Code must stay readable for C++ newcomers: modern C++, Qt idioms, no template tricks, comments where Qt or platform APIs are not obvious.

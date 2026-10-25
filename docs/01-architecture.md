@@ -2,7 +2,7 @@
 
 ## Purpose
 
-A screenshot tool for daily work on Windows and on Linux with GNOME (Wayland). The reference is WinSnap, whose strongest feature is capturing **one window** cleanly: nothing from neighbouring windows or the desktop, clean edges and transparent rounded corners. No shadow is added: the instruction pages add it via CSS (D-004). Captures can be annotated, copied to the clipboard and saved with a naming scheme.
+A screenshot tool for daily work on Windows, macOS and Linux with GNOME (Wayland). The reference is WinSnap, whose strongest feature is capturing **one window** cleanly: nothing from neighbouring windows or the desktop, clean edges and transparent rounded corners. No shadow is added: the instruction pages add it via CSS (D-004). Captures can be annotated, copied to the clipboard and saved with a naming scheme.
 
 The development machine is Zorin OS with GNOME Shell 46 on Wayland.
 
@@ -10,11 +10,13 @@ The development machine is Zorin OS with GNOME Shell 46 on Wayland.
 
 Capturing is the only part that differs fundamentally between platforms. Wayland in particular does not let normal applications see other windows (see [03-platform-capabilities.md](03-platform-capabilities.md)). The app is therefore split into a **capture backend** per platform and a **shared core** that never knows where an image came from.
 
-| Concern | Windows | GNOME (Wayland) | Fallback (any Wayland desktop) |
-|---|---|---|---|
-| Window capture | Windows API (DWM/Graphics Capture) | NSL Snap Shell extension (D-Bus) | ScreenCast portal, window source |
-| Full screen / area | Windows API | Shell extension, or Screenshot portal | Screenshot portal |
-| Window list / geometry | Windows API | Shell extension | not available |
+| Concern | Windows | macOS | GNOME (Wayland) | Fallback (any Wayland desktop) |
+|---|---|---|---|---|
+| Window capture | Windows API (DWM/Graphics Capture) | ScreenCaptureKit | NSL Snap Shell extension (D-Bus) | ScreenCast portal, window source |
+| Full screen / area | Windows API | ScreenCaptureKit | Shell extension, or Screenshot portal | Screenshot portal |
+| Window list / geometry | Windows API | ScreenCaptureKit (`SCShareableContent`) | Shell extension | not available |
+
+The app is C++20 with Qt 6.8 Widgets (D-013).
 
 ## Components
 
