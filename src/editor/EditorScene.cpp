@@ -24,6 +24,7 @@ void EditorScene::setBaseImage(const QImage &image, double scale)
 {
     clearAll();
     m_baseImage = image;
+    m_crop = image.rect();
     m_scale = scale;
     m_base = addPixmap(QPixmap::fromImage(image));
     m_base->setZValue(-1); // always below the annotations
@@ -31,6 +32,22 @@ void EditorScene::setBaseImage(const QImage &image, double scale)
     setSceneRect(m_base->boundingRect());
     m_dimItem = new DimItem(this);
     addItem(m_dimItem);
+}
+
+void EditorScene::setCropRect(const QRect &rect)
+{
+    const QRect crop = rect.intersected(m_baseImage.rect());
+    if (crop.isEmpty() || crop == m_crop)
+        return;
+    m_crop = crop;
+    setSceneRect(crop);
+    // Hide what lies completely outside; a later crop or undo shows it again.
+    for (QGraphicsItem *item : items()) {
+        if (auto *annotation = dynamic_cast<RectItem *>(item))
+            annotation->setVisible(annotation->mapRectToScene(annotation->rect()).intersects(crop));
+    }
+    emit cropChanged();
+    emit annotationsChanged(); // the list and the numbers change with it
 }
 
 void EditorScene::setDimSettings(const DimSettings &settings)
@@ -70,6 +87,7 @@ void EditorScene::clearAll()
     m_base = nullptr;
     m_dimItem = nullptr;
     m_baseImage = QImage();
+    m_crop = QRect();
     m_scale = 1.0;
     m_blurred.clear();
     m_dimLayer = QPixmap();
@@ -77,6 +95,7 @@ void EditorScene::clearAll()
     m_dim.enabled = false;
     emit dimSettingsChanged();
     setSceneRect(QRectF());
+    emit cropChanged();
     emit annotationsChanged();
 }
 
@@ -94,7 +113,8 @@ QImage EditorScene::renderImage()
 {
     if (!hasImage())
         return {};
-    QImage out(m_baseImage.size(), QImage::Format_ARGB32_Premultiplied);
+    // Only the cropped part (F-12): the scene rect is the crop.
+    QImage out(m_crop.size(), QImage::Format_ARGB32_Premultiplied);
     out.fill(Qt::transparent);
 
     m_exporting = true; // FrameItem hides its handles
@@ -157,7 +177,8 @@ QList<RectItem *> EditorScene::annotations() const
 {
     QList<RectItem *> result;
     for (QGraphicsItem *item : items()) {
-        if (auto *annotation = dynamic_cast<RectItem *>(item))
+        auto *annotation = dynamic_cast<RectItem *>(item);
+        if (annotation && annotation->isVisible())
             result << annotation;
     }
     std::sort(result.begin(), result.end(),

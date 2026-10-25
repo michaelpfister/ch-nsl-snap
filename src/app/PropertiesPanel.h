@@ -38,7 +38,9 @@ public:
 
     // Which property groups are visible: frame (colour, corners, line,
     // number) and/or pixelate (kind, strength).
-    void showSections(bool frame, bool redact, bool replace = false);
+    void showSections(bool frame, bool redact, bool replace = false, bool crop = false);
+    // Size of the crop draft (F-12), in image pixels.
+    void setCropSize(const QSize &size);
     // "Text ersetzen" for a selected replaced text.
     void showReplaceSelection();
 
@@ -85,6 +87,9 @@ signals:
     void objectClicked(int index);
     // The user dragged an entry in the object list to a new place (F-24).
     void objectMoved(int from, int to);
+    // "Zuschneiden" and "Ganzes Bild" in the crop section (F-12).
+    void cropApplyRequested();
+    void cropResetRequested();
     // The user changed the dim switch or one of its sliders (F-27).
     void dimSettingsChanged(const DimSettings &settings);
 
@@ -94,6 +99,8 @@ private:
     QWidget *m_frameSection = nullptr;
     QWidget *m_redactSection = nullptr;
     QWidget *m_replaceSection = nullptr;
+    QWidget *m_cropSection = nullptr;
+    QLabel *m_cropSize = nullptr;
     QLineEdit *m_replaceText = nullptr;
     QFontComboBox *m_replaceFont = nullptr;
     QSpinBox *m_replaceSize = nullptr;

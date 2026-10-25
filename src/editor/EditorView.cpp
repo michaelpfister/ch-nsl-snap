@@ -13,6 +13,7 @@
 #include <QMouseEvent>
 #include <QNativeGestureEvent>
 #include <QPainter>
+#include <QPainterPath>
 #include <QScrollBar>
 #include <QUndoStack>
 #include <QWheelEvent>
@@ -24,6 +25,24 @@ namespace {
 
 // A drawn frame smaller than this (screen pixels) counts as a click.
 constexpr int kMinDrawSize = 6;
+// Crop handles (screen pixels), as large as those of the annotations.
+constexpr qreal kCropHandleSize = 8.0;
+
+// The eight handle positions of a rectangle: top left, then clockwise.
+QList<QPointF> handlePoints(const QRectF &r)
+{
+    return {r.topLeft(), QPointF(r.center().x(), r.top()), r.topRight(), QPointF(r.right(), r.center().y()),
+            r.bottomRight(), QPointF(r.center().x(), r.bottom()), r.bottomLeft(), QPointF(r.left(), r.center().y())};
+}
+
+// A crop is made of whole image pixels.
+QRect snappedRect(const QRectF &rect)
+{
+    const QRectF r = rect.normalized();
+    const int left = int(std::lround(r.left()));
+    const int top = int(std::lround(r.top()));
+    return QRect(left, top, int(std::lround(r.right())) - left, int(std::lround(r.bottom())) - top);
+}
 
 bool firstLocalFile(const QMimeData *mime, QString *path)
 {
@@ -53,17 +72,36 @@ EditorView::EditorView(QUndoStack *undoStack, QWidget *parent)
     setBackgroundRole(QPalette::Dark);
     // Handles keep their screen size; redraw everything when they move.
     setViewportUpdateMode(QGraphicsView::FullViewportUpdate);
+    // Mouse moves without a button pressed, for the crop handle cursors.
+    viewport()->setMouseTracking(true);
+
+    // The view follows the scene rect (the crop), except while cropping.
+    connect(m_scene, &EditorScene::cropChanged, this, [this] {
+        if (m_tool == ToolId::Crop && hasImage()) {
+            m_cropDraft = m_scene->cropRect(); // e.g. undo while cropping
+            emit cropDraftChanged(m_cropDraft);
+        } else if (m_fitMode) {
+            updateFit();
+        }
+        viewport()->update();
+    });
 }
 
 void EditorView::setImage(const QImage &image, double scale)
 {
     m_scene->setBaseImage(image, scale);
+    if (m_tool == ToolId::Crop)
+        beginCropEditing();
     fitToWindow();
 }
 
 void EditorView::clear()
 {
     m_scene->clearAll();
+    m_cropDraft = QRect();
+    m_cropDrag = CropDrag::None;
+    setSceneRect(QRectF());
+    emit cropDraftChanged(m_cropDraft);
     resetTransform();
     viewport()->update();
     emit zoomChanged();
@@ -86,16 +124,187 @@ double EditorView::zoom() const
 
 void EditorView::setTool(ToolId tool)
 {
+    if (tool == m_tool)
+        return;
+    if (m_tool == ToolId::Crop)
+        endCropEditing();
     m_tool = tool;
-    setDragMode(isDrawingTool() ? QGraphicsView::NoDrag : QGraphicsView::RubberBandDrag);
-    viewport()->setCursor(isDrawingTool() ? Qt::CrossCursor : Qt::ArrowCursor);
+    if (m_tool == ToolId::Crop && hasImage())
+        beginCropEditing();
+    setDragMode(isDrawingTool() || m_tool == ToolId::Crop ? QGraphicsView::NoDrag : QGraphicsView::RubberBandDrag);
+    restoreCursor();
 }
 
 bool EditorView::isDrawingTool() const
 {
-    // Frame and numbered frame draw so far; the others follow (docs/04-features.md).
+    // Tools that draw a new annotation; the others follow (docs/04-features.md).
     return m_tool == ToolId::Frame || m_tool == ToolId::Number || m_tool == ToolId::Pixelate
            || m_tool == ToolId::ReplaceText;
+}
+
+// --- Crop (F-12) --------------------------------------------------------
+
+void EditorView::beginCropEditing()
+{
+    // Show the whole image, so the crop can also grow again.
+    m_scene->clearSelection();
+    m_cropDraft = m_scene->cropRect();
+    m_cropDrag = CropDrag::None;
+    setSceneRect(QRectF(m_scene->baseImage().rect()));
+    if (m_fitMode)
+        updateFit();
+    viewport()->update();
+    emit cropDraftChanged(m_cropDraft);
+}
+
+void EditorView::endCropEditing()
+{
+    // Leaving the tool keeps what the user set up, like Enter.
+    applyCrop();
+    m_cropDrag = CropDrag::None;
+    setSceneRect(QRectF()); // follow the scene rect, i.e. the crop, again
+    if (m_fitMode)
+        updateFit();
+    viewport()->update();
+}
+
+void EditorView::setCropDraft(const QRect &rect)
+{
+    if (m_tool != ToolId::Crop || !hasImage())
+        return;
+    const QRect draft = rect.intersected(m_scene->baseImage().rect());
+    if (draft.isEmpty() || draft == m_cropDraft)
+        return;
+    m_cropDraft = draft;
+    viewport()->update();
+    emit cropDraftChanged(m_cropDraft);
+}
+
+void EditorView::applyCrop()
+{
+    if (m_tool != ToolId::Crop || !hasImage() || m_cropDraft.isEmpty() || m_cropDraft == m_scene->cropRect())
+        return;
+    m_scene->undoStack()->push(new SetCropCommand(m_scene, m_cropDraft));
+}
+
+void EditorView::cancelCrop()
+{
+    if (m_tool != ToolId::Crop || !hasImage())
+        return;
+    m_cropDrag = CropDrag::None;
+    m_cropDraft = m_scene->cropRect();
+    viewport()->update();
+    emit cropDraftChanged(m_cropDraft);
+}
+
+int EditorView::cropHandleAt(const QPoint &viewPos) const
+{
+    const QList<QPointF> points = handlePoints(QRectF(m_cropDraft));
+    const qreal grab = (kCropHandleSize + 4) / 2; // a little larger than drawn
+    for (int i = 0; i < points.size(); ++i) {
+        const QPointF p = mapFromScene(points[i]);
+        if (std::abs(p.x() - viewPos.x()) <= grab && std::abs(p.y() - viewPos.y()) <= grab)
+            return i;
+    }
+    return -1;
+}
+
+void EditorView::updateCropDrag(const QPointF &scenePos)
+{
+    // Everything stays on the image.
+    const QRectF bounds(m_scene->baseImage().rect());
+    const QPointF p(std::clamp(scenePos.x(), bounds.left(), bounds.right()),
+                    std::clamp(scenePos.y(), bounds.top(), bounds.bottom()));
+    QRect draft = m_cropDraft;
+    switch (m_cropDrag) {
+    case CropDrag::New: {
+        const QRect r = snappedRect(QRectF(m_cropPress, p));
+        const QSizeF onScreen = transform().mapRect(QRectF(r)).size();
+        // A tiny drag is a click: keep the previous crop.
+        draft = (onScreen.width() < kMinDrawSize || onScreen.height() < kMinDrawSize) ? m_cropAtPress : r;
+        break;
+    }
+    case CropDrag::Move: {
+        const QPointF delta = scenePos - m_cropPress;
+        draft = m_cropAtPress.translated(int(std::lround(delta.x())), int(std::lround(delta.y())));
+        // Push it back inside the image, keeping its size.
+        const QRect image = m_scene->baseImage().rect();
+        draft.moveLeft(std::clamp(draft.left(), image.left(), image.right() + 1 - draft.width()));
+        draft.moveTop(std::clamp(draft.top(), image.top(), image.bottom() + 1 - draft.height()));
+        break;
+    }
+    case CropDrag::Handle: {
+        QRectF r(m_cropAtPress);
+        switch (m_cropHandle) {
+        case 0: r.setTopLeft(p); break;
+        case 1: r.setTop(p.y()); break;
+        case 2: r.setTopRight(p); break;
+        case 3: r.setRight(p.x()); break;
+        case 4: r.setBottomRight(p); break;
+        case 5: r.setBottom(p.y()); break;
+        case 6: r.setBottomLeft(p); break;
+        case 7: r.setLeft(p.x()); break;
+        default: break;
+        }
+        const QRect snapped = snappedRect(r);
+        if (snapped.width() >= 1 && snapped.height() >= 1)
+            draft = snapped;
+        break;
+    }
+    case CropDrag::None:
+        return;
+    }
+    if (draft != m_cropDraft) {
+        m_cropDraft = draft;
+        viewport()->update();
+        emit cropDraftChanged(m_cropDraft);
+    }
+}
+
+void EditorView::updateCropCursor(const QPoint &viewPos)
+{
+    switch (cropHandleAt(viewPos)) {
+    case 0:
+    case 4: viewport()->setCursor(Qt::SizeFDiagCursor); return;
+    case 2:
+    case 6: viewport()->setCursor(Qt::SizeBDiagCursor); return;
+    case 1:
+    case 5: viewport()->setCursor(Qt::SizeVerCursor); return;
+    case 3:
+    case 7: viewport()->setCursor(Qt::SizeHorCursor); return;
+    default: break;
+    }
+    const bool inside = QRectF(m_cropDraft).contains(mapToScene(viewPos));
+    viewport()->setCursor(inside ? Qt::SizeAllCursor : Qt::CrossCursor);
+}
+
+void EditorView::drawCropOverlay(QPainter *painter)
+{
+    const QRectF draft(m_cropDraft);
+    const qreal px = 1.0 / transform().m11(); // one screen pixel in scene units
+    painter->save();
+
+    // Darken what will be cut away.
+    QPainterPath outside;
+    outside.addRect(QRectF(m_scene->baseImage().rect()));
+    QPainterPath inside;
+    inside.addRect(draft);
+    painter->setPen(Qt::NoPen);
+    painter->setBrush(QColor(0, 0, 0, 140));
+    painter->drawPath(outside.subtracted(inside));
+
+    // Outline and handles keep their screen size.
+    const QColor accent = palette().color(QPalette::Highlight);
+    QPen outline(accent, 1.5);
+    outline.setCosmetic(true);
+    painter->setPen(outline);
+    painter->setBrush(Qt::NoBrush);
+    painter->drawRect(draft);
+    const qreal h = kCropHandleSize * px;
+    painter->setBrush(Qt::white);
+    for (const QPointF &point : handlePoints(draft))
+        painter->drawRect(QRectF(point - QPointF(h / 2, h / 2), QSizeF(h, h)));
+    painter->restore();
 }
 
 bool EditorView::deleteSelection()
@@ -131,11 +340,12 @@ void EditorView::updateFit()
         return;
     // Fill the visible area, larger than 100 % too, so the image grows
     // with the window and details become readable (D-017).
-    const QSizeF logical = QSizeF(m_scene->baseImage().size()) / m_scene->imageScale();
+    // The visible part: the crop, or the whole image while cropping.
+    const QSizeF logical = sceneRect().size() / m_scene->imageScale();
     const QSizeF available = QSizeF(viewport()->size()) - QSizeF(2 * kFitMargin, 2 * kFitMargin);
     const double fit = std::min(available.width() / logical.width(), available.height() / logical.height());
     applyZoom(std::clamp(fit, kMinZoom, kMaxZoom));
-    centerOn(m_scene->sceneRect().center());
+    centerOn(sceneRect().center());
 }
 
 void EditorView::setZoom(double zoom)
@@ -213,7 +423,7 @@ void EditorView::restoreCursor()
     if (m_spaceHeld)
         viewport()->setCursor(Qt::OpenHandCursor);
     else
-        viewport()->setCursor(isDrawingTool() ? Qt::CrossCursor : Qt::ArrowCursor);
+        viewport()->setCursor(isDrawingTool() || m_tool == ToolId::Crop ? Qt::CrossCursor : Qt::ArrowCursor);
 }
 
 void EditorView::resizeEvent(QResizeEvent *event)
@@ -246,6 +456,13 @@ void EditorView::keyPressEvent(QKeyEvent *event)
         restoreCursor();
         return;
     }
+    // "Enter bestätigt" (crop tool).
+    if (m_tool == ToolId::Crop && hasImage()
+        && (event->key() == Qt::Key_Return || event->key() == Qt::Key_Enter)) {
+        applyCrop();
+        emit cropConfirmed();
+        return;
+    }
     QGraphicsView::keyPressEvent(event);
 }
 
@@ -264,6 +481,30 @@ void EditorView::mousePressEvent(QMouseEvent *event)
 {
     if (event->button() == Qt::MiddleButton || (event->button() == Qt::LeftButton && m_spaceHeld)) {
         startPan(event->position().toPoint());
+        return;
+    }
+
+    // Crop tool: a handle resizes the draft, inside it moves, outside starts
+    // a new one. Annotations cannot be picked meanwhile.
+    if (m_tool == ToolId::Crop && hasImage()) {
+        if (event->button() == Qt::LeftButton) {
+            const QPoint viewPos = event->position().toPoint();
+            const QPointF scenePos = mapToScene(viewPos);
+            const QRectF bounds(m_scene->baseImage().rect());
+            m_cropHandle = cropHandleAt(viewPos);
+            m_cropAtPress = m_cropDraft;
+            if (m_cropHandle >= 0) {
+                m_cropDrag = CropDrag::Handle;
+                m_cropPress = scenePos;
+            } else if (QRectF(m_cropDraft).contains(scenePos)) {
+                m_cropDrag = CropDrag::Move;
+                m_cropPress = scenePos;
+            } else {
+                m_cropDrag = CropDrag::New;
+                m_cropPress = QPointF(std::clamp(scenePos.x(), bounds.left(), bounds.right()),
+                                      std::clamp(scenePos.y(), bounds.top(), bounds.bottom()));
+            }
+        }
         return;
     }
 
@@ -314,6 +555,14 @@ void EditorView::mouseMoveEvent(QMouseEvent *event)
         return;
     }
 
+    if (m_tool == ToolId::Crop && hasImage()) {
+        if (m_cropDrag != CropDrag::None)
+            updateCropDrag(mapToScene(event->position().toPoint()));
+        else if (!m_spaceHeld)
+            updateCropCursor(event->position().toPoint());
+        return;
+    }
+
     if (m_drawing) {
         // Clamped to the image, so frames never reach outside it.
         const QRectF bounds = m_scene->sceneRect();
@@ -341,6 +590,14 @@ void EditorView::mouseReleaseEvent(QMouseEvent *event)
     if (m_panning && (event->button() == Qt::MiddleButton || event->button() == Qt::LeftButton)) {
         m_panning = false;
         restoreCursor();
+        return;
+    }
+
+    if (m_tool == ToolId::Crop && hasImage()) {
+        if (event->button() == Qt::LeftButton && m_cropDrag != CropDrag::None) {
+            updateCropDrag(mapToScene(event->position().toPoint()));
+            m_cropDrag = CropDrag::None;
+        }
         return;
     }
 
@@ -386,6 +643,20 @@ void EditorView::mouseReleaseEvent(QMouseEvent *event)
         m_scene->undoStack()->push(new MoveItemsCommand(moves));
 }
 
+void EditorView::mouseDoubleClickEvent(QMouseEvent *event)
+{
+    // A double click inside the crop confirms it, like Enter.
+    if (m_tool == ToolId::Crop && hasImage()) {
+        if (event->button() == Qt::LeftButton
+            && QRectF(m_cropDraft).contains(mapToScene(event->position().toPoint()))) {
+            applyCrop();
+            emit cropConfirmed();
+        }
+        return;
+    }
+    QGraphicsView::mouseDoubleClickEvent(event);
+}
+
 void EditorView::drawBackground(QPainter *painter, const QRectF &rect)
 {
     QGraphicsView::drawBackground(painter, rect);
@@ -411,8 +682,25 @@ void EditorView::drawBackground(QPainter *painter, const QRectF &rect)
 void EditorView::drawForeground(QPainter *painter, const QRectF &rect)
 {
     QGraphicsView::drawForeground(painter, rect);
-    if (hasImage())
+    if (hasImage() && m_tool == ToolId::Crop) {
+        drawCropOverlay(painter);
         return;
+    }
+    if (hasImage()) {
+        // The base image and annotations reach beyond a crop; cover them
+        // with the canvas, so the view shows what the export contains.
+        if (m_scene->isCropped()) {
+            QPainterPath outside;
+            outside.addRect(mapToScene(viewport()->rect()).boundingRect().united(sceneRect()));
+            QPainterPath crop;
+            crop.addRect(sceneRect());
+            painter->save();
+            painter->setRenderHint(QPainter::Antialiasing, false);
+            painter->fillPath(outside.subtracted(crop), palette().color(QPalette::Dark));
+            painter->restore();
+        }
+        return;
+    }
 
     // Empty state hint, drawn in viewport coordinates.
     painter->save();

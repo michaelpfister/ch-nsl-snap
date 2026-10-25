@@ -70,6 +70,9 @@ private:
     void selectObject(int index);
     void updateActions();
     void updateZoomLabel();
+    void updateImageInfo();
+    // Applies or cancels the crop draft and goes back to the select tool.
+    void finishCrop(bool apply);
 
     // Declared before m_view, which needs it at construction.
     QUndoStack *m_undoStack = nullptr;
@@ -79,6 +82,7 @@ private:
     std::unique_ptr<CaptureBackend> m_capture;
 
     QString m_imageName;  // for the suggested file name (F-41)
+    QString m_imageSource; // status bar: where the image came from
     QString m_savedPath;  // last saved file, for Ctrl+E and Ctrl+Alt+C
 
     // Top bar.

@@ -49,7 +49,7 @@ Each backend delivers a **capture result**: a PNG/RGBA image with alpha, plus me
 
 ### Shared core
 
-Skeleton since 2026-10-25, with the approved design (D-014): top bar with capture modes, timer, undo/redo, copy and save; tool rail; properties panel; status bar; the shortcuts of F-46 that already have a function; editor view with drag & drop and paste; GNOME backend, window crop and corner cleanup in C++ (`src/imaging/WindowImage`, same result as the PoC client, pixel for pixel). Still to come: the annotation tools, screen and region capture with freeze (D-011), settings, tray icon. Feature scope in [04-features.md](04-features.md).
+Skeleton since 2026-10-25, with the approved design (D-014): top bar with capture modes, timer, undo/redo, copy and save; tool rail; properties panel; status bar; the shortcuts of F-46 that already have a function; editor view with drag & drop and paste; GNOME backend, window crop and corner cleanup in C++ (`src/imaging/WindowImage`, same result as the PoC client, pixel for pixel). Since then: crop (F-12), frames, numbered frames, dim background, pixelate/blur and replace text. Still to come: the other annotation tools, screen and region capture with freeze (D-011), settings, tray icon. Feature scope in [04-features.md](04-features.md).
 
 The editor is object-based (D-012): the captured image stays unchanged, annotations are objects with properties, every change is an undoable command, pixels are only computed on render and export.
 

@@ -7,6 +7,7 @@
 
 #include <QList>
 #include <QPointF>
+#include <QRect>
 #include <QRectF>
 #include <QUndoCommand>
 
@@ -155,4 +156,19 @@ private:
     ReplaceItem *m_item;
     ReplaceStyle m_before;
     ReplaceStyle m_after;
+};
+
+// Crop (F-12). Only the visible part changes; the image and the
+// annotations stay, so undo brings everything back.
+class SetCropCommand : public QUndoCommand
+{
+public:
+    SetCropCommand(EditorScene *scene, const QRect &crop);
+    void redo() override;
+    void undo() override;
+
+private:
+    EditorScene *m_scene;
+    QRect m_before;
+    QRect m_after;
 };

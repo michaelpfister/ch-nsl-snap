@@ -152,6 +152,68 @@ private slots:
         delete frame;
     }
 
+    void cropToolDrawsAndEnterConfirms()
+    {
+        m_view->setZoom(0.5); // 1600 × 1200 image px = 400 × 300 on screen
+        m_view->setTool(ToolId::Crop);
+        QWidget *vp = m_view->viewport();
+        QCOMPARE(m_view->cropDraft(), QRect(0, 0, 1600, 1200));
+
+        // A drag from outside the image is cut at the image edge.
+        drag(vp, m_view->mapFromScene(QPointF(0, 0)) - QPoint(40, 40), m_view->mapFromScene(QPointF(800, 600)));
+        QCOMPARE(m_view->cropDraft(), QRect(0, 0, 800, 600));
+        QVERIFY(!m_view->editorScene()->isCropped()); // only a draft so far
+        QCOMPARE(m_stack->count(), 0);
+
+        QTest::keyClick(m_view, Qt::Key_Return);
+        QCOMPARE(m_view->editorScene()->cropRect(), QRect(0, 0, 800, 600));
+        QCOMPARE(m_stack->count(), 1);
+        m_stack->undo();
+        QCOMPARE(m_view->cropDraft(), QRect(0, 0, 1600, 1200)); // the draft follows undo
+    }
+
+    void cropDraftMovesAndResizes()
+    {
+        m_view->setZoom(0.5);
+        m_view->setTool(ToolId::Crop);
+        m_view->setCropDraft(QRect(200, 200, 400, 400));
+        QWidget *vp = m_view->viewport();
+
+        // Inside: moves; it cannot leave the image.
+        drag(vp, m_view->mapFromScene(QPointF(400, 400)), m_view->mapFromScene(QPointF(-1000, 400)));
+        QCOMPARE(m_view->cropDraft(), QRect(0, 200, 400, 400));
+
+        // The bottom-right handle resizes, to whole pixels.
+        drag(vp, m_view->mapFromScene(QPointF(400, 600)), m_view->mapFromScene(QPointF(1000, 900)));
+        QCOMPARE(m_view->cropDraft(), QRect(0, 200, 1000, 700));
+
+        // A click outside keeps the draft.
+        const QPoint outside = m_view->mapFromScene(QPointF(1400, 100));
+        drag(vp, outside, outside + QPoint(1, 1));
+        QCOMPARE(m_view->cropDraft(), QRect(0, 200, 1000, 700));
+    }
+
+    void cancelAndLeavingTheCropTool()
+    {
+        m_view->setTool(ToolId::Crop);
+        m_view->setCropDraft(QRect(100, 100, 300, 200));
+        m_view->cancelCrop();
+        QCOMPARE(m_view->cropDraft(), QRect(0, 0, 1600, 1200));
+
+        // Leaving the tool keeps the draft, and the fit follows the crop.
+        m_view->setCropDraft(QRect(100, 100, 400, 300));
+        m_view->setTool(ToolId::Select);
+        QCOMPARE(m_view->editorScene()->cropRect(), QRect(100, 100, 400, 300));
+        QCOMPARE(m_view->sceneRect(), QRectF(100, 100, 400, 300));
+        QVERIFY(m_view->isFitMode());
+        QVERIFY(m_view->zoom() > 3.0); // 200 × 150 logical px fill 800 × 600
+
+        // Back in the tool, the whole image is shown again.
+        m_view->setTool(ToolId::Crop);
+        QCOMPARE(m_view->sceneRect(), QRectF(0, 0, 1600, 1200));
+        QCOMPARE(m_view->cropDraft(), QRect(100, 100, 400, 300));
+    }
+
 private:
     QUndoStack *m_stack = nullptr;
     EditorView *m_view = nullptr;

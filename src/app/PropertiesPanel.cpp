@@ -360,6 +360,35 @@ PropertiesPanel::PropertiesPanel(QWidget *parent)
             [this, pickColor] { pickColor(&m_replaceBackgroundColor, tr("Hintergrundfarbe")); });
     connect(rematch, &QPushButton::clicked, this, &PropertiesPanel::rematchRequested);
 
+    // Crop (F-12).
+    m_cropSection = new QWidget(this);
+    auto *cropLayout = new QVBoxLayout(m_cropSection);
+    cropLayout->setContentsMargins(0, 0, 0, 0);
+    cropLayout->setSpacing(8);
+    cropLayout->addWidget(sectionLabel(tr("Grösse"), this));
+    m_cropSize = new QLabel(this);
+    m_cropSize->setAccessibleName(tr("Grösse"));
+    cropLayout->addWidget(m_cropSize);
+    cropLayout->addSpacing(8);
+    auto *cropButtons = new QHBoxLayout;
+    auto *applyCrop = new QPushButton(tr("Zuschneiden"), this);
+    applyCrop->setProperty("role", QStringLiteral("primary"));
+    applyCrop->setToolTip(tr("Zuschneiden bestätigen (Enter)"));
+    auto *resetCrop = textButtonFor(tr("Ganzes Bild"), this);
+    resetCrop->setToolTip(tr("Auswahl auf das ganze Bild setzen"));
+    cropButtons->addWidget(applyCrop);
+    cropButtons->addWidget(resetCrop);
+    cropLayout->addLayout(cropButtons);
+    auto *cropHint = new QLabel(tr("Objekte ausserhalb werden ausgeblendet, nicht gelöscht. "
+                                   "Rückgängig oder ein grösserer Ausschnitt zeigt sie wieder."), this);
+    cropHint->setProperty("role", QStringLiteral("hint"));
+    cropHint->setWordWrap(true);
+    cropLayout->addWidget(cropHint);
+    connect(applyCrop, &QPushButton::clicked, this, &PropertiesPanel::cropApplyRequested);
+    connect(resetCrop, &QPushButton::clicked, this, &PropertiesPanel::cropResetRequested);
+    m_cropSection->hide();
+    layout->addWidget(m_cropSection);
+
     layout->addSpacing(16);
     layout->addWidget(separator(this));
     layout->addSpacing(16);
@@ -482,11 +511,18 @@ void PropertiesPanel::setRedactStyle(const RedactStyle &style)
     m_redactLevel->button(int(style.level))->setChecked(true);
 }
 
-void PropertiesPanel::showSections(bool frame, bool redact, bool replace)
+void PropertiesPanel::showSections(bool frame, bool redact, bool replace, bool crop)
 {
     m_frameSection->setVisible(frame);
     m_redactSection->setVisible(redact);
     m_replaceSection->setVisible(replace);
+    m_cropSection->setVisible(crop);
+}
+
+void PropertiesPanel::setCropSize(const QSize &size)
+{
+    m_cropSize->setText(size.isEmpty() ? QStringLiteral("–")
+                                       : tr("%1 × %2 px").arg(size.width()).arg(size.height()));
 }
 
 void PropertiesPanel::showReplaceSelection()
@@ -589,7 +625,10 @@ void PropertiesPanel::showTool(ToolId id)
 {
     const ToolInfo &tool = toolInfo(id);
     m_title->setText(tool.name);
-    m_hint->setText(id == ToolId::Select ? tr("nichts ausgewählt") : tr("für neue Objekte"));
+    if (id == ToolId::Crop)
+        m_hint->clear(); // the crop is not an object
+    else
+        m_hint->setText(id == ToolId::Select ? tr("nichts ausgewählt") : tr("für neue Objekte"));
 }
 
 void PropertiesPanel::showSelection(int count)
