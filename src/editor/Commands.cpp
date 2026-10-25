@@ -274,3 +274,23 @@ bool SetReplaceStyleCommand::mergeWith(const QUndoCommand *other)
     m_after = next->m_after;
     return true;
 }
+
+// --- Crop --------------------------------------------------------------
+
+SetCropCommand::SetCropCommand(EditorScene *scene, const QRect &crop)
+    : QUndoCommand(tr("Zuschneiden"))
+    , m_scene(scene)
+    , m_before(scene->cropRect())
+    , m_after(crop)
+{
+}
+
+void SetCropCommand::redo()
+{
+    m_scene->setCropRect(m_after);
+}
+
+void SetCropCommand::undo()
+{
+    m_scene->setCropRect(m_before);
+}

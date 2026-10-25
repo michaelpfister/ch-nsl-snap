@@ -204,3 +204,16 @@ Each entry: context, decision, rationale, consequences. Entries marked **(assump
 - The new text always stays **inside the filled area**: its baseline and left edge are clamped to the area, so letters never stand on the unchanged image (found when testing on a photo background, 2026-10-25).
 **Rationale:** Flat backgrounds (forms, lists, dialogs) are the common case; there the result is indistinguishable from the original. Matching the baseline matters more for the look than the exact font.
 **Consequences:** On gradients or images the fill is visible; blurring instead of filling would be an option there (Q-19). The exact font of the screenshot is not detected; the system font is a good default on the same system.
+
+## D-020 Crop: a view on the unchanged image, confirmed with Enter
+
+**Context:** F-12: crop the image, but keep the annotations outside so that undoing the crop restores them (D-012).
+**Decision:**
+- The crop is a **rectangle in image pixels** stored in the scene (`EditorScene::cropRect`), changed only through `SetCropCommand`. The base image is never cut: annotations keep their image coordinates, and pixelated areas or replaced texts still sample the original pixels around them.
+- The crop is the **scene rect**. So the export contains exactly the cropped part, annotations stay inside it like at the image edge, and number badges move to a corner that is visible in the crop.
+- Annotations **completely outside** the crop are hidden (not deleted): they disappear from the object list and from the numbering, and come back with undo or a larger crop. Partly covered ones stay and are cut at the edge.
+- Tool C: the **whole image** is shown with the part to be cut away darkened. A drag outside the draft draws a new one, inside it moves it, the eight handles resize it; always whole pixels and inside the image. The panel shows the size and has "Zuschneiden" and "Ganzes Bild".
+- **Enter**, a double click in the draft or "Zuschneiden" confirm it as one undo step and return to the select tool; **Escape** discards the draft. Switching to another tool keeps the draft, as most users expect.
+- Outside the crop the editor shows the canvas colour, so the view matches the export. The fit mode (D-017) fits the crop.
+**Rationale:** A crop is just another object in the object-based model (D-012); cutting pixels would make undo expensive and lose the annotations outside.
+**Consequences:** While the crop tool is active, annotations cannot be selected, and hidden ones are not shown. Selection handles of an annotation at the crop edge are partly covered by the canvas.

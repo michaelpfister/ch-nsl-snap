@@ -24,7 +24,7 @@ Most of the work is in the **editor**, which is platform-independent. Only captu
 |---|---|---|---|---|---|
 | F-10 | **Clear editor**: remove the image and all annotations, start from scratch | ✓ | ✓ | S | Asks for confirmation if there are unsaved changes. |
 | F-11 | **Undo / redo** with many steps | ✓ | ✓ | M | Every edit is a command on a stack (D-012). |
-| F-12 | **Crop** the image | ✓ | ✓ | S | Annotations outside the crop are kept but hidden, so undoing the crop restores them. |
+| F-12 | **Crop** the image | ✓ | ✓ | S | Annotations outside the crop are kept but hidden, so undoing the crop restores them. **Done** (2026-10-25, D-020): tool C; drag, move or resize the draft on the whole image, Enter or double click confirms, Esc discards. |
 
 ## Annotations
 

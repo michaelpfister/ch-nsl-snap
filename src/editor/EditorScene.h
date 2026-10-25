@@ -34,8 +34,18 @@ public:
     void clearAll();
 
     bool hasImage() const { return !m_baseImage.isNull(); }
+    // The whole captured image, also when cropped: annotations keep their
+    // image coordinates, so undoing a crop restores everything (F-12).
     QImage baseImage() const { return m_baseImage; }
     double imageScale() const { return m_scale; }
+
+    // Crop (F-12): the part of the image that is shown and exported, in
+    // image pixels. It is also the scene rect, so annotations stay inside
+    // it. Annotations completely outside are hidden, not deleted. Change it
+    // through SetCropCommand for undo.
+    QRect cropRect() const { return m_crop; }
+    void setCropRect(const QRect &rect);
+    bool isCropped() const { return m_crop != m_baseImage.rect(); }
 
     // The result as exported (F-40, F-41): base image plus annotations,
     // without selection handles.
@@ -53,7 +63,8 @@ public:
     static double scaleFromMetadata(const QImage &image);
 
     // All annotations (frames, pixelated areas) in creation order
-    // (RectItem::order): the order of the object list.
+    // (RectItem::order): the order of the object list. Without the ones
+    // hidden by the crop, so the visible numbers stay 1, 2, 3, …
     QList<RectItem *> annotations() const;
     QList<RectItem *> selectedAnnotations() const;
     // Only the frames, in the same order.
@@ -93,11 +104,13 @@ signals:
     // Annotations were added or removed (not emitted for moves or restyles).
     void annotationsChanged();
     void dimSettingsChanged();
+    void cropChanged();
 
 private:
     QUndoStack *m_undoStack;
     QGraphicsPixmapItem *m_base = nullptr;
     QImage m_baseImage;
+    QRect m_crop;
     double m_scale = 1.0;
     bool m_exporting = false;
     bool m_smoothBase = true;

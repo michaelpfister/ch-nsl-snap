@@ -460,6 +460,80 @@ private slots:
             QCOMPARE(out.pixelColor(x, 75), QColor(Qt::white));
     }
 
+    void cropExportsOnlyThePart()
+    {
+        // Left half red, right half blue, so the crop position is visible.
+        QImage base(200, 100, QImage::Format_ARGB32);
+        base.fill(kBlue);
+        for (int y = 0; y < 100; ++y)
+            for (int x = 0; x < 100; ++x)
+                base.setPixelColor(x, y, kRed);
+        m_scene->setBaseImage(base, 2.0);
+        m_stack->push(new SetCropCommand(m_scene, QRect(90, 10, 40, 30)));
+
+        QVERIFY(m_scene->isCropped());
+        QCOMPARE(m_scene->sceneRect(), QRectF(90, 10, 40, 30));
+        const QImage out = m_scene->renderImage();
+        QCOMPARE(out.size(), QSize(40, 30));
+        QCOMPARE(pixel(out, 9, 15), kRed);   // image x 99
+        QCOMPARE(pixel(out, 10, 15), kBlue); // image x 100: no blurred edge
+        QCOMPARE(pixel(out, 0, 0), kRed);
+        QCOMPARE(pixel(out, 39, 29), kBlue);
+        QCOMPARE(EditorScene::scaleFromMetadata(out), 2.0);
+        QCOMPARE(m_scene->baseImage().size(), QSize(200, 100)); // the original stays
+
+        m_stack->undo();
+        QVERIFY(!m_scene->isCropped());
+        QCOMPARE(m_scene->renderImage().size(), QSize(200, 100));
+    }
+
+    void cropHidesAnnotationsOutsideAndUndoRestoresThem()
+    {
+        FrameStyle numbered = squareStyle(kRed, 2);
+        numbered.badge = BadgePosition::TopRight;
+        auto *outside = new FrameItem(QRectF(10, 10, 30, 30), numbered, 1.0);
+        auto *inside = new FrameItem(QRectF(120, 40, 40, 30), numbered, 1.0);
+        auto *partly = new RedactItem(QRect(90, 10, 30, 20), RedactStyle(), 1.0);
+        m_stack->push(new AddItemsCommand(m_scene, {outside, inside, partly}, QStringLiteral("add")));
+        QCOMPARE(m_scene->numberOf(inside), 2);
+
+        m_stack->push(new SetCropCommand(m_scene, QRect(100, 0, 100, 100)));
+        QVERIFY(!outside->isVisible());
+        QVERIFY(inside->isVisible());
+        QVERIFY(partly->isVisible()); // reaches into the crop
+        QCOMPARE(m_scene->annotations(), (QList<RectItem *>{inside, partly}));
+        QCOMPARE(m_scene->numberOf(inside), 1); // the visible numbers start at 1
+        // The export does not contain the hidden frame's line.
+        const QImage out = m_scene->renderImage();
+        QCOMPARE(out.size(), QSize(100, 100));
+
+        m_stack->undo();
+        QVERIFY(outside->isVisible());
+        QCOMPARE(m_scene->annotations().size(), 3);
+        QCOMPARE(m_scene->numberOf(inside), 2);
+        QCOMPARE(pixel(m_scene->renderImage(), 11, 25), kRed);
+    }
+
+    void annotationsStayInsideTheCrop()
+    {
+        m_stack->push(new SetCropCommand(m_scene, QRect(50, 20, 100, 60)));
+        auto *frame = new FrameItem(QRectF(60, 30, 20, 20), squareStyle(kRed, 2), 1.0);
+        m_stack->push(new AddItemsCommand(m_scene, {frame}, QStringLiteral("add")));
+        frame->setPos(-500, -500);
+        QVERIFY(m_scene->sceneRect().contains(frame->mapRectToScene(frame->rect())));
+    }
+
+    void newImageResetsTheCrop()
+    {
+        m_stack->push(new SetCropCommand(m_scene, QRect(10, 10, 20, 20)));
+        m_stack->clear();
+        QImage base(300, 50, QImage::Format_ARGB32);
+        base.fill(Qt::white);
+        m_scene->setBaseImage(base, 1.0);
+        QVERIFY(!m_scene->isCropped());
+        QCOMPARE(m_scene->cropRect(), QRect(0, 0, 300, 50));
+    }
+
 private:
     QUndoStack *m_stack = nullptr;
     EditorScene *m_scene = nullptr;

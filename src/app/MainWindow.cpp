@@ -177,6 +177,16 @@ MainWindow::MainWindow(QWidget *parent)
         if (item->type() == ReplaceItem::Type)
             m_properties->focusReplaceText();
     });
+    // Crop (F-12): the panel shows the draft's size and confirms or resets it.
+    connect(m_view, &EditorView::cropDraftChanged, this, [this](const QRect &rect) {
+        m_properties->setCropSize(rect.size());
+    });
+    connect(m_view, &EditorView::cropConfirmed, this, [this] { finishCrop(true); });
+    connect(m_properties, &PropertiesPanel::cropApplyRequested, this, [this] { finishCrop(true); });
+    connect(m_properties, &PropertiesPanel::cropResetRequested, this, [this] {
+        m_view->setCropDraft(m_view->editorScene()->baseImage().rect());
+    });
+    connect(scene, &EditorScene::cropChanged, this, &MainWindow::updateImageInfo);
     connect(m_properties, &PropertiesPanel::objectClicked, this, &MainWindow::selectObject);
     connect(m_properties, &PropertiesPanel::objectMoved, this, [this](int from, int to) {
         m_undoStack->push(new ReorderItemsCommand(m_view->editorScene(), from, to));
@@ -420,6 +430,13 @@ void MainWindow::keyPressEvent(QKeyEvent *event)
 {
     // Escape: leave the current tool first (F-46). Hiding to the tray
     // follows with the tray icon (F-45).
+    // In the crop tool Enter confirms and Escape discards the draft, also
+    // when the focus is not in the editor.
+    if (m_toolRail->currentTool() == ToolId::Crop
+        && (event->key() == Qt::Key_Return || event->key() == Qt::Key_Enter || event->key() == Qt::Key_Escape)) {
+        finishCrop(event->key() != Qt::Key_Escape);
+        return;
+    }
     if (event->key() == Qt::Key_Escape && m_toolRail->currentTool() != ToolId::Select) {
         m_toolRail->setCurrentTool(ToolId::Select);
         return;
@@ -452,6 +469,15 @@ void MainWindow::applyTheme(const Theme &theme)
 
     m_toolRail->applyTheme(theme);
     m_properties->applyTheme(theme);
+}
+
+void MainWindow::finishCrop(bool apply)
+{
+    if (apply)
+        m_view->applyCrop();
+    else
+        m_view->cancelCrop();
+    m_toolRail->setCurrentTool(ToolId::Select);
 }
 
 void MainWindow::onToolChanged(ToolId id)
@@ -491,8 +517,8 @@ void MainWindow::onSelectionChanged()
         ReplaceStyle replaceDefaults;
         replaceDefaults.text = scene->replaceText();
         m_properties->setReplaceStyle(replaceDefaults);
-        m_properties->showSections(tool != ToolId::Pixelate && tool != ToolId::ReplaceText,
-                                   tool == ToolId::Pixelate, tool == ToolId::ReplaceText);
+        m_properties->showSections(tool != ToolId::Pixelate && tool != ToolId::ReplaceText && tool != ToolId::Crop,
+                                   tool == ToolId::Pixelate, tool == ToolId::ReplaceText, tool == ToolId::Crop);
         m_properties->setBadgeOptions({BadgePosition::TopRight, BadgePosition::TopLeft,
                                        BadgePosition::BottomRight, BadgePosition::BottomLeft});
     } else {
@@ -679,12 +705,26 @@ void MainWindow::setImage(const QImage &image, double scale, const QString &name
     m_undoStack->clear();
     m_view->setImage(image, scale);
     m_imageName = name;
+    m_imageSource = source;
     m_savedPath.clear();
-    m_imageInfo->setText(tr("%1 · %2 × %3 px · %4×")
-                             .arg(source).arg(image.width()).arg(image.height())
-                             .arg(QLocale().toString(scale, 'g', 3)));
+    updateImageInfo();
     updateActions();
     updateZoomLabel();
+}
+
+void MainWindow::updateImageInfo()
+{
+    const EditorScene *scene = m_view->editorScene();
+    if (!scene->hasImage())
+        return; // updateActions shows "Kein Bild"
+    // The size of the result, i.e. of the crop (F-12).
+    const QSize size = scene->cropRect().size();
+    QString text = tr("%1 · %2 × %3 px · %4×")
+                       .arg(m_imageSource).arg(size.width()).arg(size.height())
+                       .arg(QLocale().toString(scene->imageScale(), 'g', 3));
+    if (scene->isCropped())
+        text += tr(" · zugeschnitten");
+    m_imageInfo->setText(text);
 }
 
 void MainWindow::saveImage()

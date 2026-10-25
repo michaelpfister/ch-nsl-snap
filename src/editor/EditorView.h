@@ -6,6 +6,7 @@
 #include <QHash>
 #include <QImage>
 #include <QPointF>
+#include <QRect>
 
 class EditorScene;
 class RectItem;
@@ -47,6 +48,15 @@ public:
     void zoomOut();
 
     void setTool(ToolId tool);
+
+    // Crop tool (F-12): while it is active the whole image is shown and the
+    // user adjusts a draft rectangle; applyCrop() turns it into an undo
+    // step, cancelCrop() forgets it. Leaving the tool applies it.
+    QRect cropDraft() const { return m_cropDraft; }
+    void setCropDraft(const QRect &rect);
+    void applyCrop();
+    void cancelCrop();
+
     // Deletes the selected annotations (Delete key, F-46). False if none.
     bool deleteSelection();
 
@@ -59,6 +69,10 @@ signals:
     // Problems when recognising the original under a new replaced text (F-29).
     void replaceCutsText();
     void replaceNoPlainBackground();
+    // The crop draft changed (dragged, reset); `rect` in image pixels.
+    void cropDraftChanged(const QRect &rect);
+    // Enter or a double click confirmed the crop.
+    void cropConfirmed();
 
 protected:
     void drawBackground(QPainter *painter, const QRectF &rect) override;
@@ -71,6 +85,7 @@ protected:
     void mousePressEvent(QMouseEvent *event) override;
     void mouseMoveEvent(QMouseEvent *event) override;
     void mouseReleaseEvent(QMouseEvent *event) override;
+    void mouseDoubleClickEvent(QMouseEvent *event) override;
     void dragEnterEvent(QDragEnterEvent *event) override;
     void dragMoveEvent(QDragMoveEvent *event) override;
     void dropEvent(QDropEvent *event) override;
@@ -84,6 +99,16 @@ private:
     void restoreCursor();
     bool isDrawingTool() const;
     QGraphicsItem *annotationAt(const QPoint &viewPos) const;
+
+    // Crop tool (F-12).
+    enum class CropDrag { None, New, Move, Handle };
+    void beginCropEditing();
+    void endCropEditing();
+    // Index of the draft's handle under `viewPos` (0 = top left, clockwise), or -1.
+    int cropHandleAt(const QPoint &viewPos) const;
+    void updateCropDrag(const QPointF &scenePos);
+    void updateCropCursor(const QPoint &viewPos);
+    void drawCropOverlay(QPainter *painter);
 
     EditorScene *m_scene;
     ToolId m_tool = ToolId::Select;
@@ -101,4 +126,10 @@ private:
     QPoint m_panLast;
 
     bool m_fitMode = true;
+
+    QRect m_cropDraft;
+    CropDrag m_cropDrag = CropDrag::None;
+    int m_cropHandle = -1;
+    QPointF m_cropPress;
+    QRect m_cropAtPress;
 };
