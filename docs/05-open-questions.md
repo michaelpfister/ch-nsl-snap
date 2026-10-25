@@ -15,4 +15,5 @@
 
 | # | Question | Resolution | Recorded in |
 |---|---|---|---|
+| Q-09 | How do we remove the shadow residue in the rounded corners (PoC finding 1)? | Flood fill from each corner through low-alpha pixels, in the app | D-009 |
 | — | Which Linux desktop? | GNOME on Wayland (Zorin OS, GNOME 46) | D-002 |

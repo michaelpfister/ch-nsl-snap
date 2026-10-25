@@ -17,11 +17,71 @@ import sys
 import gi
 
 gi.require_version("Gio", "2.0")
-from gi.repository import Gio, GLib  # noqa: E402
+gi.require_version("GdkPixbuf", "2.0")
+from gi.repository import GdkPixbuf, Gio, GLib  # noqa: E402
 
 BUS_NAME = "ch.netslash.Snap.Shell"
 OBJECT_PATH = "/ch/netslash/Snap"
 INTERFACE = "ch.netslash.Snap1"
+
+
+# Corner cleanup (docs/02-decisions.md, D-009). The client-side shadow lies
+# under the window and shows through the transparent corner cut-outs. Pixels
+# below this alpha that are connected to a corner are shadow, not window.
+CORNER_ALPHA_THRESHOLD = 80
+# Largest corner radius we expect, in logical px (libadwaita uses 12-15).
+CORNER_MAX_RADIUS = 24
+
+
+def clean_corners(png: bytes, scale: float) -> tuple[bytes, int]:
+    """Makes shadow residue in the four corners fully transparent.
+
+    Flood-fills from each corner pixel through pixels with alpha below
+    CORNER_ALPHA_THRESHOLD, limited to a square of CORNER_MAX_RADIUS. The
+    anti-aliased window edge has a higher alpha and is kept. Square corners
+    (opaque corner pixel) are left alone.
+
+    Returns the new PNG and the number of cleared pixels.
+    """
+    loader = GdkPixbuf.PixbufLoader.new_with_type("png")
+    loader.write(png)
+    loader.close()
+    pixbuf = loader.get_pixbuf()
+    if not pixbuf.get_has_alpha():
+        return png, 0
+
+    w, h = pixbuf.get_width(), pixbuf.get_height()
+    n, rs = pixbuf.get_n_channels(), pixbuf.get_rowstride()
+    data = bytearray(pixbuf.get_pixels())
+    size = min(round(CORNER_MAX_RADIUS * scale), w // 2, h // 2)
+
+    def alpha_index(x: int, y: int) -> int:
+        return y * rs + x * n + 3
+
+    cleared = 0
+    for x0, y0, dx, dy in ((0, 0, 1, 1), (w - 1, 0, -1, 1), (0, h - 1, 1, -1), (w - 1, h - 1, -1, -1)):
+        stack = [(0, 0)]
+        seen = set()
+        while stack:
+            i, j = stack.pop()
+            if (i, j) in seen or not (0 <= i < size and 0 <= j < size):
+                continue
+            seen.add((i, j))
+            a = alpha_index(x0 + dx * i, y0 + dy * j)
+            if data[a] >= CORNER_ALPHA_THRESHOLD:
+                continue
+            if data[a]:
+                data[a] = 0
+                cleared += 1
+            stack += [(i + 1, j), (i, j + 1), (i - 1, j), (i, j - 1)]
+
+    if not cleared:
+        return png, 0
+    cleaned = GdkPixbuf.Pixbuf.new_from_bytes(
+        GLib.Bytes.new(bytes(data)), GdkPixbuf.Colorspace.RGB, True, 8, w, h, rs
+    )
+    _, out = cleaned.save_to_bufferv("png", [], [])
+    return bytes(out), cleared
 
 
 def default_output(title: str) -> pathlib.Path:
@@ -40,6 +100,12 @@ def main() -> int:
         choices=["frame", "buffer"],
         default="frame",
         help="frame: visible window only (default); buffer: keep shadow margins",
+    )
+    parser.add_argument(
+        "--no-clean-corners",
+        dest="clean_corners",
+        action="store_false",
+        help="keep shadow residue in the rounded corners",
     )
     parser.add_argument("--clipboard", action="store_true", help="also copy to clipboard (needs wl-copy)")
     parser.add_argument("--info", action="store_true", help="print capture metadata as JSON")
@@ -72,6 +138,9 @@ def main() -> int:
 
     png = result.get_child_value(0).get_data_as_bytes().get_data()
     info = result.get_child_value(1).unpack()
+
+    if args.clean_corners and info.get("crop") == "frame":
+        png, info["corner-pixels-cleared"] = clean_corners(png, info.get("scale", 1.0))
 
     output = args.output or default_output(info.get("title", ""))
     output.parent.mkdir(parents=True, exist_ok=True)

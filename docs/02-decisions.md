@@ -59,3 +59,13 @@ Each entry: context, decision, rationale, consequences. Entries marked **(assump
 
 **Decision:** The PoC command-line client `tools/nsl-snap-pick` is written in Python with PyGObject, which is already present on GNOME systems.
 **Rationale:** It only exists to test the extension. The technology of the real app is still open (Q-01) and does not have to be decided for the PoC.
+
+## D-009 Clean the corners in the app
+
+**Context:** The client-side shadow lies under the window. Inside the frame rectangle it shows through the transparent corner cut-outs with alpha up to about 25 % (PoC finding 1). Cropping cannot remove it.
+**Decision:** After capture, the app clears shadow residue in each corner: starting at the corner pixel, a flood fill makes every connected pixel with alpha below 80 fully transparent, limited to a square of 24 logical px. Pixels at or above the threshold (the anti-aliased window edge) are kept. On by default; the PoC client has `--no-clean-corners` to compare.
+**Rationale:** Simple, needs no knowledge of the corner radius, and leaves square corners untouched (an opaque corner pixel stops the fill at once). It is image processing and therefore belongs in the app, not in the extension (D-003, D-006).
+**Rejected:** A geometric mask with a fixed radius: radii differ between toolkits and versions, and a wrong radius cuts into the window.
+**Consequences:**
+- The edge pixels kept still contain a little shadow. Not visible in practice.
+- Windows with their own transparency near the corners (e.g. a translucent terminal) could lose low-alpha pixels in the corner squares. Accepted for now.
