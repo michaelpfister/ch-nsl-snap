@@ -77,6 +77,8 @@ private:
     void onRedactStyleChanged(const RedactStyle &style);
     void onReplaceStyleChanged(const ReplaceStyle &style);
     void onTextStyleChanged(const TextStyle &style);
+    // Takes the styles for new objects from the settings (F-22).
+    void loadDefaultStyles();
     QList<TextItem *> selectedTexts() const;
     void onArrowStyleChanged(const ArrowStyle &style);
     void onMarkerStyleChanged(const MarkerStyle &style);

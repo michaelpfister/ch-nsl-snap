@@ -6,6 +6,7 @@
 #include <QGuiApplication>
 #include <QHBoxLayout>
 #include <QLabel>
+#include <QLayoutItem>
 #include <QLineEdit>
 #include <QPainter>
 #include <QRegularExpressionValidator>
@@ -48,6 +49,7 @@ ColorPopup::ColorPopup(QWidget *parent)
     , m_hex(new QLineEdit(this))
     , m_preview(new QLabel(this))
     , m_eyedropper(new QToolButton(this))
+    , m_recent(new QWidget(this))
 {
     setObjectName(QStringLiteral("ColorPopup"));
     setAttribute(Qt::WA_StyledBackground);
@@ -76,6 +78,13 @@ ColorPopup::ColorPopup(QWidget *parent)
     row->addWidget(m_eyedropper);
     layout->addLayout(row);
 
+    // Recently used own colours; filled by setRecentColors().
+    auto *recentLayout = new QHBoxLayout(m_recent);
+    recentLayout->setContentsMargins(0, 0, 0, 0);
+    recentLayout->setSpacing(4);
+    m_recent->hide();
+    layout->addWidget(m_recent);
+
     connect(m_wheel, &ColorWheel::colorChanged, this, [this](const QColor &color) { userChose(color); });
     // A complete code applies while typing; the hex field keeps the text.
     connect(m_hex, &QLineEdit::textEdited, this, [this](const QString &text) {
@@ -95,6 +104,35 @@ ColorPopup::ColorPopup(QWidget *parent)
         hide();
         emit eyedropperRequested();
     });
+}
+
+void ColorPopup::setRecentColors(const QList<QColor> &colors)
+{
+    auto *recentLayout = static_cast<QHBoxLayout *>(m_recent->layout());
+    while (QLayoutItem *item = recentLayout->takeAt(0)) {
+        delete item->widget();
+        delete item;
+    }
+    for (const QColor &color : colors) {
+        auto *button = new QToolButton(m_recent);
+        button->setIcon(QIcon(previewPixmap(color)));
+        button->setIconSize(QSize(20, 20));
+        button->setAutoRaise(true);
+        button->setCursor(Qt::PointingHandCursor);
+        const QString name = color.name().mid(1).toUpper();
+        button->setToolTip(name);
+        button->setAccessibleName(tr("Zuletzt verwendet: %1").arg(name));
+        connect(button, &QToolButton::clicked, this, [this, color] { userChose(color); });
+        recentLayout->addWidget(button);
+    }
+    recentLayout->addStretch(1);
+    m_recent->setVisible(!colors.isEmpty());
+}
+
+void ColorPopup::hideEvent(QHideEvent *event)
+{
+    QFrame::hideEvent(event);
+    emit closed();
 }
 
 void ColorPopup::setIconColor(const QColor &color)

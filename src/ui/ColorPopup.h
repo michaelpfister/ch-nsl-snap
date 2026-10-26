@@ -2,6 +2,7 @@
 
 #include <QColor>
 #include <QFrame>
+#include <QList>
 
 class ColorWheel;
 class QLabel;
@@ -22,6 +23,10 @@ public:
     void showAt(QWidget *anchor, const QColor &color);
     QColor color() const { return m_color; }
 
+    // Own colours used last (F-22), shown as a row of buttons below the
+    // hex code; empty hides the row.
+    void setRecentColors(const QList<QColor> &colors);
+
     // Icon colour of the eyedropper button, from the theme.
     void setIconColor(const QColor &color);
 
@@ -30,6 +35,11 @@ signals:
     // The eyedropper button: the popup has closed itself, the editor
     // should let the user click into the image.
     void eyedropperRequested();
+    // The popup closed (click outside, Escape, eyedropper).
+    void closed();
+
+protected:
+    void hideEvent(QHideEvent *event) override;
 
 private:
     // Shows `color` in the wheel, the hex field and the preview.
@@ -40,5 +50,6 @@ private:
     QLineEdit *m_hex;
     QLabel *m_preview;
     QToolButton *m_eyedropper;
+    QWidget *m_recent;
     QColor m_color;
 };

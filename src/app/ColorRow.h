@@ -24,6 +24,9 @@ public:
     // its button, any other one is shown in the custom button.
     void setColor(const QColor &color);
 
+    // True for a colour of one of the palettes; the others are own colours.
+    static bool isStandard(const QColor &color);
+
     // The custom button, where the colour popup opens.
     QWidget *customButton() const;
 

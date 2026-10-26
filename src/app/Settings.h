@@ -1,5 +1,15 @@
 #pragma once
 
+#include "editor/ArrowStyle.h"
+#include "editor/FrameStyle.h"
+#include "editor/MarkerStyle.h"
+#include "editor/RedactStyle.h"
+#include "editor/TextStyle.h"
+
+#include <QColor>
+#include <QList>
+#include <QString>
+
 // User settings, stored with QSettings (~/.config/netslash.ch/NSL Snap.conf
 // on Linux, the registry on Windows, a plist on macOS).
 namespace Settings {
@@ -15,5 +25,31 @@ void setCaptureDelay(int seconds);
 
 bool regionByDragging();
 void setRegionByDragging(bool enabled);
+
+// Styles for new objects (F-22): the last ones chosen in the panel, so a
+// restart keeps the colours, widths and sizes the user works with.
+FrameStyle frameStyle();
+void setFrameStyle(const FrameStyle &style);
+TextStyle textStyle(); // without text
+void setTextStyle(const TextStyle &style);
+ArrowStyle arrowStyle();
+void setArrowStyle(const ArrowStyle &style);
+MarkerStyle markerStyle();
+void setMarkerStyle(const MarkerStyle &style);
+RedactStyle redactStyle();
+void setRedactStyle(const RedactStyle &style);
+// The text for new replaced texts (F-29), e.g. "Firstname Lastname".
+QString replaceText();
+void setReplaceText(const QString &text);
+
+// Forgets the styles for new objects and the recent own colours: back to
+// the defaults (the other settings stay).
+void resetStyles();
+
+// Own colours used last (F-22), newest first, at most kMaxRecentColors.
+constexpr int kMaxRecentColors = 8;
+QList<QColor> recentColors();
+// Puts `color` first; it moves up if it is already in the list.
+void addRecentColor(const QColor &color);
 
 } // namespace Settings

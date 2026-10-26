@@ -311,7 +311,7 @@ Each entry: context, decision, rationale, consequences. Entries marked **(assump
 - Every change applies right away, also while dragging; style commands of the same objects merge, so a drag is one undo step. A click outside closes the popup.
 - The **eyedropper** works on the image in the editor, not on the whole screen: the popup closes, a click on the image takes the colour of that pixel of the captured image (without annotations and dimming), and the popup opens again with it. A loupe next to the cursor shows 11 × 11 pixels and the hex code; Escape or the right button cancel.
 **Rationale:** The ring and triangle follow the model the user knows (Affinity, GTK); the hex code is how web teams exchange colours. Picking on the whole desktop is not possible on Wayland without a portal round trip, and the colours that matter are in the screenshot anyway.
-**Consequences:** No list of recently used own colours yet; the last colour is not remembered across restarts (F-22).
+**Consequences:** Recent colours and remembering across restarts followed in D-029.
 
 ## D-028 Text marker and arrows
 
@@ -322,4 +322,15 @@ Each entry: context, decision, rationale, consequences. Entries marked **(assump
 - The panel now shows its groups through `PanelSection`, one selection title for every kind.
 **Rationale:** A rectangle marker covers the common case (lines of text in dialogs) and stays exact; multiply is how a real highlighter looks. Arrows with two end handles are what users know from other editors.
 **Consequences:** No freehand marker strokes and no curved or double-headed arrows in version 1.
+
+## D-029 Styles for new objects and recent own colours are remembered
+
+**Context:** F-22: "the last used colour is remembered". Users of one team work with the same few colours and sizes every day.
+**Decision:**
+- The styles for new objects are stored in the settings whenever the panel changes them and loaded at start: frames (colour, width, corners, the number tool's corner), texts (colour, size, bold, box), arrows (colour, width), markers (colour), pixelating (kind, strength) and the text for replaced texts. Not the dim settings: dimming is a property of one image.
+- Invalid stored values (edited by hand, older versions) fall back to the defaults, sizes are clamped to the panel's ranges.
+- The colour popup shows the **last 8 own colours**, newest first, shared by all objects. A colour joins the list when the popup closes after applying it; while dragging in the wheel only the last colour counts, and standard colours are not added.
+**Rationale:** Remembering the panel is what users expect after "last used"; a shared list of own colours makes a house colour one click away everywhere.
+- **Reset:** "Auf Standard zurücksetzen" in the settings (F2), after a question, forgets the stored styles and the recent colours; the editor and the panel take the defaults at once. Objects already drawn keep their look, and the other settings stay.
+**Consequences:** Each new setting for objects needs its pair in `Settings` and a line in `MainWindow::loadDefaultStyles()`.
 

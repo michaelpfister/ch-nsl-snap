@@ -6,7 +6,9 @@
 #include <QCheckBox>
 #include <QRadioButton>
 #include <QDialogButtonBox>
+#include <QHBoxLayout>
 #include <QLabel>
+#include <QMessageBox>
 #include <QPushButton>
 #include <QVBoxLayout>
 
@@ -50,6 +52,37 @@ SettingsDialog::SettingsDialog(QWidget *parent)
     regionHint->setContentsMargins(26, 0, 0, 0);
     layout->addWidget(regionHint);
     connect(drag, &QRadioButton::toggled, this, [](bool enabled) { Settings::setRegionByDragging(enabled); });
+    layout->addSpacing(16);
+
+    // Styles for new objects (F-22, D-029).
+    auto *styles = new QLabel(tr("Farben und Stile"), this);
+    styles->setProperty("role", QStringLiteral("section"));
+    layout->addWidget(styles);
+    auto *stylesHint = new QLabel(tr("Die App merkt sich Farben, Linienstärken und Schriftgrössen für neue Objekte "
+                                     "und die zuletzt verwendeten eigenen Farben. Bereits gezeichnete Objekte "
+                                     "bleiben beim Zurücksetzen, wie sie sind."), this);
+    stylesHint->setProperty("role", QStringLiteral("hint"));
+    stylesHint->setWordWrap(true);
+    layout->addWidget(stylesHint);
+    auto *reset = new QPushButton(tr("Auf Standard zurücksetzen"), this);
+    reset->setProperty("role", QStringLiteral("secondary"));
+    auto *resetRow = new QHBoxLayout;
+    resetRow->addWidget(reset);
+    resetRow->addStretch(1);
+    layout->addSpacing(4);
+    layout->addLayout(resetRow);
+    connect(reset, &QPushButton::clicked, this, [this, reset] {
+        const auto answer = QMessageBox::question(
+            this, tr("Farben und Stile zurücksetzen"),
+            tr("Farben, Linienstärken und Schriftgrössen für neue Objekte auf den Standard setzen "
+               "und die zuletzt verwendeten eigenen Farben vergessen?"));
+        if (answer != QMessageBox::Yes)
+            return;
+        Settings::resetStyles();
+        emit stylesReset();
+        reset->setText(tr("Zurückgesetzt"));
+        reset->setEnabled(false);
+    });
     layout->addSpacing(16);
 
     auto *buttons = new QDialogButtonBox(QDialogButtonBox::Close, this);

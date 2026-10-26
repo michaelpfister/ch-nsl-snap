@@ -152,7 +152,7 @@ MainWindow::MainWindow(QWidget *parent)
 
     // Selection and object list (D-012).
     EditorScene *scene = m_view->editorScene();
-    scene->setFrameStyle(m_properties->frameStyle());
+    loadDefaultStyles();
     connect(scene, &QGraphicsScene::selectionChanged, this, &MainWindow::onSelectionChanged);
     connect(scene, &EditorScene::annotationsChanged, this, &MainWindow::updateObjectList);
     connect(m_undoStack, &QUndoStack::indexChanged, this, &MainWindow::onSelectionChanged);
@@ -510,6 +510,18 @@ void MainWindow::finishCrop(bool apply)
     m_toolRail->setCurrentTool(ToolId::Select);
 }
 
+void MainWindow::loadDefaultStyles()
+{
+    // Styles for new objects as the user left them (F-22).
+    EditorScene *scene = m_view->editorScene();
+    scene->setFrameStyle(Settings::frameStyle());
+    scene->setTextStyle(Settings::textStyle());
+    scene->setArrowStyle(Settings::arrowStyle());
+    scene->setMarkerStyle(Settings::markerStyle());
+    scene->setRedactStyle(Settings::redactStyle());
+    scene->setReplaceText(Settings::replaceText());
+}
+
 void MainWindow::onToolChanged(ToolId id)
 {
     m_view->setTool(id);
@@ -623,6 +635,7 @@ void MainWindow::onFrameStyleChanged(const FrameStyle &style)
     if (defaults.badge == BadgePosition::None)
         defaults.badge = scene->frameStyle().badge;
     scene->setFrameStyle(defaults);
+    Settings::setFrameStyle(defaults);
     const QList<FrameItem *> selected = scene->selectedFrames();
     if (!selected.isEmpty())
         m_undoStack->push(new SetFrameStyleCommand(selected, style));
@@ -672,6 +685,7 @@ void MainWindow::onArrowStyleChanged(const ArrowStyle &style)
 {
     // Default for new arrows, and applied to the selected ones (F-44).
     m_view->editorScene()->setArrowStyle(style);
+    Settings::setArrowStyle(style);
     QList<ArrowItem *> arrows = selectedArrows();
     arrows.removeIf([&style](const ArrowItem *item) { return item->style() == style; });
     if (!arrows.isEmpty())
@@ -682,6 +696,7 @@ void MainWindow::onMarkerStyleChanged(const MarkerStyle &style)
 {
     // Default for new markers, and applied to the selected ones (F-28).
     m_view->editorScene()->setMarkerStyle(style);
+    Settings::setMarkerStyle(style);
     QList<MarkerItem *> markers = selectedMarkers();
     markers.removeIf([&style](const MarkerItem *item) { return item->style() == style; });
     if (!markers.isEmpty())
@@ -703,6 +718,7 @@ void MainWindow::onTextStyleChanged(const TextStyle &style)
     // Default for new texts, and applied to the selected ones (F-25).
     EditorScene *scene = m_view->editorScene();
     scene->setTextStyle(style);
+    Settings::setTextStyle(style);
     QList<TextItem *> texts = selectedTexts();
     texts.removeIf([&style](const TextItem *item) { return item->style().sameLook(style); });
     if (!texts.isEmpty())
@@ -712,6 +728,7 @@ void MainWindow::onTextStyleChanged(const TextStyle &style)
 void MainWindow::onReplaceStyleChanged(const ReplaceStyle &style)
 {
     m_view->editorScene()->setReplaceText(style.text); // default for the next one
+    Settings::setReplaceText(style.text);
     if (ReplaceItem *item = selectedReplace())
         m_undoStack->push(new SetReplaceStyleCommand(item, style));
 }
@@ -720,6 +737,7 @@ void MainWindow::onRedactStyleChanged(const RedactStyle &style)
 {
     // Default for new areas, and applied to the selected ones (F-26).
     m_view->editorScene()->setRedactStyle(style);
+    Settings::setRedactStyle(style);
     const QList<RedactItem *> selected = selectedRedactions();
     if (!selected.isEmpty())
         m_undoStack->push(new SetRedactStyleCommand(selected, style));
@@ -995,6 +1013,10 @@ void MainWindow::showSettings()
 {
     SettingsDialog dialog(this);
     connect(&dialog, &SettingsDialog::advancedModeChanged, m_properties, &PropertiesPanel::setAdvancedMode);
+    connect(&dialog, &SettingsDialog::stylesReset, this, [this] {
+        loadDefaultStyles();
+        onSelectionChanged(); // the panel shows the defaults again
+    });
     dialog.exec();
 }
 

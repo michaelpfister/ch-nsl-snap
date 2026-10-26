@@ -130,6 +130,7 @@ private:
     ColorPopup *m_colorPopup = nullptr;
     QPointer<QWidget> m_popupAnchor;
     std::function<void(const QColor &)> m_popupApply;
+    QColor m_popupApplied; // the last colour the popup applied, for the recent colours
     ColorRow *m_frameColors = nullptr;
     ColorRow *m_textColors = nullptr;
     QWidget *m_arrowSection = nullptr;
