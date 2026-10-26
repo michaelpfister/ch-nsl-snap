@@ -5,13 +5,15 @@
 | Q-02 | Language of the user interface? | German (Switzerland), no "ß" | UI strings |
 | Q-03 | Name of the product? | "NSL Snap" as working title | identifiers (D-007), packaging |
 | Q-05 | Which GNOME versions does the extension support? | 46 (tested), newer versions as they come | metadata.json |
-| Q-06 | Distribute the extension via extensions.gnome.org, or only together with the app? | together with the app | packaging |
+| Q-06 | Distribute the extension via extensions.gnome.org, or only together with the app? | together with the app, which sets it up in the home folder (D-032); extensions.gnome.org additionally later | packaging |
 | Q-07 | Should menus and tooltips of the picked window be included? | not in the PoC | window capture |
 | Q-12 | OCR for text replacement (F-29): in v1 or later? Tesseract or Windows OCR? | later; v1 is manual | F-29 |
 | Q-13 | Save editable projects (image + annotations) to continue later? | not in v1, but the model allows it (D-012) | file format |
 | Q-19 | Replaced text on a photo or gradient: fill with the main colour (now) or blur the area under the new text? | fill; blur as an option later | F-29 |
 | Q-17 | Bundle the Inter font (SIL Open Font License) with the app, so Windows and macOS look like the design? | yes, before the first Windows/macOS build | packaging |
 | Q-20 | A capture started while the activities overview is open shows the overview in the frozen picture, but window mode highlights the windows at their real places. Close the overview before freezing? | rare: the app hides itself first and the overview is usually closed; not handled yet | F-02 on GNOME |
+| Q-21 | How does the extension recognise the app when it runs as an AppImage, whose path changes on every start (D-031, D-032)? | a pairing confirmed by the user in the shell, remembered per AppImage file | hotkeys with the AppImage |
+| Q-22 | Code signing: a Windows certificate (e.g. through the university) and an Apple Developer account for notarisation? | both needed before the first distribution to the team | packaging |
 | Q-16 | Default global hotkeys on macOS (no Print key; Cmd + Shift + 3/4/5 belong to the system)? | Cmd + Shift + 6 (last mode), 7 (screen), 8 (window), 9 (region) | F-42 on macOS |
 
 ## Resolved

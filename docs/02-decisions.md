@@ -363,3 +363,16 @@ Each entry: context, decision, rationale, consequences. Entries marked **(assump
 - A hotkey capture replaces the image in the editor without asking, as in WinSnap; unsaved annotations are lost.
 - Tests that start a nested or headless GNOME Shell must set `XDG_CONFIG_HOME` (and `XDG_DATA_HOME`) **before** `dbus-run-session`; otherwise the D-Bus-activated dconf service writes the user's real settings (learned the hard way on 2026-10-26).
 
+## D-032 Distribution without installation (portable app)
+
+**Context:** The user wants to avoid installing anything where possible (2026-10-26). Only GNOME needs the Shell extension.
+**Decision (to be implemented with the packaging):**
+- **No administrator rights and no installer on any platform.** Whatever has to be set up goes to the user's own folders and is done by the app itself, at first start and whenever it finds it missing (e.g. after the app was moved).
+- **Windows:** a ZIP with a folder: `nsl-snap.exe`, the Qt DLLs and plugins (`windeployqt`) and the MSVC runtime DLLs next to it. Qt stays dynamically linked (LGPL). Settings in an INI file next to the exe if the folder is writable, otherwise in `%APPDATA%` (today: the registry, HKCU). Autostart is an option in the settings (HKCU `Run` key), not part of a setup. The exe is code-signed so SmartScreen does not warn (Q-22).
+- **macOS:** `NSL Snap.app` (`macdeployqt`) in a ZIP or DMG, signed and notarised (Q-22); the screen recording permission is tied to the signature.
+- **Linux/GNOME:** the app as an **AppImage**. At first start it offers to set up the GNOME integration, all in the home folder: copy and enable the extension (`~/.local/share/gnome-shell/extensions`, then log out and in once), and write the D-Bus service file that lets a hotkey start the app (D-031). The extension can additionally be offered on extensions.gnome.org (Q-06). No Flatpak or Snap: that would be an installation again, and its sandbox gets in the way of the extension.
+- **Hotkey captures and the AppImage:** D-031 gives `TakeCapture` only to the executable set in `app-executable`. An AppImage runs from a new mount (`/tmp/.mount_…`) on every start, so that path changes. It will be replaced by a **pairing** confirmed in the shell: on the first request from an unknown executable (or AppImage file), the shell asks "NSL Snap unter … darf Hotkey-Aufnahmen erhalten?" and remembers the answer (Q-21).
+- No automatic updates; the app may point to a newer version at start.
+**Rationale:** A portable folder or file is what the team asked for, and it works with normal user rights on managed machines. Setting up per user from inside the app keeps the "no installer" promise also on GNOME.
+**Consequences:** `Settings` needs the INI location on Windows; the GNOME setup and the pairing are new code in the app and the extension; signing needs certificates (Q-22).
+
