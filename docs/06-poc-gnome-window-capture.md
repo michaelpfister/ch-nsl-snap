@@ -13,7 +13,7 @@ If this works, D-003 holds and the rest of the app can be built on it.
 
 ## How it works
 
-- `gnome-extension/nsl-snap@netslash.ch/picker.js` shows a transparent full-screen overlay with a modal grab. The window under the pointer (top-most pickable window on the active workspace whose frame rectangle contains the pointer) gets a blue highlight. Left click or Enter picks it; Escape or right click cancels.
+- (Since replaced by `overlay.js`, which freezes the screen first and adds region capture: D-011, D-021.) `gnome-extension/nsl-snap@netslash.ch/picker.js` showed a transparent full-screen overlay with a modal grab. The window under the pointer (top-most pickable window on the active workspace whose frame rectangle contains the pointer) gets a blue highlight. Left click or Enter picks it; Escape or right click cancels.
 - `extension.js` renders the picked window offscreen with `MetaWindowActor.paint_to_content()`, the same call GNOME's own screenshot UI uses, crops it to the frame rectangle (D-005) and encodes it as PNG with `Shell.Screenshot.composite_to_stream()`.
 - D-Bus: `ch.netslash.Snap.Shell`, `/ch/netslash/Snap`, interface `ch.netslash.Snap1`, method `PickWindow(a{sv} options) → (ay png, a{sv} info)`. Errors: `ch.netslash.Snap1.Error.Cancelled`, `.Busy`, `.InvalidArgs`, `.Failed`.
 - `tools/nsl-snap-pick` asks for the uncropped buffer, crops it to the window's opaque core (D-010), cleans the corners (D-009) and saves the PNG to `~/Pictures/NSL Snap/<date>_<title>.png` (or `-o FILE`).

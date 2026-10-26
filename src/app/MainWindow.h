@@ -1,5 +1,6 @@
 #pragma once
 
+#include "capture/CaptureResult.h"
 #include "editor/Tool.h"
 
 #include <QMainWindow>
@@ -15,7 +16,6 @@ class QPushButton;
 class QToolButton;
 class QUndoStack;
 class ToolRail;
-struct CaptureResult;
 struct FrameStyle;
 struct RedactStyle;
 struct ReplaceStyle;
@@ -43,6 +43,11 @@ private:
     void createShortcuts();
 
     void captureWindow();
+    void captureRegion();
+    // Ctrl+N: the mode of the last capture (F-46).
+    void captureLastMode();
+    void startCapture(CaptureResult::Kind kind);
+    QToolButton *modeButton(CaptureResult::Kind kind) const;
     void onCaptured(const CaptureResult &result);
     void onCaptureEnded();
 
@@ -80,6 +85,8 @@ private:
     ToolRail *m_toolRail = nullptr;
     PropertiesPanel *m_properties = nullptr;
     std::unique_ptr<CaptureBackend> m_capture;
+    // The mode of the last capture; the overlay can switch it (W, R).
+    CaptureResult::Kind m_lastMode = CaptureResult::Kind::Window;
 
     QString m_imageName;  // for the suggested file name (F-41)
     QString m_imageSource; // status bar: where the image came from

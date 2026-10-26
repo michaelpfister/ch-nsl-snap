@@ -18,6 +18,7 @@ public:
         return tr("Aufnehmen wird auf dieser Plattform noch nicht unterstützt.");
     }
     void captureWindow() override { emit failed(unavailableReason()); }
+    void captureRegion() override { emit failed(unavailableReason()); }
 };
 
 } // namespace

@@ -285,16 +285,16 @@ QWidget *MainWindow::createTopBar()
     m_regionButton = segmentButton(tr("Bereich"), modes);
     m_screenButton = segmentButton(tr("Bildschirm"), modes);
     m_windowButton->setToolTip(tr("Fenster aufnehmen (Ctrl+3)"));
+    m_regionButton->setToolTip(tr("Bereich aufnehmen (Ctrl+5)"));
     m_windowButton->setChecked(true);
-    for (QToolButton *button : {m_regionButton, m_screenButton}) {
-        button->setEnabled(false);
-        button->setToolTip(tr("Folgt mit dem Aufnahme-Overlay (D-011)"));
-    }
+    m_screenButton->setEnabled(false);
+    m_screenButton->setToolTip(tr("Folgt mit der Bildschirmaufnahme (F-01)"));
     modesLayout->addWidget(m_windowButton);
     modesLayout->addWidget(m_regionButton);
     modesLayout->addWidget(m_screenButton);
     layout->addWidget(modes);
     connect(m_windowButton, &QToolButton::clicked, this, &MainWindow::captureWindow);
+    connect(m_regionButton, &QToolButton::clicked, this, &MainWindow::captureRegion);
 
     // Timer (F-04). The countdown itself comes with the overlay.
     m_timerIcon = new QLabel(bar);
@@ -389,8 +389,9 @@ void MainWindow::createShortcuts()
         addAction(action);
         return action;
     };
-    add(QKeySequence(Qt::CTRL | Qt::Key_N), &MainWindow::captureWindow); // last mode; only window so far
+    add(QKeySequence(Qt::CTRL | Qt::Key_N), &MainWindow::captureLastMode);
     add(QKeySequence(Qt::CTRL | Qt::Key_3), &MainWindow::captureWindow);
+    add(QKeySequence(Qt::CTRL | Qt::Key_5), &MainWindow::captureRegion);
     add(QKeySequence::Open, &MainWindow::openImage);
     add(QKeySequence::Paste, &MainWindow::pasteImage);
     add(QKeySequence::Save, &MainWindow::saveImage);
@@ -636,19 +637,52 @@ void MainWindow::updateZoomLabel()
 
 void MainWindow::captureWindow()
 {
+    startCapture(CaptureResult::Kind::Window);
+}
+
+void MainWindow::captureRegion()
+{
+    startCapture(CaptureResult::Kind::Region);
+}
+
+void MainWindow::captureLastMode()
+{
+    startCapture(m_lastMode);
+}
+
+QToolButton *MainWindow::modeButton(CaptureResult::Kind kind) const
+{
+    return kind == CaptureResult::Kind::Region ? m_regionButton : m_windowButton;
+}
+
+void MainWindow::startCapture(CaptureResult::Kind kind)
+{
     if (!m_capture->isAvailable()) {
         QMessageBox::warning(this, tr("Aufnahme nicht möglich"), m_capture->unavailableReason());
+        modeButton(m_lastMode)->setChecked(true);
         return;
     }
-    m_windowButton->setChecked(true);
+    modeButton(kind)->setChecked(true);
     m_windowButton->setEnabled(false);
+    m_regionButton->setEnabled(false);
+    // The app hides first, so it is not in the frozen screen (D-011).
     hide();
-    QTimer::singleShot(kHideDelayMs, m_capture.get(), &CaptureBackend::captureWindow);
+    QTimer::singleShot(kHideDelayMs, m_capture.get(), kind == CaptureResult::Kind::Region
+                                                          ? &CaptureBackend::captureRegion
+                                                          : &CaptureBackend::captureWindow);
 }
 
 void MainWindow::onCaptured(const CaptureResult &result)
 {
     onCaptureEnded();
+    // The user may have switched the mode in the overlay; that one counts.
+    m_lastMode = result.kind;
+    modeButton(m_lastMode)->setChecked(true);
+    if (result.kind == CaptureResult::Kind::Region) {
+        // A region is used as it is: no window edges to clean (F-03).
+        setImage(result.image, result.scale, tr("Bereich"), tr("Bereich"));
+        return;
+    }
     const QImage image = WindowImage::prepare(result);
     setImage(image, result.scale, result.title, tr("Fenster «%1»").arg(result.title));
 }
@@ -656,6 +690,8 @@ void MainWindow::onCaptured(const CaptureResult &result)
 void MainWindow::onCaptureEnded()
 {
     m_windowButton->setEnabled(true);
+    m_regionButton->setEnabled(true);
+    modeButton(m_lastMode)->setChecked(true); // after a cancel: the last real mode
     show();
     raise();
     activateWindow();

@@ -15,3 +15,10 @@ qt_add_executable(tst_view tst_view.cpp)
 target_link_libraries(tst_view PRIVATE nsl_snap_core Qt6::Test)
 add_test(NAME tst_view COMMAND tst_view)
 set_tests_properties(tst_view PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
+
+# The GNOME backend exists only on Linux.
+if(LINUX)
+    qt_add_executable(tst_capture tst_capture.cpp)
+    target_link_libraries(tst_capture PRIVATE nsl_snap_core Qt6::Test)
+    add_test(NAME tst_capture COMMAND tst_capture)
+endif()
