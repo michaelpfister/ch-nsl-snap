@@ -30,8 +30,13 @@ std::optional<QRect> opaqueCore(const QImage &image, const QRect &frame, double 
 // returns how many pixels were changed. Square corners are left alone.
 int cleanCorners(QImage &image, double scale);
 
-// Crop and clean in one step. Falls back to the frame rectangle if no
-// opaque core is found.
+// Makes everything outside a rounded rectangle of `radius` image px
+// transparent, anti-aliased like the system draws it (D-022).
+void roundCorners(QImage &image, qreal radius);
+
+// Crop and clean in one step: opaque core, rounded corners where the
+// capture lacks them (CaptureResult::cornerRadius), corner cleanup. Falls
+// back to the frame rectangle if no opaque core is found.
 QImage prepare(const CaptureResult &capture);
 
 } // namespace WindowImage

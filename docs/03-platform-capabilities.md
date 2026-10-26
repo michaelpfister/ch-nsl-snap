@@ -10,7 +10,7 @@ macOS (ScreenCaptureKit, macOS 14+) supports everything in the Windows column ex
 |---|---|---|---|
 | Full screen, one monitor | Windows API | Extension or Screenshot portal | KWin ScreenShot2 or portal |
 | Free area | Freeze full screen, select in overlay | Same, via extension or portal image | Same |
-| Single window, clean edges | DWM extended frame bounds + capture API | **Extension** (offscreen render of the window actor) | KWin ScreenShot2 |
+| Single window, clean edges | DWM extended frame bounds + Windows.Graphics.Capture (D-022) | **Extension** (offscreen render of the window actor) | KWin ScreenShot2 |
 | Single window, fallback | — | ScreenCast portal, window source (extra dialog every time) | Same |
 | Window under mouse (hover highlight) | yes | **Extension only** | KWin only |
 | Transparent rounded corners | Windows 11: yes (DWM) | yes, the client draws them with alpha | yes |

@@ -133,6 +133,35 @@ private slots:
         QCOMPARE(alpha(image, w - 1, h - 1), 0);
     }
 
+    void squareCaptureGetsTheSystemsRoundedCorners()
+    {
+        // As Windows 11 delivers a window (D-022): square, opaque, with a
+        // 1 px semi-transparent border; DWM rounds it only on the screen.
+        QImage image(300, 200, QImage::Format_ARGB32);
+        image.fill(qRgba(40, 44, 48, 108));
+        QPainter(&image).fillRect(image.rect().adjusted(1, 1, -1, -1), kWindow);
+        CaptureResult capture;
+        capture.image = image;
+        capture.scale = 1.5;
+        capture.frameRect = capture.bufferRect = QRect(0, 0, 200, 134);
+        capture.cornerRadius = 8;
+
+        const QImage out = WindowImage::prepare(capture);
+        QCOMPARE(out.size(), QSize(298, 198)); // the border is trimmed (D-010)
+        const int w = out.width();
+        const int h = out.height();
+        for (const QPoint corner : {QPoint(0, 0), QPoint(w - 1, 0), QPoint(0, h - 1), QPoint(w - 1, h - 1)})
+            QCOMPARE(alpha(out, corner.x(), corner.y()), 0);
+        // 8 logical px = 12 image px: the sides and the inside stay opaque.
+        QCOMPARE(alpha(out, w / 2, 0), 255);
+        QCOMPARE(alpha(out, 0, h / 2), 255);
+        QCOMPARE(alpha(out, 12, 12), 255);
+        QCOMPARE(alpha(out, 13, 0), 255);
+        // Without a radius the corners stay square.
+        capture.cornerRadius = 0;
+        QCOMPARE(alpha(WindowImage::prepare(capture), 0, 0), 255);
+    }
+
     void prepareFallsBackToFrameForTranslucentWindows()
     {
         const QImage image = WindowImage::prepare(syntheticCapture(200));

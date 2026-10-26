@@ -1,7 +1,10 @@
 // Capture overlay (docs/02-decisions.md, D-011): the screen is frozen first,
 // then the user selects on the frozen picture. Two modes, switchable with
-// W and R (F-47): window (hover and click) and region (drag a rectangle).
-// Resolves with the selection, or null when the user cancels.
+// W and R (F-47): window (hover and click) and region (D-023: two clicks or
+// a drag, with crosshair lines and a magnifier; arrow keys move by one
+// physical pixel). Resolves with the selection, or null when the user
+// cancels. The same behaviour as the app's own overlay
+// (src/capture/CaptureOverlay.cpp, src/capture/RegionSelector.cpp).
 
 import Clutter from 'gi://Clutter';
 import GObject from 'gi://GObject';
@@ -12,9 +15,19 @@ import St from 'gi://St';
 import * as Main from 'resource:///org/gnome/shell/ui/main.js';
 
 export const Mode = Object.freeze({WINDOW: 'window', REGION: 'region'});
+// How a region is selected (setting of the app): two clicks or a drag.
+export const RegionSelect = Object.freeze({CLICKS: 'clicks', DRAG: 'drag'});
 
-// A drag smaller than this (logical px) is a click, not a region.
-const MIN_REGION = 4;
+// A press moved farther than this (physical px) is a drag, not a click.
+const DRAG_THRESHOLD = 4;
+// A second click closer than this to the first one is ignored (physical px).
+const MIN_REGION = 2;
+// The magnifier: an odd number of pixels, so the selection point is the
+// middle one, each shown as a square of ZOOM logical px.
+const MAGNIFIER_PIXELS = 15;
+const ZOOM = 11;
+const MAGNIFIER_SIZE = MAGNIFIER_PIXELS * ZOOM;
+const MAGNIFIER_GAP = 24;
 
 const PICKABLE_TYPES = new Set([
     Meta.WindowType.NORMAL,
@@ -70,17 +83,101 @@ export async function freeze() {
     return {content, scale, windows};
 }
 
+// The region selection without UI, as RegionSelector in the app: points
+// are physical pixels of the frozen picture, both corner pixels included.
+class RegionSelector {
+    constructor(how) {
+        this.how = how;
+        this.state = 'idle'; // idle, pressed, started, dragging, done
+        this.start = [0, 0];
+        this.current = [0, 0];
+        this._pressedAt = [0, 0];
+    }
+
+    get hasStart() {
+        return this.state !== 'idle';
+    }
+
+    region() {
+        if (this.state === 'idle')
+            return null;
+        const [sx, sy] = this.start;
+        const [cx, cy] = this.current;
+        const x = Math.min(sx, cx);
+        const y = Math.min(sy, cy);
+        return {x, y, width: Math.abs(cx - sx) + 1, height: Math.abs(cy - sy) + 1};
+    }
+
+    _finish(point) {
+        this.current = point;
+        const r = this.region();
+        if (r.width < MIN_REGION || r.height < MIN_REGION)
+            return false;
+        this.state = 'done';
+        return true;
+    }
+
+    press(point) {
+        if (this.state === 'idle') {
+            this.state = 'pressed';
+            this.start = this.current = this._pressedAt = point;
+        } else if (this.state === 'started') {
+            this._finish(point); // the second click closes the region
+        }
+    }
+
+    move(point) {
+        if (this.state === 'done')
+            return;
+        this.current = point;
+        if (this.state === 'pressed' &&
+            (Math.abs(point[0] - this._pressedAt[0]) > DRAG_THRESHOLD ||
+             Math.abs(point[1] - this._pressedAt[1]) > DRAG_THRESHOLD))
+            this.state = 'dragging';
+    }
+
+    release(point) {
+        if (this.state === 'pressed') {
+            // A click: in drag mode it starts nothing.
+            this.state = this.how === RegionSelect.DRAG ? 'idle' : 'started';
+            this.current = point;
+        } else if (this.state === 'dragging' && !this._finish(point)) {
+            this.state = this.how === RegionSelect.CLICKS ? 'started' : 'idle';
+        }
+    }
+
+    // Enter or Space: a click from the keyboard, in both modes.
+    click(point) {
+        if (this.state === 'idle') {
+            this.state = 'started';
+            this.start = this.current = point;
+        } else if (this.state === 'started') {
+            this._finish(point);
+        }
+    }
+
+    discard() {
+        if (this.state !== 'done')
+            this.state = 'idle';
+    }
+}
+
 const CaptureOverlay = GObject.registerClass(
 class CaptureOverlay extends St.Widget {
-    _init(frozen, mode, resolve) {
+    _init(frozen, mode, how, resolve) {
         super._init({reactive: true, can_focus: true});
         this._frozen = frozen;
         this._mode = mode;
+        this._how = how;
         this._resolve = resolve;
         this._hovered = null;     // window entry under the pointer (window mode)
-        this._region = null;      // {x, y, width, height} in logical px
-        this._dragStart = null;   // [x, y] while dragging a new region
-        this._pressInside = false; // press inside the region: a click accepts it
+        this._selector = new RegionSelector(how);
+        // The selection point in physical pixels: follows the pointer, moved
+        // by the arrow keys.
+        this._cursor = [0, 0];
+        this._ignoreMotionAt = null;
+        const texture = frozen.content.get_texture();
+        this._textureSize = [texture.get_width(), texture.get_height()];
 
         const fillStage = () => new Clutter.BindConstraint({
             source: global.stage,
@@ -104,6 +201,38 @@ class CaptureOverlay extends St.Widget {
         this._outline = new St.Widget({style_class: 'nsl-snap-region', visible: false});
         this.add_child(this._outline);
 
+        // Crosshair lines across the screen: a dark and a light line.
+        this._lines = ['dark', 'dark', 'light', 'light'].map(tone => {
+            const line = new St.Widget({style_class: `nsl-snap-line-${tone}`, visible: false});
+            this.add_child(line);
+            return line;
+        });
+
+        // The magnifier: the frozen picture, enlarged with hard pixels and
+        // clipped to a square, plus guides and the coordinates.
+        this._magnifier = new St.Widget({
+            clip_to_allocation: true, width: MAGNIFIER_SIZE, height: MAGNIFIER_SIZE,
+            style_class: 'nsl-snap-magnifier', visible: false,
+        });
+        this._zoomed = new Clutter.Actor({content: frozen.content});
+        this._zoomed.set_content_scaling_filters(Clutter.ScalingFilter.NEAREST, Clutter.ScalingFilter.NEAREST);
+        this._zoomed.set_size(this._textureSize[0] * ZOOM, this._textureSize[1] * ZOOM);
+        this._magnifier.add_child(this._zoomed);
+        const half = Math.floor(MAGNIFIER_PIXELS / 2);
+        for (const [x, y, w, h, style] of [
+            [0, half * ZOOM, MAGNIFIER_SIZE, ZOOM, 'nsl-snap-magnifier-guide'],
+            [half * ZOOM, 0, ZOOM, MAGNIFIER_SIZE, 'nsl-snap-magnifier-guide'],
+            [half * ZOOM - 1, half * ZOOM - 1, ZOOM + 2, ZOOM + 2, 'nsl-snap-magnifier-pixel-outline'],
+            [half * ZOOM, half * ZOOM, ZOOM, ZOOM, 'nsl-snap-magnifier-pixel'],
+            [0, 0, MAGNIFIER_SIZE, MAGNIFIER_SIZE, 'nsl-snap-magnifier-frame'],
+        ]) {
+            const guide = new St.Widget({style_class: style, x, y, width: w, height: h});
+            this._magnifier.add_child(guide);
+        }
+        this.add_child(this._magnifier);
+        this._coordinates = new St.Label({style_class: 'nsl-snap-magnifier-label', visible: false});
+        this.add_child(this._coordinates);
+
         // Window mode: the picked window's frame.
         this._highlight = new St.Widget({style_class: 'nsl-snap-highlight', visible: false});
         this.add_child(this._highlight);
@@ -118,13 +247,25 @@ class CaptureOverlay extends St.Widget {
         this._grab = Main.pushModal(this);
         global.display.set_cursor(Meta.Cursor.CROSSHAIR);
         const [x, y] = global.get_pointer();
-        this._setMode(this._mode, x, y);
+        this._cursor = this._toPhysical(x, y);
+        this._setMode(this._mode);
     }
 
-    _setMode(mode, x, y) {
+    get _scale() {
+        return this._frozen.scale;
+    }
+
+    // A stage position (logical) as the physical pixel under it.
+    _toPhysical(x, y) {
+        const [w, h] = this._textureSize;
+        return [Math.min(Math.max(Math.floor(x * this._scale), 0), w - 1),
+            Math.min(Math.max(Math.floor(y * this._scale), 0), h - 1)];
+    }
+
+    _setMode(mode) {
         this._mode = mode;
-        this._region = null;
-        this._dragStart = null;
+        this._selector = new RegionSelector(this._how);
+        const [x, y] = this._cursor.map(v => (v + 0.5) / this._scale);
         this._hovered = mode === Mode.WINDOW ? this._windowAt(x, y) : null;
         this._sync();
     }
@@ -135,6 +276,7 @@ class CaptureOverlay extends St.Widget {
 
     _sync() {
         const [stageWidth, stageHeight] = global.stage.get_size();
+        const scale = this._scale;
 
         // Window mode.
         const entry = this._mode === Mode.WINDOW ? this._hovered : null;
@@ -145,9 +287,14 @@ class CaptureOverlay extends St.Widget {
         }
         this._highlight.visible = entry !== null;
 
-        // Region mode.
-        const region = this._mode === Mode.REGION ? this._region : null;
-        if (this._mode !== Mode.REGION) {
+        // Region mode, in logical px from here on.
+        const inRegionMode = this._mode === Mode.REGION;
+        const physical = inRegionMode ? this._selector.region() : null;
+        const region = physical && {
+            x: physical.x / scale, y: physical.y / scale,
+            width: physical.width / scale, height: physical.height / scale,
+        };
+        if (!inRegionMode) {
             this._shades.forEach(shade => shade.hide());
         } else if (!region) {
             this._shades.forEach((shade, i) => {
@@ -174,14 +321,17 @@ class CaptureOverlay extends St.Widget {
             this._outline.set_size(region.width, region.height);
         }
         this._outline.visible = region !== null;
+        this._syncMagnifier(inRegionMode, stageWidth, stageHeight);
 
         let text;
         if (this._mode === Mode.WINDOW)
             text = 'Fenster anklicken · R: Bereich · Esc: Abbrechen';
-        else if (region)
-            text = 'Klick in den Bereich oder Enter: Aufnehmen · Ziehen: neu · Rücktaste: verwerfen · Esc: Abbrechen';
+        else if (this._selector.hasStart)
+            text = 'Gegenüberliegende Ecke anklicken · Rücktaste: neu beginnen · Esc: Abbrechen';
+        else if (this._how === RegionSelect.DRAG)
+            text = 'Bereich aufziehen · Pfeiltasten und Enter: pixelgenau · W: Fenster · Esc: Abbrechen';
         else
-            text = 'Bereich aufziehen · W: Fenster · Esc: Abbrechen';
+            text = 'Erste Ecke anklicken · Pfeiltasten: 1 Pixel · W: Fenster · Esc: Abbrechen';
         this._hint.text = text;
         const monitor = Main.layoutManager.primaryMonitor;
         if (monitor) {
@@ -191,71 +341,95 @@ class CaptureOverlay extends St.Widget {
         }
     }
 
-    _clampToStage(x, y) {
-        const [stageWidth, stageHeight] = global.stage.get_size();
-        return [Math.min(Math.max(x, 0), stageWidth), Math.min(Math.max(y, 0), stageHeight)];
+    _syncMagnifier(visible, stageWidth, stageHeight) {
+        for (const actor of [...this._lines, this._magnifier, this._coordinates])
+            actor.visible = visible;
+        if (!visible)
+            return;
+        const scale = this._scale;
+        const [px, py] = this._cursor;
+        // The middle of the selection pixel, in logical px.
+        const cx = (px + 0.5) / scale;
+        const cy = (py + 0.5) / scale;
+        const [darkV, darkH, lightV, lightH] = this._lines;
+        darkV.set_position(Math.round(cx) + 1, 0);
+        darkV.set_size(1, stageHeight);
+        darkH.set_position(0, Math.round(cy) + 1);
+        darkH.set_size(stageWidth, 1);
+        lightV.set_position(Math.round(cx), 0);
+        lightV.set_size(1, stageHeight);
+        lightH.set_position(0, Math.round(cy));
+        lightH.set_size(stageWidth, 1);
+
+        // The enlarged picture, shifted so the selection pixel is the middle one.
+        const half = Math.floor(MAGNIFIER_PIXELS / 2);
+        this._zoomed.set_position(-(px - half) * ZOOM, -(py - half) * ZOOM);
+
+        const r = this._selector.hasStart ? this._selector.region() : null;
+        this._coordinates.text = r ? `${px}, ${py} · ${r.width} × ${r.height}` : `${px}, ${py}`;
+        const [, labelHeight] = this._coordinates.get_preferred_height(-1);
+
+        // Below right of the pointer; flipped where it would leave the monitor.
+        const monitor = Main.layoutManager.monitors.find(m => contains(m, cx, cy)) ??
+            {x: 0, y: 0, width: stageWidth, height: stageHeight};
+        let mx = cx + MAGNIFIER_GAP;
+        let my = cy + MAGNIFIER_GAP;
+        if (mx + MAGNIFIER_SIZE > monitor.x + monitor.width)
+            mx = cx - MAGNIFIER_GAP - MAGNIFIER_SIZE;
+        if (my + MAGNIFIER_SIZE + labelHeight > monitor.y + monitor.height)
+            my = cy - MAGNIFIER_GAP - MAGNIFIER_SIZE - labelHeight;
+        this._magnifier.set_position(Math.round(mx), Math.round(my));
+        this._coordinates.set_position(Math.round(mx), Math.round(my) + MAGNIFIER_SIZE + 2);
     }
 
     vfunc_motion_event(event) {
         const [x, y] = event.get_coords();
-        if (this._mode === Mode.WINDOW) {
+        // The move that warping the pointer for an arrow key causes is
+        // rounded to logical pixels; it must not undo the step.
+        if (this._ignoreMotionAt && Math.round(x) === this._ignoreMotionAt[0] &&
+            Math.round(y) === this._ignoreMotionAt[1])
+            return Clutter.EVENT_STOP;
+        this._ignoreMotionAt = null;
+        this._cursor = this._toPhysical(x, y);
+        if (this._mode === Mode.WINDOW)
             this._hovered = this._windowAt(x, y);
-        } else if (this._dragStart) {
-            const [sx, sy] = this._dragStart;
-            const [ex, ey] = this._clampToStage(Math.round(x), Math.round(y));
-            const region = {
-                x: Math.min(sx, ex),
-                y: Math.min(sy, ey),
-                width: Math.abs(ex - sx),
-                height: Math.abs(ey - sy),
-            };
-            if (region.width >= MIN_REGION && region.height >= MIN_REGION) {
-                this._region = region;
-                this._pressInside = false; // it became a drag
-            }
-        }
+        else
+            this._selector.move(this._cursor);
         this._sync();
         return Clutter.EVENT_STOP;
     }
 
     vfunc_button_press_event(event) {
-        const button = event.get_button();
-        if (button !== Clutter.BUTTON_PRIMARY) {
+        if (event.get_button() !== Clutter.BUTTON_PRIMARY) {
             this._finish(null);
             return Clutter.EVENT_STOP;
         }
         const [x, y] = event.get_coords();
+        this._cursor = this._toPhysical(x, y);
         if (this._mode === Mode.WINDOW) {
             this._hovered = this._windowAt(x, y);
             if (this._hovered)
                 this._finish({mode: Mode.WINDOW, window: this._hovered});
             return Clutter.EVENT_STOP;
         }
-        // Region mode: a click inside the region accepts it; a drag
-        // anywhere starts a new one.
-        this._pressInside = this._region !== null && contains(this._region, x, y);
-        this._dragStart = this._clampToStage(Math.round(x), Math.round(y));
-        if (!this._pressInside)
-            this._region = null;
-        this._sync();
+        this._selector.press(this._cursor);
+        this._checkRegionDone();
         return Clutter.EVENT_STOP;
     }
 
     vfunc_button_release_event(event) {
         if (event.get_button() !== Clutter.BUTTON_PRIMARY || this._mode !== Mode.REGION)
             return Clutter.EVENT_STOP;
-        this._dragStart = null;
-        if (this._pressInside && this._region) {
-            this._finish({mode: Mode.REGION, region: this._region});
-            return Clutter.EVENT_STOP;
-        }
-        this._pressInside = false;
-        this._sync();
+        const [x, y] = event.get_coords();
+        this._cursor = this._toPhysical(x, y);
+        this._selector.release(this._cursor);
+        this._checkRegionDone();
         return Clutter.EVENT_STOP;
     }
 
     vfunc_key_press_event(event) {
         const key = event.get_key_symbol();
+        const step = event.get_state() & Clutter.ModifierType.CONTROL_MASK ? 10 : 1;
         switch (key) {
         case Clutter.KEY_Escape:
             this._finish(null);
@@ -263,32 +437,70 @@ class CaptureOverlay extends St.Widget {
         case Clutter.KEY_Return:
         case Clutter.KEY_KP_Enter:
         case Clutter.KEY_space:
-            if (this._mode === Mode.WINDOW && this._hovered)
-                this._finish({mode: Mode.WINDOW, window: this._hovered});
-            else if (this._mode === Mode.REGION && this._region)
-                this._finish({mode: Mode.REGION, region: this._region});
+            if (this._mode === Mode.WINDOW) {
+                if (this._hovered)
+                    this._finish({mode: Mode.WINDOW, window: this._hovered});
+            } else {
+                this._selector.click(this._cursor);
+                this._checkRegionDone();
+            }
             break;
         case Clutter.KEY_BackSpace:
         case Clutter.KEY_Delete:
-            this._region = null;
-            this._dragStart = null;
+            this._selector.discard();
             this._sync();
             break;
         case Clutter.KEY_w:
         case Clutter.KEY_W:
-        case Clutter.KEY_r:
-        case Clutter.KEY_R: {
-            const [x, y] = global.get_pointer();
-            const wanted = key === Clutter.KEY_w || key === Clutter.KEY_W ? Mode.WINDOW : Mode.REGION;
-            if (wanted !== this._mode)
-                this._setMode(wanted, x, y);
+            if (this._mode !== Mode.WINDOW)
+                this._setMode(Mode.WINDOW);
             break;
-        }
+        case Clutter.KEY_r:
+        case Clutter.KEY_R:
+            if (this._mode !== Mode.REGION)
+                this._setMode(Mode.REGION);
+            break;
         case Clutter.KEY_F1:
             this._hint.visible = !this._hint.visible;
             break;
+        case Clutter.KEY_Left:
+            this._moveCursorBy(-step, 0);
+            break;
+        case Clutter.KEY_Right:
+            this._moveCursorBy(step, 0);
+            break;
+        case Clutter.KEY_Up:
+            this._moveCursorBy(0, -step);
+            break;
+        case Clutter.KEY_Down:
+            this._moveCursorBy(0, step);
+            break;
         }
         return Clutter.EVENT_STOP;
+    }
+
+    // Arrow keys: one physical pixel per press (F-47), the real pointer follows.
+    _moveCursorBy(dx, dy) {
+        const [w, h] = this._textureSize;
+        const px = Math.min(Math.max(this._cursor[0] + dx, 0), w - 1);
+        const py = Math.min(Math.max(this._cursor[1] + dy, 0), h - 1);
+        this._cursor = [px, py];
+        const x = Math.floor((px + 0.5) / this._scale);
+        const y = Math.floor((py + 0.5) / this._scale);
+        if (this._mode === Mode.WINDOW)
+            this._hovered = this._windowAt(x, y);
+        else
+            this._selector.move(this._cursor);
+        this._ignoreMotionAt = [x, y];
+        Clutter.get_default_backend().get_default_seat().warp_pointer(x, y);
+        this._sync();
+    }
+
+    _checkRegionDone() {
+        if (this._selector.state === 'done')
+            this._finish({mode: Mode.REGION, region: this._selector.region()});
+        else
+            this._sync();
     }
 
     _finish(selection) {
@@ -322,13 +534,15 @@ class CaptureOverlay extends St.Widget {
  *
  * @param {object} frozen - result of freeze()
  * @param {string} mode - Mode.WINDOW or Mode.REGION to start with
+ * @param {string} how - RegionSelect.CLICKS or RegionSelect.DRAG
  * @returns {{promise: Promise<object|null>, cancel: Function}} resolves with
- *   {mode: 'window', window: entry} or {mode: 'region', region: rect}, or null
+ *   {mode: 'window', window: entry} or {mode: 'region', region: rect in
+ *   physical px}, or null
  */
-export function select(frozen, mode) {
+export function select(frozen, mode, how = RegionSelect.CLICKS) {
     let overlay;
     const promise = new Promise(resolve => {
-        overlay = new CaptureOverlay(frozen, mode, resolve);
+        overlay = new CaptureOverlay(frozen, mode, how, resolve);
         overlay.open();
     });
     return {promise, cancel: () => overlay.close()};

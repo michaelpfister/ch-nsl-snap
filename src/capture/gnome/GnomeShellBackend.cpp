@@ -95,8 +95,12 @@ void GnomeShellBackend::capture(const QString &mode)
     // The app crops windows itself (D-010), so it always asks for the whole buffer.
     QVariantMap options;
     options.insert(QStringLiteral("crop"), QStringLiteral("buffer"));
-    if (hasCapture)
+    if (hasCapture) {
         options.insert(QStringLiteral("mode"), mode);
+        // How a region is selected (D-023); older extensions ignore it.
+        options.insert(QStringLiteral("region-select"),
+                       regionByDragging() ? QStringLiteral("drag") : QStringLiteral("clicks"));
+    }
 
     auto message = QDBusMessage::createMethodCall(kService, kPath, kInterface,
                                                   hasCapture ? QStringLiteral("Capture") : QStringLiteral("PickWindow"));

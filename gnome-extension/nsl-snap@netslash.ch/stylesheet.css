@@ -20,3 +20,41 @@
   padding: 8px 16px;
   font-size: 10pt;
 }
+
+/* Crosshair lines through the selection point (D-023). */
+.nsl-snap-line-light {
+  background-color: rgba(255, 255, 255, 0.85);
+}
+
+.nsl-snap-line-dark {
+  background-color: rgba(0, 0, 0, 0.6);
+}
+
+/* The magnifier: enlarged pixels, the middle row and column, the pixel. */
+.nsl-snap-magnifier {
+  background-color: #141414;
+}
+
+.nsl-snap-magnifier-frame {
+  border: 1px solid #ffffff;
+}
+
+.nsl-snap-magnifier-guide {
+  border: 1px solid rgba(255, 255, 255, 0.55);
+}
+
+.nsl-snap-magnifier-pixel {
+  border: 1px solid #ffffff;
+}
+
+/* A dark ring around the white one, visible on light pixels too. */
+.nsl-snap-magnifier-pixel-outline {
+  border: 1px solid #000000;
+}
+
+.nsl-snap-magnifier-label {
+  background-color: rgba(20, 20, 20, 0.9);
+  color: #ffffff;
+  padding: 3px 6px;
+  font-size: 9pt;
+}

@@ -3,10 +3,13 @@
 #ifdef NSL_HAVE_GNOME_BACKEND
 #include "capture/gnome/GnomeShellBackend.h"
 #endif
+#ifdef NSL_HAVE_WINDOWS_BACKEND
+#include "capture/windows/WindowsBackend.h"
+#endif
 
 namespace {
 
-// Used on platforms whose backend is not written yet (Windows, macOS).
+// Used on platforms whose backend is not written yet (macOS).
 class UnsupportedBackend : public CaptureBackend
 {
 public:
@@ -19,14 +22,17 @@ public:
     }
     void captureWindow() override { emit failed(unavailableReason()); }
     void captureRegion() override { emit failed(unavailableReason()); }
+    bool supportsRegion() const override { return false; }
 };
 
 } // namespace
 
 std::unique_ptr<CaptureBackend> createCaptureBackend(QObject *parent)
 {
-#ifdef NSL_HAVE_GNOME_BACKEND
+#if defined(NSL_HAVE_GNOME_BACKEND)
     return std::make_unique<GnomeShellBackend>(parent);
+#elif defined(NSL_HAVE_WINDOWS_BACKEND)
+    return std::make_unique<WindowsBackend>(parent);
 #else
     return std::make_unique<UnsupportedBackend>(parent);
 #endif

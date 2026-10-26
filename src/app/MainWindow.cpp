@@ -285,7 +285,9 @@ QWidget *MainWindow::createTopBar()
     m_regionButton = segmentButton(tr("Bereich"), modes);
     m_screenButton = segmentButton(tr("Bildschirm"), modes);
     m_windowButton->setToolTip(tr("Fenster aufnehmen (Ctrl+3)"));
-    m_regionButton->setToolTip(tr("Bereich aufnehmen (Ctrl+5)"));
+    m_regionButton->setToolTip(m_capture->supportsRegion() ? tr("Bereich aufnehmen (Ctrl+5)")
+                                                           : tr("Die Bereichsaufnahme folgt auf dieser Plattform"));
+    m_regionButton->setEnabled(m_capture->supportsRegion());
     m_windowButton->setChecked(true);
     m_screenButton->setEnabled(false);
     m_screenButton->setToolTip(tr("Folgt mit der Bildschirmaufnahme (F-01)"));
@@ -657,12 +659,18 @@ QToolButton *MainWindow::modeButton(CaptureResult::Kind kind) const
 
 void MainWindow::startCapture(CaptureResult::Kind kind)
 {
+    if (kind == CaptureResult::Kind::Region && !m_capture->supportsRegion()) {
+        statusBar()->showMessage(tr("Die Bereichsaufnahme folgt auf dieser Plattform."), 4000);
+        return;
+    }
     if (!m_capture->isAvailable()) {
         QMessageBox::warning(this, tr("Aufnahme nicht möglich"), m_capture->unavailableReason());
         modeButton(m_lastMode)->setChecked(true);
         return;
     }
     modeButton(kind)->setChecked(true);
+    // The overlay can switch to region mode, so it always gets the setting.
+    m_capture->setRegionByDragging(Settings::regionByDragging());
     m_windowButton->setEnabled(false);
     m_regionButton->setEnabled(false);
     // The app hides first, so it is not in the frozen screen (D-011).
@@ -690,7 +698,7 @@ void MainWindow::onCaptured(const CaptureResult &result)
 void MainWindow::onCaptureEnded()
 {
     m_windowButton->setEnabled(true);
-    m_regionButton->setEnabled(true);
+    m_regionButton->setEnabled(m_capture->supportsRegion());
     modeButton(m_lastMode)->setChecked(true); // after a cancel: the last real mode
     show();
     raise();
