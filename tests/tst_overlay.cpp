@@ -3,6 +3,7 @@
 // pixels as logical ones.
 
 #include "capture/CaptureOverlay.h"
+#include "capture/Countdown.h"
 
 #include <QGuiApplication>
 #include <QScreen>
@@ -131,6 +132,98 @@ private slots:
                 QTest::keyClick(window, Qt::Key_Escape);
             QCOMPARE(cancelled.count(), 1);
             delete overlay;
+        }
+    }
+
+    void screenModeClickAndEnter()
+    {
+        for (const bool enter : {false, true}) {
+            CaptureOverlay *overlay = makeOverlay(CaptureOverlay::Mode::Screen);
+            QSignalSpy selected(overlay, &CaptureOverlay::screenSelected);
+            QWidget *window = overlay->windows().first();
+            QTest::mouseMove(window, QPoint(40, 30));
+            QCOMPARE(overlay->hoveredScreen(), 0);
+            if (enter)
+                QTest::keyClick(window, Qt::Key_Return); // all monitors (here: the one)
+            else
+                QTest::mouseClick(window, Qt::LeftButton, {}, QPoint(40, 30));
+            QCOMPARE(selected.count(), 1);
+            QCOMPARE(selected.first().first().toRect(), QRect(QPoint(0, 0), window->size() * 2));
+            delete overlay;
+        }
+    }
+
+    void screenModeWithoutWindows()
+    {
+        // Screen mode stays screen mode when there are no windows to pick.
+        CaptureOverlay *overlay = makeOverlay(CaptureOverlay::Mode::Screen);
+        QCOMPARE(overlay->mode(), CaptureOverlay::Mode::Screen);
+        QTest::keyClick(overlay->windows().first(), Qt::Key_R);
+        QCOMPARE(overlay->mode(), CaptureOverlay::Mode::Region);
+        QTest::keyClick(overlay->windows().first(), Qt::Key_S);
+        QCOMPARE(overlay->mode(), CaptureOverlay::Mode::Screen);
+        delete overlay;
+    }
+
+    void composeAllMonitors()
+    {
+        // Two monitors side by side, the right one lower and smaller: the
+        // gap below it stays transparent.
+        CaptureOverlay::Screen left;
+        left.native = QRect(0, 0, 400, 300);
+        left.picture = QImage(left.native.size(), QImage::Format_RGB32);
+        left.picture.fill(Qt::red);
+        CaptureOverlay::Screen right;
+        right.native = QRect(400, 50, 200, 150);
+        right.picture = QImage(right.native.size(), QImage::Format_RGB32);
+        right.picture.fill(Qt::blue);
+        double scale = 0;
+        const QRect all = left.native.united(right.native);
+        const QImage image = CaptureOverlay::compose({left, right}, all, &scale);
+        QCOMPARE(image.size(), QSize(600, 300));
+        QCOMPARE(image.pixelColor(10, 10), QColor(Qt::red));
+        QCOMPARE(image.pixelColor(450, 100), QColor(Qt::blue));
+        QCOMPARE(image.pixelColor(450, 10).alpha(), 0);  // above the right monitor
+        QCOMPARE(image.pixelColor(450, 250).alpha(), 0); // below it
+        QCOMPARE(scale, 1.0);
+        // A region across both monitors.
+        const QImage part = CaptureOverlay::compose({left, right}, QRect(390, 60, 20, 10), &scale);
+        QCOMPARE(part.pixelColor(9, 5), QColor(Qt::red));
+        QCOMPARE(part.pixelColor(10, 5), QColor(Qt::blue));
+    }
+
+    void countdownRunsOut()
+    {
+        Countdown countdown;
+        countdown.setTickInterval(20);
+        QSignalSpy finished(&countdown, &Countdown::finished);
+        QSignalSpy cancelled(&countdown, &Countdown::cancelled);
+        countdown.start(3);
+        QVERIFY(countdown.isVisible());
+        QCOMPARE(countdown.secondsLeft(), 3);
+        // Hidden first, then finished (after the compositor had a frame).
+        QTRY_VERIFY(!countdown.isVisible());
+        QVERIFY(finished.wait(1000));
+        QCOMPARE(cancelled.count(), 0);
+    }
+
+    void countdownCancels()
+    {
+        for (const bool byKey : {false, true}) {
+            Countdown countdown;
+            countdown.setTickInterval(5000);
+            QSignalSpy finished(&countdown, &Countdown::finished);
+            QSignalSpy cancelled(&countdown, &Countdown::cancelled);
+            countdown.start(5);
+            QVERIFY(QTest::qWaitForWindowExposed(&countdown));
+            if (byKey)
+                QTest::keyClick(&countdown, Qt::Key_Escape);
+            else
+                QTest::mouseClick(&countdown, Qt::LeftButton, {}, QPoint(50, 50));
+            QCOMPARE(cancelled.count(), 1);
+            QVERIFY(!countdown.isVisible());
+            QTest::qWait(50);
+            QCOMPARE(finished.count(), 0);
         }
     }
 

@@ -78,10 +78,11 @@ protected:
         // Native size into the logical rectangle: one picture pixel per
         // physical screen pixel.
         painter.drawImage(QRectF(rect()), m_picture);
-        if (m_overlay->mode() == CaptureOverlay::Mode::Window)
-            paintWindowHighlight(painter);
-        else
-            paintRegion(painter);
+        switch (m_overlay->mode()) {
+        case CaptureOverlay::Mode::Window: paintWindowHighlight(painter); break;
+        case CaptureOverlay::Mode::Region: paintRegion(painter); break;
+        case CaptureOverlay::Mode::Screen: paintScreenHighlight(painter); break;
+        }
         if (m_primary && m_overlay->m_hintVisible)
             paintHint(painter);
     }
@@ -124,6 +125,20 @@ private:
         painter.setPen(QPen(kHighlight, kHighlightWidth));
         painter.setBrush(kHighlightFill);
         painter.drawRoundedRect(frame.adjusted(inset, inset, -inset, -inset), kHighlightRadius, kHighlightRadius);
+        painter.restore();
+    }
+
+    void paintScreenHighlight(QPainter &painter)
+    {
+        // The monitor under the pointer: a frame along its edges.
+        const int index = m_overlay->hoveredScreen();
+        if (index < 0 || m_overlay->m_screens[index].native != m_native)
+            return;
+        painter.save();
+        const qreal inset = kHighlightWidth / 2;
+        painter.setPen(QPen(kHighlight, kHighlightWidth));
+        painter.setBrush(kHighlightFill);
+        painter.drawRect(QRectF(rect()).adjusted(inset, inset, -inset, -inset));
         painter.restore();
     }
 
@@ -221,7 +236,11 @@ private:
         QString text;
         const RegionSelector &selector = m_overlay->region();
         if (m_overlay->mode() == CaptureOverlay::Mode::Window)
-            text = tr("Fenster anklicken · R: Bereich · Esc: Abbrechen");
+            text = tr("Fenster anklicken · R: Bereich · S: Bildschirm · Esc: Abbrechen");
+        else if (m_overlay->mode() == CaptureOverlay::Mode::Screen)
+            text = m_overlay->m_screens.size() > 1
+                ? tr("Bildschirm anklicken · Enter: alle Bildschirme · W: Fenster · R: Bereich · Esc: Abbrechen")
+                : tr("Klicken oder Enter: Bildschirm aufnehmen · W: Fenster · R: Bereich · Esc: Abbrechen");
         else if (selector.hasStart())
             text = tr("Gegenüberliegende Ecke anklicken · Rücktaste: neu beginnen · Esc: Abbrechen");
         else if (selector.mode() == RegionSelector::Mode::Drag)
@@ -258,7 +277,8 @@ CaptureOverlay::CaptureOverlay(const QList<Screen> &screens, const QList<QRect> 
     : QObject(parent)
     , m_screens(screens)
     , m_frames(frames)
-    , m_mode(frames.isEmpty() ? Mode::Region : mode)
+    // Without windows there is no window mode.
+    , m_mode(frames.isEmpty() && mode == Mode::Window ? Mode::Region : mode)
     , m_selector(regionMode)
 {
     for (const Screen &screen : screens)
@@ -306,6 +326,54 @@ const CaptureOverlay::Screen *CaptureOverlay::screenAt(const QPoint &native) con
     return nullptr;
 }
 
+QImage CaptureOverlay::compose(const QList<Screen> &screens, const QRect &native, double *scale)
+{
+    QImage image(native.size(), QImage::Format_ARGB32);
+    image.fill(Qt::transparent);
+    QPainter painter(&image);
+    *scale = 1.0;
+    bool scaleFound = false;
+    for (const Screen &screen : screens) {
+        const double screenScale = screen.screen
+            ? double(screen.native.width()) / std::max(1, screen.screen->geometry().width())
+            : 1.0;
+        if (!scaleFound && screen.screen == QGuiApplication::primaryScreen())
+            *scale = screenScale;
+        if (!screen.native.intersects(native))
+            continue;
+        painter.drawImage(screen.native.topLeft() - native.topLeft(), screen.picture);
+        if (screen.native.contains(native.center())) {
+            *scale = screenScale;
+            scaleFound = true;
+        }
+    }
+    return image;
+}
+
+int CaptureOverlay::hoveredScreen() const
+{
+    for (qsizetype i = 0; i < m_screens.size(); ++i) {
+        if (m_screens[i].native.contains(m_cursor))
+            return int(i);
+    }
+    return -1;
+}
+
+void CaptureOverlay::pickScreen(bool all)
+{
+    QRect rect;
+    if (all) {
+        for (const Screen &screen : std::as_const(m_screens))
+            rect = rect.united(screen.native);
+    } else if (const int index = hoveredScreen(); index >= 0) {
+        rect = m_screens[index].native;
+    }
+    if (rect.isEmpty())
+        return;
+    finish();
+    emit screenSelected(rect);
+}
+
 void CaptureOverlay::updateAll()
 {
     for (OverlayWindow *window : std::as_const(m_windows))
@@ -340,6 +408,10 @@ void CaptureOverlay::pointerPressed(const QPoint &native, Qt::MouseButton button
             finish();
             emit windowPicked(m_hovered);
         }
+        return;
+    }
+    if (m_mode == Mode::Screen) {
+        pickScreen(false);
         return;
     }
     m_selector.press(native);
@@ -377,6 +449,10 @@ void CaptureOverlay::keyPressed(int key, Qt::KeyboardModifiers modifiers)
             }
             return;
         }
+        if (m_mode == Mode::Screen) {
+            pickScreen(true); // Enter: all monitors together
+            return;
+        }
         m_selector.click(m_cursor);
         checkRegionDone();
         break;
@@ -390,6 +466,9 @@ void CaptureOverlay::keyPressed(int key, Qt::KeyboardModifiers modifiers)
         break;
     case Qt::Key_R:
         setMode(Mode::Region);
+        break;
+    case Qt::Key_S:
+        setMode(Mode::Screen);
         break;
     case Qt::Key_F1:
         m_hintVisible = !m_hintVisible;

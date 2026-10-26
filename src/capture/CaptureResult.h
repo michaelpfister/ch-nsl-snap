@@ -8,12 +8,13 @@
 // plus enough metadata for the shared core to crop and name it.
 struct CaptureResult
 {
-    enum class Kind { Window, Region };
+    enum class Kind { Window, Region, Screen };
     Kind kind = Kind::Window;
 
     // For window captures: the whole window buffer, including transparent
     // shadow margins. The core crops it (imaging/WindowImage.h). For
-    // region captures (F-03): exactly the selected part of the frozen screen.
+    // region captures (F-03): exactly the selected part of the frozen screen;
+    // screen captures (F-01): one monitor, or all monitors together.
     QImage image;
 
     QString title;  // window title, used for the file name

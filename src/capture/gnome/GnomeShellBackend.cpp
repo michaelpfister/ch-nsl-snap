@@ -15,8 +15,12 @@ namespace {
 const QString kService = QStringLiteral("ch.netslash.Snap.Shell");
 const QString kPath = QStringLiteral("/ch/netslash/Snap");
 const QString kInterface = QStringLiteral("ch.netslash.Snap1");
-// Version 2 added Capture with region mode, both on a frozen screen (D-011).
+// Version 2 added Capture with region mode, both on a frozen screen (D-011);
+// version 4 the screen mode (F-01).
 constexpr uint kCaptureVersion = 2;
+constexpr uint kScreenVersion = 4;
+// Version 5 the delay with a countdown (F-04).
+constexpr uint kDelayVersion = 5;
 
 // "frame-rect", "buffer-rect" and "rect" are D-Bus structs (iiii): x, y,
 // width, height.
@@ -74,6 +78,11 @@ void GnomeShellBackend::captureRegion()
     capture(QStringLiteral("region"));
 }
 
+void GnomeShellBackend::captureScreen()
+{
+    capture(QStringLiteral("screen"));
+}
+
 void GnomeShellBackend::capture(const QString &mode)
 {
     if (m_busy)
@@ -84,7 +93,18 @@ void GnomeShellBackend::capture(const QString &mode)
     }
     // An extension from before the update still runs until the next login:
     // window capture works with its old method, region capture does not.
-    const bool hasCapture = extensionVersion() >= kCaptureVersion;
+    const uint version = extensionVersion();
+    const bool hasCapture = version >= kCaptureVersion;
+    if (mode == QLatin1String("screen") && version < kScreenVersion) {
+        emit failed(tr("Die GNOME-Erweiterung «NSL Snap» ist veraltet und kennt die Bildschirmaufnahme noch nicht. "
+                       "Bitte ab- und wieder anmelden, damit die neue Version geladen wird."));
+        return;
+    }
+    if (delay() > 0 && version < kDelayVersion) {
+        emit failed(tr("Die GNOME-Erweiterung «NSL Snap» ist veraltet und kennt die verzögerte Aufnahme noch nicht. "
+                       "Bitte ab- und wieder anmelden, damit die neue Version geladen wird."));
+        return;
+    }
     if (!hasCapture && mode != QLatin1String("window")) {
         emit failed(tr("Die GNOME-Erweiterung «NSL Snap» ist veraltet und kennt die Bereichsaufnahme noch nicht. "
                        "Bitte ab- und wieder anmelden, damit die neue Version geladen wird."));
@@ -100,6 +120,8 @@ void GnomeShellBackend::capture(const QString &mode)
         // How a region is selected (D-023); older extensions ignore it.
         options.insert(QStringLiteral("region-select"),
                        regionByDragging() ? QStringLiteral("drag") : QStringLiteral("clicks"));
+        if (delay() > 0)
+            options.insert(QStringLiteral("delay"), QVariant::fromValue(uint(delay()))); // D-Bus type u
     }
 
     auto message = QDBusMessage::createMethodCall(kService, kPath, kInterface,
@@ -136,9 +158,10 @@ CaptureResult GnomeShellBackend::resultFromReply(const QByteArray &png, const QV
 {
     CaptureResult result;
     // Version 1 of the extension sends no "mode": always a window.
-    result.kind = info.value(QStringLiteral("mode")).toString() == QLatin1String("region")
-                      ? CaptureResult::Kind::Region
-                      : CaptureResult::Kind::Window;
+    const QString mode = info.value(QStringLiteral("mode")).toString();
+    result.kind = mode == QLatin1String("region")   ? CaptureResult::Kind::Region
+                  : mode == QLatin1String("screen") ? CaptureResult::Kind::Screen
+                                                    : CaptureResult::Kind::Window;
     result.image = QImage::fromData(png, "PNG");
     result.title = info.value(QStringLiteral("title")).toString();
     result.appId = info.value(QStringLiteral("app-id")).toString();

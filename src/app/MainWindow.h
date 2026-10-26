@@ -44,6 +44,7 @@ private:
 
     void captureWindow();
     void captureRegion();
+    void captureScreen();
     // Ctrl+N: the mode of the last capture (F-46).
     void captureLastMode();
     void startCapture(CaptureResult::Kind kind);

@@ -1,5 +1,6 @@
 #include "capture/windows/WindowsBackend.h"
 
+#include "capture/Countdown.h"
 #include "capture/PickGeometry.h"
 #include "capture/windows/WgcCapture.h"
 
@@ -97,15 +98,40 @@ void WindowsBackend::captureRegion()
     start(CaptureOverlay::Mode::Region);
 }
 
+void WindowsBackend::captureScreen()
+{
+    start(CaptureOverlay::Mode::Screen);
+}
+
 void WindowsBackend::start(CaptureOverlay::Mode mode)
 {
-    if (m_overlay)
+    if (m_overlay || m_countdown)
         return;
     if (!isAvailable()) {
         emit failed(unavailableReason());
         return;
     }
+    if (delay() <= 0) {
+        freezeAndPick(mode);
+        return;
+    }
+    // The countdown first (F-04); it is off the screen before the freeze.
+    m_countdown = new Countdown;
+    connect(m_countdown, &Countdown::finished, this, [this, mode] {
+        m_countdown->deleteLater();
+        m_countdown = nullptr;
+        freezeAndPick(mode);
+    });
+    connect(m_countdown, &Countdown::cancelled, this, [this] {
+        m_countdown->deleteLater();
+        m_countdown = nullptr;
+        emit cancelled();
+    });
+    m_countdown->start(delay());
+}
 
+void WindowsBackend::freezeAndPick(CaptureOverlay::Mode mode)
+{
     // Freeze first (D-011): every window on its own, and the monitors for
     // the overlay's background and for region captures.
     m_freeze = WgcCapture::Freeze::capture();
@@ -126,7 +152,10 @@ void WindowsBackend::start(CaptureOverlay::Mode mode)
     m_overlay = new CaptureOverlay(m_screens, frames, mode,
                                    regionByDragging() ? RegionSelector::Mode::Drag : RegionSelector::Mode::Clicks, this);
     connect(m_overlay, &CaptureOverlay::windowPicked, this, &WindowsBackend::onWindowPicked);
-    connect(m_overlay, &CaptureOverlay::regionSelected, this, &WindowsBackend::onRegionSelected);
+    connect(m_overlay, &CaptureOverlay::regionSelected, this,
+            [this](const QRect &native) { deliverPart(native, CaptureResult::Kind::Region); });
+    connect(m_overlay, &CaptureOverlay::screenSelected, this,
+            [this](const QRect &native) { deliverPart(native, CaptureResult::Kind::Screen); });
     connect(m_overlay, &CaptureOverlay::cancelled, this, [this] {
         finish();
         emit cancelled();
@@ -167,28 +196,15 @@ void WindowsBackend::onWindowPicked(int index)
     emit captured(result);
 }
 
-void WindowsBackend::onRegionSelected(const QRect &native)
+void WindowsBackend::deliverPart(const QRect &native, CaptureResult::Kind kind)
 {
-    // The region from the frozen monitors, in physical pixels; it may span
-    // several monitors.
-    QImage image(native.size(), QImage::Format_RGB32);
-    image.fill(Qt::black);
-    QPainter painter(&image);
     double scale = 1.0;
-    for (const CaptureOverlay::Screen &screen : std::as_const(m_screens)) {
-        if (!screen.native.intersects(native))
-            continue;
-        painter.drawImage(screen.native.topLeft() - native.topLeft(), screen.picture);
-        // The scale of the monitor that holds the middle of the region.
-        if (screen.native.contains(native.center()))
-            scale = double(screen.native.width()) / std::max(1, screen.screen->geometry().width());
-    }
-    painter.end();
+    const QImage image = CaptureOverlay::compose(m_screens, native, &scale);
     finish();
 
     CaptureResult result;
-    result.kind = CaptureResult::Kind::Region;
-    result.image = image.convertToFormat(QImage::Format_ARGB32);
+    result.kind = kind;
+    result.image = image;
     result.scale = scale;
     result.regionRect = native;
     emit captured(result);

@@ -265,3 +265,27 @@ Each entry: context, decision, rationale, consequences. Entries marked **(assump
 - Replaces the confirmation step of D-021 (click into the region or Enter): the second click captures.
 - Tested in the headless GNOME Shell 46 with injected input, also at scale 2 (`scale-monitor-framebuffer`): two clicks (200 × 150 px exactly), arrow keys across a colour boundary (3 red and 3 blue pixels), drag mode (a click starts nothing), Backspace, and 4 × 2 physical pixels at scale 2 that the mouse alone cannot reach.
 - On Windows the region may span several monitors; it is put together from the frozen monitors in physical pixels, with the scale of the monitor that holds its middle.
+
+## D-024 Screen capture: click a monitor, Enter for all
+
+**Context:** F-01, the third mode of the capture overlay of D-011, on GNOME and Windows.
+**Decision:**
+- **Screen mode** in the same overlay as window and region (start with "Bildschirm" or Ctrl+1; S switches to it, W and R away). The monitor under the pointer gets a square blue frame; **a click** captures that monitor, **Enter or Space all monitors** together. With a single monitor both do the same, and the hint says so.
+- All monitors: the rectangle around them; **gaps** between monitors of different sizes **stay transparent**. The scale is that of the monitor holding the middle (else the primary one's).
+- GNOME: `mode: "screen"` in the extension's `Capture` (API version 4); the result is cut from the frozen stage picture in physical pixels like a region. The app (Windows, later macOS): `CaptureOverlay::Mode::Screen`; `CaptureOverlay::compose` puts the frozen monitors together, also for regions across monitors.
+- Ctrl+N repeats the last mode, also screen.
+**Rationale:** One overlay for all three modes keeps the keys and the look the same; capturing all monitors with Enter needs no extra button.
+**Consequences:** Tested in the headless GNOME Shell 46 with two monitors (1280 × 800 and 800 × 600) at scale 2: one monitor (800 × 600 px), all (2080 × 800 px, transparent gap), switching from window mode with S; on every platform with `tst_overlay` (click, Enter, composing two monitors with a gap).
+
+## D-025 Delayed capture: a countdown that leaves the desktop usable, Escape through a temporary global key
+
+**Context:** F-04: with a timer the user wants to open a menu or hover something before the freeze, so the countdown must not take the input; Escape must still cancel it.
+**Decision:**
+- The **timer** in the top bar (Aus, 3 s, 5 s, 10 s) is remembered and passed with every capture. The app hides itself, then the **countdown** runs: a small dark box with the seconds in the middle of the primary monitor ("Esc oder Klick: Abbrechen"). Only the box takes clicks (a click cancels); everything else stays usable, and it never takes the focus.
+- At zero the box disappears, and after 150 ms (a frame without it) the screen is frozen and the overlay opens in the chosen mode (D-011).
+- **Escape** goes to the window that has the focus, not to the shell or the app. So while the countdown runs, Escape is a global key: on GNOME a keybinding of the extension (`cancel-countdown` in its new settings schema, `Main.wm.addKeybinding`), on Windows `RegisterHotKey`. Both are removed as soon as the countdown ends. Meanwhile Escape does not reach applications (e.g. to close a menu); accepted.
+- GNOME: option `delay` (seconds) of `Capture`, extension API version 5 (`countdown.js`). The app (Windows, later macOS): `Countdown` widget.
+**Rationale:** A grab of all input would make the timer useless; the temporary global key is the least intrusive way to keep Escape.
+**Consequences:**
+- The extension now has a settings schema, compiled by `scripts/dev-install.sh` (the compiled file is not in the repository); CI checks that it compiles. The global hotkeys (F-42) will use the same schema.
+- Tested in the headless GNOME Shell 46: the countdown is shown while a window keeps the focus, Escape sent to that window cancels, after running out the overlay opens and the countdown is not in the frozen picture; the app's backend with a 2 s delay and screen mode. `Countdown` tested offscreen on every platform (running out, click, Escape); the global Escape on Windows by hand.

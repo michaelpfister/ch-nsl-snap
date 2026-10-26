@@ -2,3 +2,5 @@ __pycache__/
 *.pyc
 build/
 CMakeLists.txt.user
+# Compiled by scripts/dev-install.sh
+gnome-extension/*/schemas/gschemas.compiled

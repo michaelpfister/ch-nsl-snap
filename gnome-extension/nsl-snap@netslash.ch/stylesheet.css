@@ -4,6 +4,12 @@
   border-radius: 12px;
 }
 
+/* Screen mode: the monitor under the pointer, square like the screen. */
+.nsl-snap-monitor {
+  border: 4px solid rgba(53, 132, 228, 0.95);
+  background-color: rgba(53, 132, 228, 0.12);
+}
+
 /* Region mode: darkens what is not captured. */
 .nsl-snap-shade {
   background-color: rgba(0, 0, 0, 0.45);
@@ -56,5 +62,24 @@
   background-color: rgba(20, 20, 20, 0.9);
   color: #ffffff;
   padding: 3px 6px;
+  font-size: 9pt;
+}
+
+/* Countdown of a delayed capture (F-04). */
+.nsl-snap-countdown {
+  background-color: rgba(30, 30, 30, 0.88);
+  border-radius: 24px;
+  padding: 18px 28px 14px 28px;
+  spacing: 4px;
+}
+
+.nsl-snap-countdown-number {
+  color: #ffffff;
+  font-size: 48pt;
+  font-weight: bold;
+}
+
+.nsl-snap-countdown-hint {
+  color: rgba(255, 255, 255, 0.75);
   font-size: 9pt;
 }

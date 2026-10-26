@@ -11,6 +11,7 @@ import Shell from 'gi://Shell';
 
 import {Extension} from 'resource:///org/gnome/shell/extensions/extension.js';
 
+import {countdown} from './countdown.js';
 import {Mode, RegionSelect, freeze, select} from './overlay.js';
 
 Gio._promisify(Shell.Screenshot, 'composite_to_stream');
@@ -21,7 +22,9 @@ const OBJECT_PATH = '/ch/netslash/Snap';
 const ERROR_PREFIX = 'ch.netslash.Snap1.Error';
 // 2: Capture with window and region mode, both on a frozen screen.
 // 3: region by two clicks or a drag (region-select), with a magnifier.
-const API_VERSION = 3;
+// 4: screen mode (F-01).
+// 5: delay with a countdown (F-04).
+const API_VERSION = 5;
 
 const IFACE_XML = `
 <node>
@@ -30,14 +33,18 @@ const IFACE_XML = `
       Freezes the screen, shows the capture overlay and returns what the
       user selected. W and R switch between window and region in it.
       options:
-        mode (s): "window" (default) or "region": the mode the overlay
-                  starts in.
+        mode (s): "window" (default), "region" or "screen": the mode the
+                  overlay starts in (W, R, S switch in it).
         crop (s): window captures only. "frame" (default) crops to the
                   visible window, "buffer" keeps client-side shadow margins.
         region-select (s): "clicks" (default): two clicks set the corners;
                   "drag": press, drag, release (D-023).
+        delay (u): seconds of countdown before the freeze (F-04); 0 (default)
+                  freezes at once. Escape or a click on the countdown
+                  cancels.
       png:  the capture as PNG with alpha channel.
-      info: mode ("window" or "region"), scale, width, height (image px);
+      info: mode ("window", "region" or "screen"), scale, width, height
+            (image px); screen: one monitor or all (rect, pixels as region);
             window: title, app-id, wm-class, frame-rect, buffer-rect, crop;
             region: rect (logical px), pixels (physical px).
     -->
@@ -126,7 +133,7 @@ async function encodeWindow(entry, crop) {
  * @param {object} region - {x, y, width, height} in physical px (texture px)
  * @returns {Promise<[GLib.Bytes, object]>} PNG bytes and info dictionary
  */
-async function encodeRegion(frozen, region) {
+async function encodeRegion(frozen, region, mode = Mode.REGION) {
     const texture = frozen.content.get_texture();
     const scale = frozen.scale;
     // Inside the texture.
@@ -141,7 +148,7 @@ async function encodeRegion(frozen, region) {
         width: Math.round(width / scale), height: Math.round(height / scale),
     };
     const info = {
-        'mode': GLib.Variant.new_string(Mode.REGION),
+        'mode': GLib.Variant.new_string(mode),
         'rect': rectVariant(logical),
         'pixels': rectVariant({x, y, width, height}),
         'scale': GLib.Variant.new_double(scale),
@@ -152,7 +159,9 @@ async function encodeRegion(frozen, region) {
 }
 
 class SnapService {
-    constructor() {
+    constructor(settings) {
+        this._settings = settings;
+        this._countdown = null;
         this._dbus = Gio.DBusExportedObject.wrapJSObject(IFACE_XML, this);
         this._dbus.export(Gio.DBus.session, OBJECT_PATH);
         this._nameId = Gio.bus_own_name_on_connection(
@@ -198,15 +207,27 @@ class SnapService {
         const mode = options.mode ?? Mode.WINDOW;
         const crop = options.crop ?? 'frame';
         const how = options['region-select'] ?? RegionSelect.CLICKS;
-        if (mode !== Mode.WINDOW && mode !== Mode.REGION)
+        const delay = options.delay ?? 0;
+        if (!Object.values(Mode).includes(mode))
             throw new CaptureError('InvalidArgs', `Unknown mode "${mode}"`);
         if (crop !== 'frame' && crop !== 'buffer')
             throw new CaptureError('InvalidArgs', `Unknown crop "${crop}"`);
         if (how !== RegionSelect.CLICKS && how !== RegionSelect.DRAG)
             throw new CaptureError('InvalidArgs', `Unknown region-select "${how}"`);
+        if (!Number.isInteger(delay) || delay < 0 || delay > 60)
+            throw new CaptureError('InvalidArgs', `Invalid delay ${delay}`);
 
         this._busy = true;
         try {
+            // After the countdown, if any: the countdown is gone before the
+            // freeze (F-04).
+            if (delay > 0) {
+                this._countdown = countdown(delay, this._settings);
+                const go = await this._countdown.promise;
+                this._countdown = null;
+                if (!go)
+                    throw new CaptureError('Cancelled', 'Cancelled by the user');
+            }
             // Freeze first, then select on the frozen picture (D-011).
             const frozen = await freeze();
             this._selection = select(frozen, mode, how);
@@ -216,14 +237,17 @@ class SnapService {
                 throw new CaptureError('Cancelled', 'Cancelled by the user');
             if (result.mode === Mode.WINDOW)
                 return await encodeWindow(result.window, crop);
-            return await encodeRegion(frozen, result.region);
+            return await encodeRegion(frozen, result.region, result.mode);
         } finally {
+            this._countdown = null;
             this._selection = null;
             this._busy = false;
         }
     }
 
     destroy() {
+        this._countdown?.cancel();
+        this._countdown = null;
         this._selection?.cancel();
         this._selection = null;
         Gio.bus_unown_name(this._nameId);
@@ -233,7 +257,7 @@ class SnapService {
 
 export default class NslSnapExtension extends Extension {
     enable() {
-        this._service = new SnapService();
+        this._service = new SnapService(this.getSettings());
     }
 
     disable() {

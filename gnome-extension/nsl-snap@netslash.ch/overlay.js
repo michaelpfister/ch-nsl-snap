@@ -1,8 +1,8 @@
 // Capture overlay (docs/02-decisions.md, D-011): the screen is frozen first,
-// then the user selects on the frozen picture. Two modes, switchable with
-// W and R (F-47): window (hover and click) and region (D-023: two clicks or
+// then the user selects on the frozen picture. Three modes, switchable with
+// W, R and S (F-47): window (hover and click), region (D-023: two clicks or
 // a drag, with crosshair lines and a magnifier; arrow keys move by one
-// physical pixel). Resolves with the selection, or null when the user
+// physical pixel) and screen (F-01: click a monitor, Enter for all). Resolves with the selection, or null when the user
 // cancels. The same behaviour as the app's own overlay
 // (src/capture/CaptureOverlay.cpp, src/capture/RegionSelector.cpp).
 
@@ -14,7 +14,7 @@ import St from 'gi://St';
 
 import * as Main from 'resource:///org/gnome/shell/ui/main.js';
 
-export const Mode = Object.freeze({WINDOW: 'window', REGION: 'region'});
+export const Mode = Object.freeze({WINDOW: 'window', REGION: 'region', SCREEN: 'screen'});
 // How a region is selected (setting of the app): two clicks or a drag.
 export const RegionSelect = Object.freeze({CLICKS: 'clicks', DRAG: 'drag'});
 
@@ -237,6 +237,10 @@ class CaptureOverlay extends St.Widget {
         this._highlight = new St.Widget({style_class: 'nsl-snap-highlight', visible: false});
         this.add_child(this._highlight);
 
+        // Screen mode: the monitor under the pointer.
+        this._monitorHighlight = new St.Widget({style_class: 'nsl-snap-monitor', visible: false});
+        this.add_child(this._monitorHighlight);
+
         // Hint bar at the top of the primary monitor (F1 hides it, F-47).
         this._hint = new St.Label({style_class: 'nsl-snap-hint'});
         this.add_child(this._hint);
@@ -287,6 +291,14 @@ class CaptureOverlay extends St.Widget {
         }
         this._highlight.visible = entry !== null;
 
+        // Screen mode.
+        const hoveredMonitor = this._mode === Mode.SCREEN ? this._monitorAtCursor() : null;
+        if (hoveredMonitor) {
+            this._monitorHighlight.set_position(hoveredMonitor.x, hoveredMonitor.y);
+            this._monitorHighlight.set_size(hoveredMonitor.width, hoveredMonitor.height);
+        }
+        this._monitorHighlight.visible = hoveredMonitor !== null;
+
         // Region mode, in logical px from here on.
         const inRegionMode = this._mode === Mode.REGION;
         const physical = inRegionMode ? this._selector.region() : null;
@@ -325,7 +337,11 @@ class CaptureOverlay extends St.Widget {
 
         let text;
         if (this._mode === Mode.WINDOW)
-            text = 'Fenster anklicken · R: Bereich · Esc: Abbrechen';
+            text = 'Fenster anklicken · R: Bereich · S: Bildschirm · Esc: Abbrechen';
+        else if (this._mode === Mode.SCREEN)
+            text = Main.layoutManager.monitors.length > 1
+                ? 'Bildschirm anklicken · Enter: alle Bildschirme · W: Fenster · R: Bereich · Esc: Abbrechen'
+                : 'Klicken oder Enter: Bildschirm aufnehmen · W: Fenster · R: Bereich · Esc: Abbrechen';
         else if (this._selector.hasStart)
             text = 'Gegenüberliegende Ecke anklicken · Rücktaste: neu beginnen · Esc: Abbrechen';
         else if (this._how === RegionSelect.DRAG)
@@ -412,6 +428,10 @@ class CaptureOverlay extends St.Widget {
                 this._finish({mode: Mode.WINDOW, window: this._hovered});
             return Clutter.EVENT_STOP;
         }
+        if (this._mode === Mode.SCREEN) {
+            this._pickScreen(false);
+            return Clutter.EVENT_STOP;
+        }
         this._selector.press(this._cursor);
         this._checkRegionDone();
         return Clutter.EVENT_STOP;
@@ -440,6 +460,8 @@ class CaptureOverlay extends St.Widget {
             if (this._mode === Mode.WINDOW) {
                 if (this._hovered)
                     this._finish({mode: Mode.WINDOW, window: this._hovered});
+            } else if (this._mode === Mode.SCREEN) {
+                this._pickScreen(true); // Enter: all monitors together
             } else {
                 this._selector.click(this._cursor);
                 this._checkRegionDone();
@@ -459,6 +481,11 @@ class CaptureOverlay extends St.Widget {
         case Clutter.KEY_R:
             if (this._mode !== Mode.REGION)
                 this._setMode(Mode.REGION);
+            break;
+        case Clutter.KEY_s:
+        case Clutter.KEY_S:
+            if (this._mode !== Mode.SCREEN)
+                this._setMode(Mode.SCREEN);
             break;
         case Clutter.KEY_F1:
             this._hint.visible = !this._hint.visible;
@@ -494,6 +521,30 @@ class CaptureOverlay extends St.Widget {
         this._ignoreMotionAt = [x, y];
         Clutter.get_default_backend().get_default_seat().warp_pointer(x, y);
         this._sync();
+    }
+
+    // The monitor (logical rectangle) under the selection point.
+    _monitorAtCursor() {
+        const [x, y] = this._cursor.map(v => (v + 0.5) / this._scale);
+        return Main.layoutManager.monitors.find(m => contains(m, x, y)) ?? null;
+    }
+
+    // One monitor, or all of them (the whole stage), in physical pixels.
+    _pickScreen(all) {
+        let rect;
+        if (all) {
+            rect = {x: 0, y: 0, width: this._textureSize[0], height: this._textureSize[1]};
+        } else {
+            const m = this._monitorAtCursor();
+            if (!m)
+                return;
+            const scale = this._scale;
+            rect = {
+                x: Math.round(m.x * scale), y: Math.round(m.y * scale),
+                width: Math.round(m.width * scale), height: Math.round(m.height * scale),
+            };
+        }
+        this._finish({mode: Mode.SCREEN, region: rect});
     }
 
     _checkRegionDone() {
@@ -533,11 +584,11 @@ class CaptureOverlay extends St.Widget {
  * Shows the overlay over a frozen screen.
  *
  * @param {object} frozen - result of freeze()
- * @param {string} mode - Mode.WINDOW or Mode.REGION to start with
+ * @param {string} mode - Mode.WINDOW, Mode.REGION or Mode.SCREEN to start with
  * @param {string} how - RegionSelect.CLICKS or RegionSelect.DRAG
  * @returns {{promise: Promise<object|null>, cancel: Function}} resolves with
- *   {mode: 'window', window: entry} or {mode: 'region', region: rect in
- *   physical px}, or null
+ *   {mode: 'window', window: entry} or {mode: 'region' or 'screen', region:
+ *   rect in physical px}, or null
  */
 export function select(frozen, mode, how = RegionSelect.CLICKS) {
     let overlay;

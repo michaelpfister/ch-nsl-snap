@@ -42,6 +42,8 @@
 #include <QUndoStack>
 #include <QUrl>
 
+#include <algorithm>
+
 #ifdef NSL_HAVE_GNOME_BACKEND
 #include <QDBusConnection>
 #include <QDBusMessage>
@@ -289,25 +291,32 @@ QWidget *MainWindow::createTopBar()
                                                            : tr("Die Bereichsaufnahme folgt auf dieser Plattform"));
     m_regionButton->setEnabled(m_capture->supportsRegion());
     m_windowButton->setChecked(true);
-    m_screenButton->setEnabled(false);
-    m_screenButton->setToolTip(tr("Folgt mit der Bildschirmaufnahme (F-01)"));
+    m_screenButton->setToolTip(m_capture->supportsRegion() ? tr("Bildschirm aufnehmen (Ctrl+1)")
+                                                           : tr("Die Bildschirmaufnahme folgt auf dieser Plattform"));
+    m_screenButton->setEnabled(m_capture->supportsRegion());
     modesLayout->addWidget(m_windowButton);
     modesLayout->addWidget(m_regionButton);
     modesLayout->addWidget(m_screenButton);
     layout->addWidget(modes);
     connect(m_windowButton, &QToolButton::clicked, this, &MainWindow::captureWindow);
     connect(m_regionButton, &QToolButton::clicked, this, &MainWindow::captureRegion);
+    connect(m_screenButton, &QToolButton::clicked, this, &MainWindow::captureScreen);
 
     // Timer (F-04). The countdown itself comes with the overlay.
     m_timerIcon = new QLabel(bar);
     auto *timerLabel = new QLabel(tr("Timer"), bar);
     timerLabel->setProperty("role", QStringLiteral("muted"));
     m_timer = new QComboBox(bar);
-    m_timer->addItems({tr("Aus"), tr("3 s"), tr("5 s"), tr("10 s")});
+    // Delayed capture (F-04): the seconds as item data; remembered.
+    m_timer->addItem(tr("Aus"), 0);
+    for (int seconds : {3, 5, 10})
+        m_timer->addItem(tr("%1 s").arg(seconds), seconds);
+    m_timer->setCurrentIndex(std::max(0, m_timer->findData(Settings::captureDelay())));
     m_timer->setAccessibleName(tr("Timer"));
-    m_timer->setEnabled(false);
-    m_timer->setToolTip(tr("Folgt mit dem Aufnahme-Overlay (D-011)"));
+    m_timer->setToolTip(tr("Verzögerte Aufnahme: Countdown, dann einfrieren und auswählen. Esc bricht ab."));
     m_timer->setFocusPolicy(Qt::NoFocus);
+    connect(m_timer, &QComboBox::currentIndexChanged, this,
+            [this] { Settings::setCaptureDelay(m_timer->currentData().toInt()); });
     layout->addWidget(m_timerIcon);
     layout->addWidget(timerLabel);
     layout->addWidget(m_timer);
@@ -392,6 +401,7 @@ void MainWindow::createShortcuts()
         return action;
     };
     add(QKeySequence(Qt::CTRL | Qt::Key_N), &MainWindow::captureLastMode);
+    add(QKeySequence(Qt::CTRL | Qt::Key_1), &MainWindow::captureScreen);
     add(QKeySequence(Qt::CTRL | Qt::Key_3), &MainWindow::captureWindow);
     add(QKeySequence(Qt::CTRL | Qt::Key_5), &MainWindow::captureRegion);
     add(QKeySequence::Open, &MainWindow::openImage);
@@ -647,6 +657,11 @@ void MainWindow::captureRegion()
     startCapture(CaptureResult::Kind::Region);
 }
 
+void MainWindow::captureScreen()
+{
+    startCapture(CaptureResult::Kind::Screen);
+}
+
 void MainWindow::captureLastMode()
 {
     startCapture(m_lastMode);
@@ -654,13 +669,18 @@ void MainWindow::captureLastMode()
 
 QToolButton *MainWindow::modeButton(CaptureResult::Kind kind) const
 {
-    return kind == CaptureResult::Kind::Region ? m_regionButton : m_windowButton;
+    switch (kind) {
+    case CaptureResult::Kind::Region: return m_regionButton;
+    case CaptureResult::Kind::Screen: return m_screenButton;
+    case CaptureResult::Kind::Window: break;
+    }
+    return m_windowButton;
 }
 
 void MainWindow::startCapture(CaptureResult::Kind kind)
 {
-    if (kind == CaptureResult::Kind::Region && !m_capture->supportsRegion()) {
-        statusBar()->showMessage(tr("Die Bereichsaufnahme folgt auf dieser Plattform."), 4000);
+    if (kind != CaptureResult::Kind::Window && !m_capture->supportsRegion()) {
+        statusBar()->showMessage(tr("Diese Aufnahmeart folgt auf dieser Plattform."), 4000);
         return;
     }
     if (!m_capture->isAvailable()) {
@@ -671,13 +691,17 @@ void MainWindow::startCapture(CaptureResult::Kind kind)
     modeButton(kind)->setChecked(true);
     // The overlay can switch to region mode, so it always gets the setting.
     m_capture->setRegionByDragging(Settings::regionByDragging());
-    m_windowButton->setEnabled(false);
-    m_regionButton->setEnabled(false);
+    m_capture->setDelay(m_timer->currentData().toInt());
+    for (QToolButton *button : {m_windowButton, m_regionButton, m_screenButton})
+        button->setEnabled(false);
     // The app hides first, so it is not in the frozen screen (D-011).
     hide();
-    QTimer::singleShot(kHideDelayMs, m_capture.get(), kind == CaptureResult::Kind::Region
-                                                          ? &CaptureBackend::captureRegion
-                                                          : &CaptureBackend::captureWindow);
+    void (CaptureBackend::*capture)() = &CaptureBackend::captureWindow;
+    if (kind == CaptureResult::Kind::Region)
+        capture = &CaptureBackend::captureRegion;
+    else if (kind == CaptureResult::Kind::Screen)
+        capture = &CaptureBackend::captureScreen;
+    QTimer::singleShot(kHideDelayMs, m_capture.get(), capture);
 }
 
 void MainWindow::onCaptured(const CaptureResult &result)
@@ -691,6 +715,10 @@ void MainWindow::onCaptured(const CaptureResult &result)
         setImage(result.image, result.scale, tr("Bereich"), tr("Bereich"));
         return;
     }
+    if (result.kind == CaptureResult::Kind::Screen) {
+        setImage(result.image, result.scale, tr("Bildschirm"), tr("Bildschirm"));
+        return;
+    }
     const QImage image = WindowImage::prepare(result);
     setImage(image, result.scale, result.title, tr("Fenster «%1»").arg(result.title));
 }
@@ -699,6 +727,7 @@ void MainWindow::onCaptureEnded()
 {
     m_windowButton->setEnabled(true);
     m_regionButton->setEnabled(m_capture->supportsRegion());
+    m_screenButton->setEnabled(m_capture->supportsRegion());
     modeButton(m_lastMode)->setChecked(true); // after a cancel: the last real mode
     show();
     raise();

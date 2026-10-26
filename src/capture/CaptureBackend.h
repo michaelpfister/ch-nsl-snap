@@ -26,12 +26,18 @@ public:
     virtual void captureWindow() = 0;
     // Lets the user drag a rectangle on the frozen screen (F-03).
     virtual void captureRegion() = 0;
-    // False where region capture is not written yet.
+    // Lets the user pick a monitor, or all, on the frozen screen (F-01).
+    virtual void captureScreen() = 0;
+    // False where region and screen capture are not written yet.
     virtual bool supportsRegion() const { return true; }
 
     // How a region is selected (D-023): two clicks, or dragging.
     void setRegionByDragging(bool enabled) { m_regionByDragging = enabled; }
     bool regionByDragging() const { return m_regionByDragging; }
+
+    // Seconds of countdown before the freeze (F-04, D-025); 0 = at once.
+    void setDelay(int seconds) { m_delay = seconds; }
+    int delay() const { return m_delay; }
 
 signals:
     void captured(const CaptureResult &result);
@@ -40,6 +46,7 @@ signals:
 
 private:
     bool m_regionByDragging = false;
+    int m_delay = 0;
 };
 
 // Returns the backend for the platform the app runs on.

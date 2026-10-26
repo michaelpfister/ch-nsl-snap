@@ -22,6 +22,7 @@ public:
     }
     void captureWindow() override { emit failed(unavailableReason()); }
     void captureRegion() override { emit failed(unavailableReason()); }
+    void captureScreen() override { emit failed(unavailableReason()); }
     bool supportsRegion() const override { return false; }
 };
 

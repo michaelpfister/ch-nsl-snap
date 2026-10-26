@@ -151,6 +151,16 @@ private slots:
         QCOMPARE(result.scale, 1.0); // missing: scale 1
     }
 
+    void screenReply()
+    {
+        QVariantMap info;
+        info.insert(QStringLiteral("mode"), QStringLiteral("screen"));
+        info.insert(QStringLiteral("scale"), 1.5);
+        const CaptureResult result = GnomeShellBackend::resultFromReply(png(QSize(30, 20), Qt::green), info);
+        QCOMPARE(result.kind, CaptureResult::Kind::Screen);
+        QCOMPARE(result.scale, 1.5);
+    }
+
     void versionOneReplyIsAWindow()
     {
         // Extension version 1 (PickWindow) sends no mode.

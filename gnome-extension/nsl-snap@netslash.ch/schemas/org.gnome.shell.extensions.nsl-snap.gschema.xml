@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<schemalist>
+  <schema id="org.gnome.shell.extensions.nsl-snap" path="/org/gnome/shell/extensions/nsl-snap/">
+    <!-- Registered only while a countdown runs (F-04): the key reaches the
+         shell even when an application window has the focus. -->
+    <key name="cancel-countdown" type="as">
+      <default><![CDATA[['Escape']]]></default>
+      <summary>Cancel the countdown of a delayed capture</summary>
+    </key>
+  </schema>
+</schemalist>

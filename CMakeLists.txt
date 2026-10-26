@@ -30,6 +30,8 @@ add_library(nsl_snap_core STATIC
     src/capture/CaptureOverlay.cpp
     src/capture/CaptureOverlay.h
     src/capture/CaptureResult.h
+    src/capture/Countdown.cpp
+    src/capture/Countdown.h
     src/capture/PickGeometry.cpp
     src/capture/PickGeometry.h
     src/capture/RegionSelector.cpp
