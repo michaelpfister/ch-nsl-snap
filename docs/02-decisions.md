@@ -313,3 +313,13 @@ Each entry: context, decision, rationale, consequences. Entries marked **(assump
 **Rationale:** The ring and triangle follow the model the user knows (Affinity, GTK); the hex code is how web teams exchange colours. Picking on the whole desktop is not possible on Wayland without a portal round trip, and the colours that matter are in the screenshot anyway.
 **Consequences:** No list of recently used own colours yet; the last colour is not remembered across restarts (F-22).
 
+## D-028 Text marker and arrows
+
+**Context:** F-28 and F-44, the last annotation tools of the editor.
+**Decision:**
+- **Marker** (tool M): a rectangle dragged over a text, filled with the marker colour in **multiply** mode, so black text stays black and white turns into the colour. Its own light palette (yellow, orange, green, cyan, pink, violet) plus a custom colour (D-027). It lies on the image, under the dim layer: dimmed with the background like ink on paper. On dark backgrounds it shows little, like a real highlighter; the panel says so.
+- **Arrow** (tool A): dragged from the start to the tip, Shift snaps to steps of 45°. `ArrowItem` keeps the line with its direction; its `RectItem` rectangle is the box around the line, so moving keeps it inside the image. Instead of eight handles it has one at each end, which can be dragged (one undo step each). Only the line and the head grab, not the empty box. Colour (standard palette) and line width (2–12 px, default 4) in the panel; the filled head grows with the width but takes at most 60 % of a short arrow. Arrows lie above the frames, below the texts.
+- The panel now shows its groups through `PanelSection`, one selection title for every kind.
+**Rationale:** A rectangle marker covers the common case (lines of text in dialogs) and stays exact; multiply is how a real highlighter looks. Arrows with two end handles are what users know from other editors.
+**Consequences:** No freehand marker strokes and no curved or double-headed arrows in version 1.
+

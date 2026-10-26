@@ -1,8 +1,10 @@
 #include "editor/EditorView.h"
 
+#include "editor/ArrowItem.h"
 #include "editor/Commands.h"
 #include "editor/EditorScene.h"
 #include "editor/FrameItem.h"
+#include "editor/MarkerItem.h"
 #include "editor/RedactItem.h"
 #include "editor/ReplaceItem.h"
 #include "editor/TextItem.h"
@@ -153,7 +155,7 @@ bool EditorView::isDrawingTool() const
 {
     // Tools that draw a new annotation; the others follow (docs/04-features.md).
     return m_tool == ToolId::Frame || m_tool == ToolId::Number || m_tool == ToolId::Pixelate
-           || m_tool == ToolId::ReplaceText;
+           || m_tool == ToolId::ReplaceText || m_tool == ToolId::Arrow || m_tool == ToolId::Marker;
 }
 
 // --- Free text (F-25) ---------------------------------------------------
@@ -737,7 +739,11 @@ void EditorView::mousePressEvent(QMouseEvent *event)
         m_scene->clearSelection();
         m_drawStart = mapToScene(event->position().toPoint());
         const QRectF start(m_drawStart, m_drawStart);
-        if (m_tool == ToolId::ReplaceText) {
+        if (m_tool == ToolId::Arrow) {
+            m_drawing = new ArrowItem(QLineF(m_drawStart, m_drawStart), m_scene->arrowStyle(), m_scene->imageScale());
+        } else if (m_tool == ToolId::Marker) {
+            m_drawing = new MarkerItem(start, m_scene->markerStyle(), m_scene->imageScale());
+        } else if (m_tool == ToolId::ReplaceText) {
             ReplaceStyle style;
             style.text = m_scene->replaceText();
             m_drawing = new ReplaceItem(start, style, m_scene->imageScale());
@@ -795,6 +801,18 @@ void EditorView::mouseMoveEvent(QMouseEvent *event)
         QPointF end = mapToScene(event->position().toPoint());
         end = QPointF(std::clamp(end.x(), bounds.left(), bounds.right()),
                       std::clamp(end.y(), bounds.top(), bounds.bottom()));
+        if (m_drawing->type() == ArrowItem::Type) {
+            // Shift: horizontal, vertical or diagonal (steps of 45°).
+            if (event->modifiers() & Qt::ShiftModifier) {
+                QLineF line(m_drawStart, end);
+                line.setAngle(std::round(line.angle() / 45) * 45);
+                end = line.p2();
+                end = QPointF(std::clamp(end.x(), bounds.left(), bounds.right()),
+                              std::clamp(end.y(), bounds.top(), bounds.bottom()));
+            }
+            static_cast<ArrowItem *>(m_drawing)->setLine(QLineF(m_drawStart, end));
+            return;
+        }
         if (event->modifiers() & Qt::ShiftModifier) {
             // Square ("Shift für Quadrat").
             const bool left = end.x() < m_drawStart.x();
@@ -838,13 +856,21 @@ void EditorView::mouseReleaseEvent(QMouseEvent *event)
                                              : ReplaceItem::Match::Ok;
         m_scene->removeItem(item);
         const QSizeF onScreen = transform().mapRect(item->rect()).size();
-        if (onScreen.width() < kMinDrawSize || onScreen.height() < kMinDrawSize) {
+        // An arrow is a line: only its length counts.
+        const bool tooSmall = item->type() == ArrowItem::Type
+                                  ? std::hypot(onScreen.width(), onScreen.height()) < 2 * kMinDrawSize
+                                  : onScreen.width() < kMinDrawSize || onScreen.height() < kMinDrawSize;
+        if (tooSmall) {
             delete item; // just a click
             return;
         }
         QString text = tr("Rahmen zeichnen");
         if (item->type() == RedactItem::Type)
             text = tr("Verpixeln");
+        else if (item->type() == ArrowItem::Type)
+            text = tr("Pfeil zeichnen");
+        else if (item->type() == MarkerItem::Type)
+            text = tr("Markieren");
         else if (item->type() == ReplaceItem::Type)
             text = tr("Text ersetzen");
         else if (static_cast<FrameItem *>(item)->isNumbered())

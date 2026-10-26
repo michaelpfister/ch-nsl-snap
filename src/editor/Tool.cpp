@@ -25,7 +25,7 @@ const QList<ToolInfo> &allTools()
         {ToolId::Text, QStringLiteral("text"), tr("Text"), QKeySequence(Qt::Key_T),
          tr("Klicken zum Schreiben · Doppelklick auf einen Text bearbeitet ihn")},
         {ToolId::Arrow, QStringLiteral("arrow"), tr("Pfeil"), QKeySequence(Qt::Key_A),
-         tr("Ziehen von Anfang bis Spitze")},
+         tr("Ziehen von Anfang bis Spitze · Shift für 45°")},
         {ToolId::Marker, QStringLiteral("marker"), tr("Marker"), QKeySequence(Qt::Key_M),
          tr("Über Text ziehen")},
         {ToolId::Pixelate, QStringLiteral("pixelate"), tr("Verpixeln / Weichzeichnen"), QKeySequence(Qt::Key_P),
