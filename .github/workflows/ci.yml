@@ -133,6 +133,7 @@ jobs:
         env:
           QT_QPA_PLATFORM: offscreen
           QT_FORCE_STDERR_LOGGING: '1'
+          QT_QPA_FONTDIR: C:\Windows\Fonts # as tests/CMakeLists.txt sets it for ctest
         run: |
           $env:PATH = "$env:QT_DIR\bin;$env:PATH"
           # qt_standard_project_setup() puts all executables directly into build\.

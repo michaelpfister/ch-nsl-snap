@@ -453,7 +453,7 @@ private slots:
         // Some text pixels inside the area, none below it.
         bool inside = false;
         for (int y = 20; y < 60; ++y)
-            for (int x = 20; x < 220; ++x)
+            for (int x = 20; x < out.width(); ++x) // the area reaches beyond the image
                 inside |= out.pixelColor(x, y).lightness() < 128;
         QVERIFY(inside);
         for (int x = 0; x < 200; ++x)
