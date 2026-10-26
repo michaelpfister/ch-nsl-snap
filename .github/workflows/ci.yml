@@ -55,6 +55,76 @@ jobs:
           QT_QPA_PLATFORM: offscreen
         run: ctest --test-dir build --output-on-failure
 
+  # No capture backend on Windows yet; this checks that the editor builds
+  # and its tests pass with MSVC on both Windows architectures.
+  windows:
+    name: Build and test (Windows ${{ matrix.arch }}, Qt 6.8.3)
+    runs-on: ${{ matrix.runner }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - arch: x64
+            runner: windows-2022
+            aqt-host: windows
+            aqt-arch: win64_msvc2022_64
+            qt-dir: msvc2022_64
+          - arch: arm64
+            runner: windows-11-arm
+            aqt-host: windows_arm64
+            aqt-arch: win64_msvc2022_arm64
+            qt-dir: msvc2022_arm64
+    env:
+      QT_DIR: C:\Qt\6.8.3\${{ matrix.qt-dir }}
+    defaults:
+      run:
+        shell: pwsh
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      # Qt from aqtinstall, as on the development machines
+      # (docs/07-development-setup.md); cached per architecture.
+      - name: Cache Qt
+        id: qt-cache
+        uses: actions/cache@v4
+        with:
+          path: C:\Qt\6.8.3\${{ matrix.qt-dir }}
+          key: qt-6.8.3-${{ matrix.aqt-arch }}-v1
+
+      - name: Install Qt
+        if: steps.qt-cache.outputs.cache-hit != 'true'
+        run: |
+          python -m pip install aqtinstall
+          python -m aqt install-qt ${{ matrix.aqt-host }} desktop 6.8.3 ${{ matrix.aqt-arch }} -m qtimageformats -O C:\Qt
+
+      # The MSVC compiler for the runner's own architecture.
+      - uses: ilammy/msvc-dev-cmd@v1
+        with:
+          arch: ${{ matrix.arch }}
+
+      # MSVC's default warning level; warnings fail the build.
+      - name: Configure
+        run: >
+          cmake -S . -B build -G Ninja
+          -DCMAKE_PREFIX_PATH="$env:QT_DIR"
+          -DCMAKE_BUILD_TYPE=Debug
+          -DCMAKE_COMPILE_WARNING_AS_ERROR=ON
+
+      - name: Build
+        run: cmake --build build
+
+      # The test programs need the Qt DLLs; no display: Qt draws offscreen.
+      - name: Test
+        env:
+          QT_QPA_PLATFORM: offscreen
+        run: |
+          $env:PATH = "$env:QT_DIR\bin;$env:PATH"
+          ctest --test-dir build --output-on-failure
+
   extension:
     name: Check GNOME extension and tools
     runs-on: ubuntu-24.04
