@@ -22,6 +22,7 @@ struct Theme
     QColor soft;      // background of the active tool
     QColor softText;  // icon colour of the active tool
     QColor success;   // "done" feedback, e.g. after copying
+    QColor warning;   // problems the user should fix, e.g. hotkeys
 
     static Theme light();
     static Theme darkTheme();

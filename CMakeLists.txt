@@ -34,6 +34,8 @@ add_library(nsl_snap_core STATIC
     src/capture/CaptureOverlay.cpp
     src/capture/CaptureOverlay.h
     src/capture/CaptureResult.h
+    src/capture/GlobalHotkeys.cpp
+    src/capture/GlobalHotkeys.h
     src/capture/Countdown.cpp
     src/capture/Countdown.h
     src/capture/PickGeometry.cpp
@@ -106,6 +108,8 @@ qt_add_resources(nsl_snap_core "icons"
 # Platform capture backends (docs/01-architecture.md).
 if(LINUX)
     target_sources(nsl_snap_core PRIVATE
+        src/app/AppService.cpp
+        src/app/AppService.h
         src/capture/gnome/GnomeShellBackend.cpp
         src/capture/gnome/GnomeShellBackend.h
     )
@@ -119,6 +123,8 @@ if(WIN32)
         src/capture/windows/WgcCapture.h
         src/capture/windows/WindowsBackend.cpp
         src/capture/windows/WindowsBackend.h
+        src/capture/windows/WindowsHotkeys.cpp
+        src/capture/windows/WindowsHotkeys.h
     )
     # GuiPrivate: the monitors' physical geometry (QPlatformScreen).
     target_link_libraries(nsl_snap_core PUBLIC Qt6::GuiPrivate d3d11 dxgi dwmapi windowsapp)

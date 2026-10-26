@@ -1,6 +1,7 @@
 // Tests for the capture backends: reading the GNOME extension's reply
 // (D-011) and the picking geometry of the Windows overlay (D-022).
 
+#include "capture/GlobalHotkeys.h"
 #include "capture/PickGeometry.h"
 #include "capture/RegionSelector.h"
 #ifdef NSL_HAVE_GNOME_BACKEND
@@ -32,6 +33,65 @@ class TestCapture : public QObject
     Q_OBJECT
 
 private slots:
+    // --- Global hotkeys (F-42) ---
+
+    void gnomeAccelerators()
+    {
+        const GlobalHotkeys keys;
+        QCOMPARE(HotkeyKeys::gnomeAccelerator(keys.last), QStringLiteral("Print"));
+        QCOMPARE(HotkeyKeys::gnomeAccelerator(keys.screen), QStringLiteral("<Shift>Print"));
+        QCOMPARE(HotkeyKeys::gnomeAccelerator(keys.window), QStringLiteral("<Alt>Print"));
+        QCOMPARE(HotkeyKeys::gnomeAccelerator(keys.region), QStringLiteral("<Control><Alt>Print"));
+        QCOMPARE(HotkeyKeys::gnomeAccelerator(QKeySequence(Qt::META | Qt::SHIFT | Qt::Key_S)),
+                 QStringLiteral("<Shift><Super>s"));
+        QCOMPARE(HotkeyKeys::gnomeAccelerator(QKeySequence(Qt::CTRL | Qt::Key_F9)), QStringLiteral("<Control>F9"));
+        QVERIFY(HotkeyKeys::gnomeAccelerator(QKeySequence()).isEmpty()); // off
+        QVERIFY(HotkeyKeys::gnomeAccelerator(QKeySequence(Qt::Key_Space)).isEmpty()); // not offered
+    }
+
+    void windowsHotkeys()
+    {
+        unsigned mods = 0, vk = 0;
+        QVERIFY(HotkeyKeys::windowsHotkey(QKeySequence(Qt::CTRL | Qt::ALT | Qt::Key_Print), &mods, &vk));
+        QCOMPARE(mods, 0x0001u | 0x0002u); // MOD_ALT | MOD_CONTROL
+        QCOMPARE(vk, 0x2Cu);               // VK_SNAPSHOT
+        QVERIFY(HotkeyKeys::windowsHotkey(QKeySequence(Qt::SHIFT | Qt::Key_F12), &mods, &vk));
+        QCOMPARE(mods, 0x0004u);
+        QCOMPARE(vk, 0x7Bu); // VK_F12
+        QVERIFY(HotkeyKeys::windowsHotkey(QKeySequence(Qt::META | Qt::Key_A), &mods, &vk));
+        QCOMPARE(mods, 0x0008u);
+        QCOMPARE(vk, unsigned('A'));
+        QVERIFY(!HotkeyKeys::windowsHotkey(QKeySequence(), &mods, &vk));
+    }
+
+    void everyOfferedKeyConverts()
+    {
+        for (Qt::Key key : HotkeyKeys::offeredKeys()) {
+            unsigned mods = 0, vk = 0;
+            QVERIFY(!HotkeyKeys::gnomeAccelerator(QKeySequence(key)).isEmpty());
+            QVERIFY(HotkeyKeys::windowsHotkey(QKeySequence(key), &mods, &vk));
+        }
+    }
+
+#ifdef NSL_HAVE_GNOME_BACKEND
+    void configureOptionsForTheExtension()
+    {
+        HotkeyOptions options;
+        options.delay = 5;
+        options.regionByDragging = true;
+        options.lastMode = CaptureResult::Kind::Region;
+        options.hotkeys.window = QKeySequence(); // off
+        const QVariantMap map = GnomeShellBackend::configureOptions(options);
+        QCOMPARE(map.value(QStringLiteral("delay")).typeId(), QMetaType::UInt); // D-Bus u
+        QCOMPARE(map.value(QStringLiteral("delay")).toUInt(), 5u);
+        QCOMPARE(map.value(QStringLiteral("region-select")).toString(), QStringLiteral("drag"));
+        QCOMPARE(map.value(QStringLiteral("last-mode")).toString(), QStringLiteral("region"));
+        QCOMPARE(map.value(QStringLiteral("hotkeys-enabled")).toBool(), true);
+        QCOMPARE(map.value(QStringLiteral("capture-last")).toStringList(), QStringList{QStringLiteral("Print")});
+        QCOMPARE(map.value(QStringLiteral("capture-window")).toStringList(), QStringList());
+    }
+#endif
+
     void topmostWindowWins()
     {
         // Topmost first: a dialog above its main window.

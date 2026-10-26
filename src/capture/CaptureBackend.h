@@ -1,6 +1,7 @@
 #pragma once
 
 #include "capture/CaptureResult.h"
+#include "capture/GlobalHotkeys.h"
 
 #include <QObject>
 
@@ -28,6 +29,22 @@ public:
     virtual void captureRegion() = 0;
     // Lets the user pick a monitor, or all, on the frozen screen (F-01).
     virtual void captureScreen() = 0;
+    // For the global hotkeys (F-42): without the overlay, the window that
+    // has the focus, or the monitor under the pointer. The default shows
+    // the overlay.
+    virtual void captureActiveWindow() { captureWindow(); }
+    virtual void captureScreenAtPointer() { captureScreen(); }
+
+    // Global hotkeys and the preferences for captures they start (F-42).
+    // Windows registers the keys and emits hotkeyPressed(); on GNOME the
+    // extension has the keys and captures itself, see takeHotkeyCapture().
+    virtual void setHotkeyOptions(const HotkeyOptions &options) { Q_UNUSED(options); }
+    // Why some hotkeys do not work, for the settings; empty if they do.
+    virtual QString hotkeyProblem() const { return {}; }
+    // GNOME: the extension has a hotkey capture ready; fetch it and emit
+    // captured() (or failed()).
+    virtual void takeHotkeyCapture() {}
+
     // False where region and screen capture are not written yet.
     virtual bool supportsRegion() const { return true; }
 
@@ -43,6 +60,8 @@ signals:
     void captured(const CaptureResult &result);
     void cancelled();
     void failed(const QString &message);
+    // A global hotkey was pressed (Windows); the app starts the capture.
+    void hotkeyPressed(HotkeyAction action);
 
 private:
     bool m_regionByDragging = false;

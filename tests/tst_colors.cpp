@@ -143,6 +143,20 @@ private slots:
         QVERIFY(Settings::advancedMode()); // other settings stay
     }
 
+    void hotkeysSurviveARestart()
+    {
+        QCOMPARE(Settings::globalHotkeys(), GlobalHotkeys()); // defaults
+        GlobalHotkeys keys;
+        keys.enabled = false;
+        keys.takeOverSystemKeys = false;
+        keys.last = QKeySequence(Qt::CTRL | Qt::Key_F9);
+        keys.window = QKeySequence(); // off stays off
+        Settings::setGlobalHotkeys(keys);
+        QCOMPARE(Settings::globalHotkeys(), keys);
+        Settings::resetStyles(); // not part of "Farben und Stile"
+        QCOMPARE(Settings::globalHotkeys(), keys);
+    }
+
     void popupOffersRecentColors()
     {
         QWidget anchor;

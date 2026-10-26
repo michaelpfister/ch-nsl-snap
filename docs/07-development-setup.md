@@ -58,7 +58,9 @@ The GNOME capture itself (extension in a running shell) is not tested in CI; it 
 
 ### 4. GNOME Shell extension
 
-See [06-poc-gnome-window-capture.md](06-poc-gnome-window-capture.md): `scripts/dev-install.sh`, then log out and in. The script also compiles the extension's settings schema (`glib-compile-schemas`, from `libglib2.0-bin`, installed with GNOME); run it again after pulling changes to `gnome-extension/*/schemas/`, otherwise the extension does not start.
+See [06-poc-gnome-window-capture.md](06-poc-gnome-window-capture.md): `scripts/dev-install.sh`, then log out and in. The script also compiles the extension's settings schema (`glib-compile-schemas`, from `libglib2.0-bin`, installed with GNOME); run it again after pulling changes to `gnome-extension/*/schemas/`, otherwise the extension does not start. It also tells the extension which program gets hotkey captures (`build/nsl-snap`, or `NSL_SNAP_APP=/path/to/nsl-snap scripts/dev-install.sh`) and installs the D-Bus service file `~/.local/share/dbus-1/services/ch.netslash.Snap.service`, so a hotkey starts the app (F-42, D-031). Run it again when the app moves.
+
+When testing in a nested or headless GNOME Shell, set `XDG_CONFIG_HOME` and `XDG_DATA_HOME` to scratch folders **before** `dbus-run-session`: otherwise the dconf service started on the test bus writes your real GNOME settings (D-031).
 
 ### Smoke test result (2026-10-25)
 

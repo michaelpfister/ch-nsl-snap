@@ -66,6 +66,45 @@ void setFileNamePattern(const QString &pattern)
     QSettings().setValue("save/pattern", pattern);
 }
 
+GlobalHotkeys globalHotkeys()
+{
+    const QSettings settings;
+    GlobalHotkeys hotkeys;
+    hotkeys.enabled = settings.value("hotkeys/enabled", hotkeys.enabled).toBool();
+    hotkeys.takeOverSystemKeys = settings.value("hotkeys/takeOverSystemKeys", hotkeys.takeOverSystemKeys).toBool();
+    const auto key = [&settings](const char *name, const QKeySequence &fallback) {
+        if (!settings.contains(name))
+            return fallback;
+        return QKeySequence::fromString(settings.value(name).toString(), QKeySequence::PortableText);
+    };
+    hotkeys.last = key("hotkeys/last", hotkeys.last);
+    hotkeys.screen = key("hotkeys/screen", hotkeys.screen);
+    hotkeys.window = key("hotkeys/window", hotkeys.window);
+    hotkeys.region = key("hotkeys/region", hotkeys.region);
+    return hotkeys;
+}
+
+void setGlobalHotkeys(const GlobalHotkeys &hotkeys)
+{
+    QSettings settings;
+    settings.setValue("hotkeys/enabled", hotkeys.enabled);
+    settings.setValue("hotkeys/takeOverSystemKeys", hotkeys.takeOverSystemKeys);
+    settings.setValue("hotkeys/last", hotkeys.last.toString(QKeySequence::PortableText));
+    settings.setValue("hotkeys/screen", hotkeys.screen.toString(QKeySequence::PortableText));
+    settings.setValue("hotkeys/window", hotkeys.window.toString(QKeySequence::PortableText));
+    settings.setValue("hotkeys/region", hotkeys.region.toString(QKeySequence::PortableText));
+}
+
+bool hotkeyNoticeShown()
+{
+    return QSettings().value("hotkeys/noticeShown", false).toBool();
+}
+
+void setHotkeyNoticeShown(bool shown)
+{
+    QSettings().setValue("hotkeys/noticeShown", shown);
+}
+
 bool closeToTray()
 {
     return QSettings().value("tray/closeToTray", true).toBool();

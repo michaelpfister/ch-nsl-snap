@@ -82,10 +82,11 @@ Modelled on [WinSnap's shortcuts](https://www.ntwind.com/software/winsnap/shortc
 | Ctrl + Alt + Print | Region | same |
 
 - Reassignable in the settings. All global captures respect the timer setting (F-04).
-- **GNOME:** registered by the extension (D-011). GNOME itself uses Print, Shift + Print and Alt + Print for its screenshot UI; the extension takes them over while enabled (Q-14).
-- **Windows:** `RegisterHotKey`. Windows 11 opens the Snipping Tool on Print by default; that setting has to be switched off, or we use a keyboard hook (Q-15).
+- **GNOME:** registered by the extension (D-011). GNOME itself uses Print, Shift + Print and Alt + Print for its screenshot UI; the extension takes the same keys over while enabled (Q-14, D-031).
+- **Windows:** `RegisterHotKey`. Windows 11 opens the Snipping Tool on Print by default; the app points to that setting (Q-15, D-031).
 - **macOS:** Macs have no Print key; the defaults there are still open (Q-16).
 - Not adopted: Ctrl + Print (active application, all its windows) and Ctrl + Shift + Print (multi-object selection), because these capture modes are not in our scope.
+- **Done** on GNOME and Windows (2026-10-26, D-031): changeable in the settings (tab "Tastenkürzel"), Shift + Print takes the monitor under the pointer and Alt + Print the active window without the overlay; on GNOME also while the app is not running (D-Bus activation). Windows to be tried by hand.
 
 ### F-46 Shortcuts in the app
 

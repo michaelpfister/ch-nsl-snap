@@ -1,5 +1,6 @@
 #pragma once
 
+#include "capture/GlobalHotkeys.h"
 #include "editor/ArrowStyle.h"
 #include "editor/FrameStyle.h"
 #include "editor/MarkerStyle.h"
@@ -32,6 +33,15 @@ QString saveFolder();
 void setSaveFolder(const QString &folder);
 QString fileNamePattern();
 void setFileNamePattern(const QString &pattern);
+
+// Global hotkeys (F-42). Stored as portable key sequence text; an empty
+// key switches that hotkey off.
+GlobalHotkeys globalHotkeys();
+void setGlobalHotkeys(const GlobalHotkeys &hotkeys);
+// Whether a problem with the hotkeys (e.g. the Snipping Tool on Print) was
+// pointed out once.
+bool hotkeyNoticeShown();
+void setHotkeyNoticeShown(bool shown);
 
 // Tray icon (F-45): closing the window keeps the app running in the tray.
 bool closeToTray();

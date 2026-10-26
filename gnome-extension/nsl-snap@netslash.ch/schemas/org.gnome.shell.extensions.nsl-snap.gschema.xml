@@ -7,5 +7,56 @@
       <default><![CDATA[['Escape']]]></default>
       <summary>Cancel the countdown of a delayed capture</summary>
     </key>
+
+    <!-- Global hotkeys (F-42, D-031). The app sets them through Configure. -->
+    <key name="hotkeys-enabled" type="b">
+      <default>true</default>
+      <summary>Whether the global capture hotkeys are active</summary>
+    </key>
+    <key name="capture-last" type="as">
+      <default><![CDATA[['Print']]]></default>
+      <summary>Capture in the last used mode</summary>
+    </key>
+    <key name="capture-screen" type="as">
+      <default><![CDATA[['<Shift>Print']]]></default>
+      <summary>Capture the monitor under the pointer</summary>
+    </key>
+    <key name="capture-window" type="as">
+      <default><![CDATA[['<Alt>Print']]]></default>
+      <summary>Capture the active window</summary>
+    </key>
+    <key name="capture-region" type="as">
+      <default><![CDATA[['<Control><Alt>Print']]]></default>
+      <summary>Capture a region</summary>
+    </key>
+    <key name="take-over-system-keys" type="b">
+      <default>true</default>
+      <summary>Remove GNOME's own screenshot bindings for the same keys while enabled</summary>
+    </key>
+    <key name="saved-system-keys" type="s">
+      <default>''</default>
+      <summary>GNOME's screenshot bindings before the take-over (JSON), restored on disable</summary>
+    </key>
+
+    <!-- Preferences of the app, kept here for hotkey captures while it is
+         not running. -->
+    <key name="delay" type="u">
+      <default>0</default>
+      <summary>Seconds of countdown before a capture</summary>
+    </key>
+    <key name="region-select" type="s">
+      <default>'clicks'</default>
+      <summary>How a region is selected: clicks or drag</summary>
+    </key>
+    <key name="last-mode" type="s">
+      <default>'window'</default>
+      <summary>Mode of the last capture: window, region or screen</summary>
+    </key>
+    <!-- Only this program gets hotkey captures (TakeCapture checks the
+         caller's executable); set by scripts/dev-install.sh or the package. -->
+    <key name="app-executable" type="s">
+      <default>''</default>
+      <summary>Absolute path of the NSL Snap app</summary>
+    </key>
   </schema>
 </schemalist>

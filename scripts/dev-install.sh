@@ -5,11 +5,27 @@
 set -euo pipefail
 
 UUID="nsl-snap@netslash.ch"
-SRC="$(cd "$(dirname "$0")/.." && pwd)/gnome-extension/$UUID"
-DEST="${XDG_DATA_HOME:-$HOME/.local/share}/gnome-shell/extensions/$UUID"
+REPO="$(cd "$(dirname "$0")/.." && pwd)"
+SRC="$REPO/gnome-extension/$UUID"
+DATA="${XDG_DATA_HOME:-$HOME/.local/share}"
+DEST="$DATA/gnome-shell/extensions/$UUID"
+# The app that gets hotkey captures (F-42); NSL_SNAP_APP overrides it.
+APP="$(realpath -m "${NSL_SNAP_APP:-$REPO/build/nsl-snap}")"
 
 # The settings schema (keybindings) has to be compiled next to it.
 glib-compile-schemas --strict "$SRC/schemas"
+
+# Hotkey captures (D-031): the extension gives them only to this program,
+# and D-Bus starts it when it is not running.
+gsettings --schemadir "$SRC/schemas" set org.gnome.shell.extensions.nsl-snap app-executable "$APP"
+mkdir -p "$DATA/dbus-1/services"
+cat > "$DATA/dbus-1/services/ch.netslash.Snap.service" <<SERVICE
+[D-BUS Service]
+Name=ch.netslash.Snap
+Exec=$APP
+SERVICE
+echo "Hotkey captures go to $APP"
+[ -x "$APP" ] || echo "  (not built yet: cmake --build build)"
 
 mkdir -p "$(dirname "$DEST")"
 if [ -L "$DEST" ] || [ ! -e "$DEST" ]; then

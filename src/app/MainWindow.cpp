@@ -1,5 +1,8 @@
 #include "app/MainWindow.h"
 #include "app/FileNames.h"
+#ifdef NSL_HAVE_GNOME_BACKEND
+#include "app/AppService.h"
+#endif
 
 #include "app/PropertiesPanel.h"
 #include "app/Settings.h"
@@ -256,6 +259,12 @@ MainWindow::MainWindow(QWidget *parent)
     createTrayIcon();
     createShortcuts();
     onToolChanged(m_toolRail->currentTool());
+
+    // Global hotkeys (F-42): Windows registers them in the app, GNOME's
+    // extension gets the keys and preferences.
+    connect(m_capture.get(), &CaptureBackend::hotkeyPressed, this, &MainWindow::onHotkey);
+    pushHotkeyOptions();
+    QTimer::singleShot(1500, this, &MainWindow::pointOutHotkeyProblem);
     updateActions();
     updateZoomLabel();
 }
@@ -325,7 +334,10 @@ QWidget *MainWindow::createTopBar()
     m_timer->setToolTip(tr("Verzögerte Aufnahme: Countdown, dann einfrieren und auswählen. Esc bricht ab."));
     m_timer->setFocusPolicy(Qt::NoFocus);
     connect(m_timer, &QComboBox::currentIndexChanged, this,
-            [this] { Settings::setCaptureDelay(m_timer->currentData().toInt()); });
+            [this] {
+                Settings::setCaptureDelay(m_timer->currentData().toInt());
+                pushHotkeyOptions(); // hotkey captures use the timer too (F-42)
+            });
     layout->addWidget(m_timerIcon);
     layout->addWidget(timerLabel);
     layout->addWidget(m_timer);
@@ -901,7 +913,7 @@ QToolButton *MainWindow::modeButton(CaptureResult::Kind kind) const
     return m_windowButton;
 }
 
-void MainWindow::startCapture(CaptureResult::Kind kind)
+void MainWindow::startCapture(CaptureResult::Kind kind, bool direct)
 {
     if (kind != CaptureResult::Kind::Window && !m_capture->supportsRegion()) {
         statusBar()->showMessage(tr("Diese Aufnahmeart folgt auf dieser Plattform."), 4000);
@@ -922,20 +934,86 @@ void MainWindow::startCapture(CaptureResult::Kind kind)
     // Started from the tray, a cancelled capture leaves it there.
     m_hiddenBeforeCapture = !isVisible();
     hide();
-    void (CaptureBackend::*capture)() = &CaptureBackend::captureWindow;
+    // `direct` (hotkeys): the active window or the monitor under the
+    // pointer, without the overlay.
+    void (CaptureBackend::*capture)() = direct ? &CaptureBackend::captureActiveWindow : &CaptureBackend::captureWindow;
     if (kind == CaptureResult::Kind::Region)
         capture = &CaptureBackend::captureRegion;
     else if (kind == CaptureResult::Kind::Screen)
-        capture = &CaptureBackend::captureScreen;
+        capture = direct ? &CaptureBackend::captureScreenAtPointer : &CaptureBackend::captureScreen;
     QTimer::singleShot(kHideDelayMs, m_capture.get(), capture);
 }
 
+void MainWindow::pushHotkeyOptions()
+{
+    HotkeyOptions options;
+    options.hotkeys = Settings::globalHotkeys();
+    options.delay = m_timer->currentData().toInt();
+    options.regionByDragging = Settings::regionByDragging();
+    options.lastMode = m_lastMode;
+    m_capture->setHotkeyOptions(options);
+}
+
+void MainWindow::onHotkey(HotkeyAction action)
+{
+    // Windows (F-42); a capture already running ignores the key.
+    if (!m_windowButton->isEnabled())
+        return;
+    switch (action) {
+    case HotkeyAction::Last: startCapture(m_lastMode); break;
+    case HotkeyAction::Region: startCapture(CaptureResult::Kind::Region); break;
+    case HotkeyAction::Screen: startCapture(CaptureResult::Kind::Screen, true); break;
+    case HotkeyAction::Window: startCapture(CaptureResult::Kind::Window, true); break;
+    }
+}
+
+void MainWindow::pointOutHotkeyProblem()
+{
+    // Once (Q-15): e.g. Windows 11 keeps Print for its Snipping Tool.
+    if (Settings::hotkeyNoticeShown() || !Settings::globalHotkeys().enabled)
+        return;
+    const QString problem = m_capture->hotkeyProblem();
+    if (problem.isEmpty())
+        return;
+    Settings::setHotkeyNoticeShown(true);
+    QMessageBox box(QMessageBox::Information, tr("Globale Tastenkürzel"), problem, QMessageBox::Ok, this);
+    QPushButton *settings = box.addButton(tr("Einstellungen öffnen"), QMessageBox::ActionRole);
+    box.exec();
+    if (box.clickedButton() == settings)
+        showSettings();
+}
+
+#ifdef NSL_HAVE_GNOME_BACKEND
+void MainWindow::connectAppService(AppService *service)
+{
+    // The extension has a hotkey capture ready (F-42, D-031).
+    connect(service, &AppService::captureReady, this, [this] { m_capture->takeHotkeyCapture(); });
+    // A second start of the app shows this window.
+    connect(service, &AppService::activateRequested, this, &MainWindow::showEditor);
+    // Before a hotkey capture the window goes away, like for captures
+    // started here (D-011), and comes back after it.
+    service->hideForCapture = [this] {
+        m_hiddenForHotkey = isVisible();
+        if (m_hiddenForHotkey)
+            hide();
+        return m_hiddenForHotkey;
+    };
+    connect(service, &AppService::captureCancelled, this, [this] {
+        if (m_hiddenForHotkey)
+            showEditor();
+        m_hiddenForHotkey = false;
+    });
+}
+#endif
+
 void MainWindow::onCaptured(const CaptureResult &result)
 {
+    m_hiddenForHotkey = false;
     onCaptureEnded();
     // The user may have switched the mode in the overlay; that one counts.
     m_lastMode = result.kind;
     modeButton(m_lastMode)->setChecked(true);
+    pushHotkeyOptions(); // Print uses the last mode
     if (result.kind == CaptureResult::Kind::Region) {
         // A region is used as it is: no window edges to clean (F-03).
         setImage(result.image, result.scale, tr("Bereich"), tr("Bereich"));
@@ -1163,6 +1241,11 @@ void MainWindow::showSettings()
 {
     SettingsDialog dialog(this);
     connect(&dialog, &SettingsDialog::advancedModeChanged, m_properties, &PropertiesPanel::setAdvancedMode);
+    connect(&dialog, &SettingsDialog::hotkeysChanged, this, [this, &dialog] {
+        pushHotkeyOptions();
+        dialog.setHotkeyProblem(m_capture->hotkeyProblem());
+    });
+    dialog.setHotkeyProblem(Settings::globalHotkeys().enabled ? m_capture->hotkeyProblem() : QString());
     connect(&dialog, &SettingsDialog::stylesReset, this, [this] {
         loadDefaultStyles();
         onSelectionChanged(); // the panel shows the defaults again

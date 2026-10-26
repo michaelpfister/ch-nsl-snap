@@ -6,6 +6,7 @@
 #include <memory>
 
 class Countdown;
+class WindowsHotkeys;
 
 namespace WgcCapture { class Freeze; struct Window; }
 
@@ -26,6 +27,10 @@ public:
     void captureWindow() override;
     void captureRegion() override;
     void captureScreen() override;
+    void captureActiveWindow() override;
+    void captureScreenAtPointer() override;
+    void setHotkeyOptions(const HotkeyOptions &options) override;
+    QString hotkeyProblem() const override;
 
     // The radius Windows 11 gives the window's corners on the screen, in
     // logical px; the capture itself is square (D-022). 0 before Windows 11,
@@ -33,9 +38,12 @@ public:
     static double cornerRadius(const WgcCapture::Window &window);
 
 private:
+    // Hotkeys (F-42): capture without the overlay.
+    enum class Direct { None, ActiveWindow, PointerScreen };
+
     // After the countdown, if a delay is set (F-04), then freeze and pick.
-    void start(CaptureOverlay::Mode mode);
-    void freezeAndPick(CaptureOverlay::Mode mode);
+    void start(CaptureOverlay::Mode mode, Direct direct = Direct::None);
+    void freezeAndPick(CaptureOverlay::Mode mode, Direct direct);
     void onWindowPicked(int index);
     // A region or a whole monitor (or all), from the frozen monitors.
     void deliverPart(const QRect &native, CaptureResult::Kind kind);
@@ -45,4 +53,7 @@ private:
     QList<CaptureOverlay::Screen> m_screens;
     CaptureOverlay *m_overlay = nullptr;
     Countdown *m_countdown = nullptr;
+    WindowsHotkeys *m_hotkeys = nullptr;
+    QString m_hotkeyProblem;
+    void *m_targetWindow = nullptr; // HWND for Direct::ActiveWindow
 };

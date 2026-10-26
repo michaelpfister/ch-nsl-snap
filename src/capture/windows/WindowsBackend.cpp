@@ -3,6 +3,7 @@
 #include "capture/Countdown.h"
 #include "capture/PickGeometry.h"
 #include "capture/windows/WgcCapture.h"
+#include "capture/windows/WindowsHotkeys.h"
 
 #include <QGuiApplication>
 #include <QPainter>
@@ -73,7 +74,9 @@ double WindowsBackend::cornerRadius(const WgcCapture::Window &window)
 
 WindowsBackend::WindowsBackend(QObject *parent)
     : CaptureBackend(parent)
+    , m_hotkeys(new WindowsHotkeys(this))
 {
+    connect(m_hotkeys, &WindowsHotkeys::pressed, this, &CaptureBackend::hotkeyPressed);
 }
 
 WindowsBackend::~WindowsBackend() = default;
@@ -103,7 +106,38 @@ void WindowsBackend::captureScreen()
     start(CaptureOverlay::Mode::Screen);
 }
 
-void WindowsBackend::start(CaptureOverlay::Mode mode)
+void WindowsBackend::captureActiveWindow()
+{
+    start(CaptureOverlay::Mode::Window, Direct::ActiveWindow);
+}
+
+void WindowsBackend::captureScreenAtPointer()
+{
+    start(CaptureOverlay::Mode::Screen, Direct::PointerScreen);
+}
+
+void WindowsBackend::setHotkeyOptions(const HotkeyOptions &options)
+{
+    // The app captures itself on Windows; only the keys are needed here.
+    const QStringList failed = m_hotkeys->setHotkeys(options.hotkeys);
+    QStringList problems = failed;
+    bool plainPrint = false;
+    for (HotkeyAction action : {HotkeyAction::Last, HotkeyAction::Screen, HotkeyAction::Window, HotkeyAction::Region}) {
+        const QKeySequence key = options.hotkeys.key(action);
+        plainPrint = plainPrint || (!key.isEmpty() && key[0] == QKeyCombination(Qt::Key_Print));
+    }
+    if (options.hotkeys.enabled && plainPrint && WindowsHotkeys::printOpensSnippingTool())
+        problems << tr("Windows öffnet bei Print das Snipping Tool. In den Windows-Einstellungen "
+                       "(Barrierefreiheit › Tastatur) «Bildschirmaufnahme mit der Druck-Taste öffnen» ausschalten.");
+    m_hotkeyProblem = problems.join(u'\n');
+}
+
+QString WindowsBackend::hotkeyProblem() const
+{
+    return m_hotkeyProblem;
+}
+
+void WindowsBackend::start(CaptureOverlay::Mode mode, Direct direct)
 {
     if (m_overlay || m_countdown)
         return;
@@ -111,16 +145,20 @@ void WindowsBackend::start(CaptureOverlay::Mode mode)
         emit failed(unavailableReason());
         return;
     }
+    // The active window when the key was pressed; with a countdown the
+    // user may switch windows meanwhile, so it is taken again at the end.
+    m_targetWindow = GetForegroundWindow();
     if (delay() <= 0) {
-        freezeAndPick(mode);
+        freezeAndPick(mode, direct);
         return;
     }
     // The countdown first (F-04); it is off the screen before the freeze.
     m_countdown = new Countdown;
-    connect(m_countdown, &Countdown::finished, this, [this, mode] {
+    connect(m_countdown, &Countdown::finished, this, [this, mode, direct] {
         m_countdown->deleteLater();
         m_countdown = nullptr;
-        freezeAndPick(mode);
+        m_targetWindow = GetForegroundWindow();
+        freezeAndPick(mode, direct);
     });
     connect(m_countdown, &Countdown::cancelled, this, [this] {
         m_countdown->deleteLater();
@@ -130,7 +168,7 @@ void WindowsBackend::start(CaptureOverlay::Mode mode)
     m_countdown->start(delay());
 }
 
-void WindowsBackend::freezeAndPick(CaptureOverlay::Mode mode)
+void WindowsBackend::freezeAndPick(CaptureOverlay::Mode mode, Direct direct)
 {
     // Freeze first (D-011): every window on its own, and the monitors for
     // the overlay's background and for region captures.
@@ -147,6 +185,29 @@ void WindowsBackend::freezeAndPick(CaptureOverlay::Mode mode)
         finish();
         emit failed(tr("Es wurde kein Fenster gefunden, das aufgenommen werden kann."));
         return;
+    }
+
+    // Hotkeys: the active window or the monitor under the pointer, without
+    // the overlay. If there is none (e.g. the desktop is active), the
+    // overlay is shown as usual.
+    if (direct == Direct::ActiveWindow) {
+        const auto &windows = m_freeze->windows();
+        for (std::size_t i = 0; i < windows.size(); ++i) {
+            if (windows[i].hwnd == static_cast<HWND>(m_targetWindow)) {
+                onWindowPicked(int(i));
+                return;
+            }
+        }
+    } else if (direct == Direct::PointerScreen) {
+        POINT cursor;
+        if (GetCursorPos(&cursor)) {
+            for (const CaptureOverlay::Screen &screen : std::as_const(m_screens)) {
+                if (screen.native.contains(QPoint(cursor.x, cursor.y))) {
+                    deliverPart(screen.native, CaptureResult::Kind::Screen);
+                    return;
+                }
+            }
+        }
     }
 
     m_overlay = new CaptureOverlay(m_screens, frames, mode,

@@ -9,8 +9,6 @@
 | Q-07 | Should menus and tooltips of the picked window be included? | not in the PoC | window capture |
 | Q-12 | OCR for text replacement (F-29): in v1 or later? Tesseract or Windows OCR? | later; v1 is manual | F-29 |
 | Q-13 | Save editable projects (image + annotations) to continue later? | not in v1, but the model allows it (D-012) | file format |
-| Q-14 | GNOME binds Print, Shift + Print and Alt + Print to its own screenshot UI. How does the extension take them over? | the extension empties GNOME's three bindings (`org.gnome.shell.keybindings`) while it is enabled and restores them on disable; a setting can turn this off | F-42 on GNOME |
-| Q-15 | Windows 11 opens the Snipping Tool on Print. Ask users to switch that off, or use a low-level keyboard hook? | ask once on first start, with a button that opens the setting | F-42 on Windows |
 | Q-19 | Replaced text on a photo or gradient: fill with the main colour (now) or blur the area under the new text? | fill; blur as an option later | F-29 |
 | Q-17 | Bundle the Inter font (SIL Open Font License) with the app, so Windows and macOS look like the design? | yes, before the first Windows/macOS build | packaging |
 | Q-20 | A capture started while the activities overview is open shows the overview in the frozen picture, but window mode highlights the windows at their real places. Close the overview before freezing? | rare: the app hides itself first and the overview is usually closed; not handled yet | F-02 on GNOME |
@@ -20,6 +18,8 @@
 
 | # | Question | Resolution | Recorded in |
 |---|---|---|---|
+| Q-14 | How does the extension take over GNOME's Print bindings? | It removes only the same accelerators from GNOME's three screenshot bindings while enabled and restores them on disable; a setting turns this off (2026-10-26) | D-031 |
+| Q-15 | Windows 11 opens the Snipping Tool on Print: ask or hook? | Ask once at start and in the settings, with a button to the Windows setting; no keyboard hook (2026-10-26) | D-031 |
 | Q-18 | How does the user change the order of numbered frames? | Drag entries in the object list (2026-10-25) | 04-features.md F-24 |
 | Q-01 | Technology of the app? | Qt 6.8 LTS with C++20 and Widgets; macOS added as third platform | D-013, D-002 |
 | Q-04 | Feature scope? | Defined 2026-10-25: F-01–F-29 | 04-features.md |

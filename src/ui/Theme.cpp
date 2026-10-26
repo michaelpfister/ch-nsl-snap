@@ -22,6 +22,7 @@ Theme Theme::light()
     t.soft = QColor(0xE3ECFD);
     t.softText = QColor(0x1D4ED8);
     t.success = QColor(0x1F8A55);
+    t.warning = QColor(0xCE2C31);
     return t;
 }
 
@@ -40,6 +41,7 @@ Theme Theme::darkTheme()
     t.soft = QColor(0x1E2A44);
     t.softText = QColor(0x9DBDFF);
     t.success = QColor(0x3DD68C);
+    t.warning = QColor(0xFF6369);
     return t;
 }
 
@@ -116,6 +118,7 @@ QPushButton[role="primary"]:pressed { background: @accentPressed; }
 QPushButton[role="secondary"][done="true"] { border-color: @success; color: @success; }
 QPushButton[role="primary"][done="true"] { background: @success; }
 QToolButton[role="icon"]:pressed { background: @border; }
+QLabel[role="warning"] { color: @warning; font-size: 12px; }
 QPushButton:disabled, QToolButton:disabled { color: @muted; }
 QPushButton[role="primary"]:disabled { background: @border; color: @muted; }
 
@@ -156,6 +159,7 @@ QScrollBar::add-line, QScrollBar::sub-line { width: 0; height: 0; }
         {QStringLiteral("@accentPressed"), accent.darker(125)},
         {QStringLiteral("@accentHover"), accent.darker(112)},
         {QStringLiteral("@success"), success},
+        {QStringLiteral("@warning"), warning},
         {QStringLiteral("@accent"), accent},
         {QStringLiteral("@border"), border},
         {QStringLiteral("@canvas"), canvas},

@@ -1,6 +1,7 @@
 #pragma once
 
 #include "capture/CaptureResult.h"
+#include "capture/GlobalHotkeys.h"
 #include "editor/Tool.h"
 
 #include <QColor>
@@ -8,6 +9,7 @@
 
 #include <memory>
 
+class AppService;
 class CaptureBackend;
 class EditorView;
 class PropertiesPanel;
@@ -44,6 +46,10 @@ public:
     // set on the application (Theme::apply).
     void applyTheme(const Theme &theme);
 
+    // Linux: hotkey captures from the GNOME extension and a second start
+    // of the app arrive through the app's D-Bus service (F-42).
+    void connectAppService(AppService *service);
+
 protected:
     void keyPressEvent(QKeyEvent *event) override;
     void closeEvent(QCloseEvent *event) override;
@@ -64,7 +70,14 @@ private:
     void captureScreen();
     // Ctrl+N: the mode of the last capture (F-46).
     void captureLastMode();
-    void startCapture(CaptureResult::Kind kind);
+    // `direct`: the active window or the monitor under the pointer,
+    // without the overlay (hotkeys, F-42).
+    void startCapture(CaptureResult::Kind kind, bool direct = false);
+    // Global hotkeys (F-42): keys and preferences to the backend, a key
+    // pressed (Windows), and a problem pointed out once.
+    void pushHotkeyOptions();
+    void onHotkey(HotkeyAction action);
+    void pointOutHotkeyProblem();
     QToolButton *modeButton(CaptureResult::Kind kind) const;
     void onCaptured(const CaptureResult &result);
     void onCaptureEnded(bool showWindow = true);
@@ -132,6 +145,7 @@ private:
     QSystemTrayIcon *m_tray = nullptr;
     bool m_quitting = false;
     bool m_hiddenBeforeCapture = false;
+    bool m_hiddenForHotkey = false; // GNOME: hidden for a hotkey capture
 
     // Top bar.
     QLabel *m_logo = nullptr;

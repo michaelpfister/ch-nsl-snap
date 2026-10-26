@@ -1,6 +1,10 @@
 #include "app/MainWindow.h"
 #include "ui/Theme.h"
 
+#ifdef NSL_HAVE_GNOME_BACKEND
+#include "app/AppService.h"
+#endif
+
 #include <QApplication>
 #include <QStyleHints>
 
@@ -13,7 +17,17 @@ int main(int argc, char *argv[])
     // Lets GNOME match the window to a .desktop file of the same name later.
     QGuiApplication::setDesktopFileName(QStringLiteral("ch.netslash.Snap"));
 
+#ifdef NSL_HAVE_GNOME_BACKEND
+    // One instance: a second start shows the first one's window and ends.
+    AppService service;
+    if (!service.registerOrActivateOther())
+        return 0;
+#endif
+
     MainWindow window;
+#ifdef NSL_HAVE_GNOME_BACKEND
+    window.connectAppService(&service);
+#endif
     const auto applyTheme = [&app, &window] {
         const Theme theme = Theme::current();
         theme.apply(app);

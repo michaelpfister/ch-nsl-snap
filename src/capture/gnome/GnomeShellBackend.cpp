@@ -8,6 +8,7 @@
 #include <QDBusPendingReply>
 #include <QVariantMap>
 
+#include <algorithm>
 #include <limits>
 
 namespace {
@@ -21,6 +22,18 @@ constexpr uint kCaptureVersion = 2;
 constexpr uint kScreenVersion = 4;
 // Version 5 the delay with a countdown (F-04).
 constexpr uint kDelayVersion = 5;
+// Version 6 the global hotkeys (F-42): Configure and TakeCapture.
+constexpr uint kHotkeyVersion = 6;
+
+QString modeName(CaptureResult::Kind kind)
+{
+    switch (kind) {
+    case CaptureResult::Kind::Region: return QStringLiteral("region");
+    case CaptureResult::Kind::Screen: return QStringLiteral("screen");
+    case CaptureResult::Kind::Window: break;
+    }
+    return QStringLiteral("window");
+}
 
 // "frame-rect", "buffer-rect" and "rect" are D-Bus structs (iiii): x, y,
 // width, height.
@@ -135,22 +148,96 @@ void GnomeShellBackend::capture(const QString &mode)
     connect(watcher, &QDBusPendingCallWatcher::finished, this, [this](QDBusPendingCallWatcher *w) {
         w->deleteLater();
         m_busy = false;
+        handleCaptureReply(w->reply(), false);
+    });
+}
 
-        const QDBusPendingReply<QByteArray, QVariantMap> reply = *w;
-        if (reply.isError()) {
-            if (reply.error().name().endsWith(QLatin1String(".Cancelled")))
+void GnomeShellBackend::handleCaptureReply(const QDBusMessage &message, bool fromHotkey)
+{
+    if (message.type() == QDBusMessage::ErrorMessage) {
+        const QString name = message.errorName();
+        if (name.endsWith(QLatin1String(".Cancelled")) || (fromHotkey && name.endsWith(QLatin1String(".NoCapture")))) {
+            if (!fromHotkey)
                 emit cancelled();
-            else
-                emit failed(reply.error().message());
-            return;
+        } else if (name.endsWith(QLatin1String(".AccessDenied"))) {
+            emit failed(tr("Die GNOME-Erweiterung gibt die Aufnahme nur der installierten App. "
+                           "Bitte scripts/dev-install.sh ausführen, damit sie diese App kennt."));
+        } else {
+            emit failed(message.errorMessage());
         }
+        return;
+    }
+    const QList<QVariant> arguments = message.arguments();
+    if (arguments.size() < 2) {
+        emit failed(tr("Die Aufnahme konnte nicht gelesen werden."));
+        return;
+    }
+    // The info dictionary arrives as a map or, depending on its contents,
+    // as a QDBusArgument still to be read.
+    QVariantMap info;
+    if (arguments.at(1).canConvert<QDBusArgument>())
+        arguments.at(1).value<QDBusArgument>() >> info;
+    else
+        info = arguments.at(1).toMap();
+    const CaptureResult result = resultFromReply(arguments.at(0).toByteArray(), info);
+    if (result.image.isNull()) {
+        emit failed(tr("Die Aufnahme konnte nicht gelesen werden."));
+        return;
+    }
+    emit captured(result);
+}
 
-        const CaptureResult result = resultFromReply(reply.argumentAt<0>(), reply.argumentAt<1>());
-        if (result.image.isNull()) {
-            emit failed(tr("Die Aufnahme konnte nicht gelesen werden."));
-            return;
-        }
-        emit captured(result);
+QVariantMap GnomeShellBackend::configureOptions(const HotkeyOptions &options)
+{
+    const GlobalHotkeys &keys = options.hotkeys;
+    const auto accelerators = [](const QKeySequence &key) {
+        const QString accelerator = HotkeyKeys::gnomeAccelerator(key);
+        return accelerator.isEmpty() ? QStringList() : QStringList{accelerator};
+    };
+    QVariantMap map;
+    map.insert(QStringLiteral("delay"), QVariant::fromValue(uint(std::max(0, options.delay)))); // D-Bus type u
+    map.insert(QStringLiteral("region-select"),
+               options.regionByDragging ? QStringLiteral("drag") : QStringLiteral("clicks"));
+    map.insert(QStringLiteral("last-mode"), modeName(options.lastMode));
+    map.insert(QStringLiteral("hotkeys-enabled"), keys.enabled);
+    map.insert(QStringLiteral("take-over-system-keys"), keys.takeOverSystemKeys);
+    map.insert(QStringLiteral("capture-last"), accelerators(keys.last));
+    map.insert(QStringLiteral("capture-screen"), accelerators(keys.screen));
+    map.insert(QStringLiteral("capture-window"), accelerators(keys.window));
+    map.insert(QStringLiteral("capture-region"), accelerators(keys.region));
+    return map;
+}
+
+void GnomeShellBackend::setHotkeyOptions(const HotkeyOptions &options)
+{
+    // The extension keeps them in its settings, for hotkey captures while
+    // the app is not running.
+    if (!isAvailable() || extensionVersion() < kHotkeyVersion)
+        return;
+    auto message = QDBusMessage::createMethodCall(kService, kPath, kInterface, QStringLiteral("Configure"));
+    message << configureOptions(options);
+    QDBusConnection::sessionBus().asyncCall(message);
+}
+
+QString GnomeShellBackend::hotkeyProblem() const
+{
+    if (!isAvailable())
+        return unavailableReason();
+    if (extensionVersion() < kHotkeyVersion)
+        return tr("Die GNOME-Erweiterung «NSL Snap» ist veraltet und kennt die globalen Tastenkürzel noch nicht. "
+                  "Bitte ab- und wieder anmelden.");
+    return {};
+}
+
+void GnomeShellBackend::takeHotkeyCapture()
+{
+    if (!isAvailable())
+        return;
+    const auto message = QDBusMessage::createMethodCall(kService, kPath, kInterface, QStringLiteral("TakeCapture"));
+    auto *watcher = new QDBusPendingCallWatcher(QDBusConnection::sessionBus().asyncCall(message), this);
+    connect(watcher, &QDBusPendingCallWatcher::finished, this, [this](QDBusPendingCallWatcher *w) {
+        w->deleteLater();
+        handleCaptureReply(w->reply(), true);
     });
 }
 
