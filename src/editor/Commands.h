@@ -4,6 +4,7 @@
 #include "editor/FrameStyle.h"
 #include "editor/RedactStyle.h"
 #include "editor/ReplaceStyle.h"
+#include "editor/TextStyle.h"
 
 #include <QList>
 #include <QPointF>
@@ -16,6 +17,7 @@ class FrameItem;
 class RectItem;
 class RedactItem;
 class ReplaceItem;
+class TextItem;
 class QGraphicsItem;
 
 // Undo commands for the editor (D-012). Each command changes the scene in
@@ -156,6 +158,41 @@ private:
     ReplaceItem *m_item;
     ReplaceStyle m_before;
     ReplaceStyle m_after;
+};
+
+// Colour, size, bold or box of free texts (F-25); each keeps its text.
+class SetTextStyleCommand : public QUndoCommand
+{
+public:
+    SetTextStyleCommand(const QList<TextItem *> &items, const TextStyle &look);
+    void redo() override;
+    void undo() override;
+
+    // Size spin box steps merge into one step, like slider drags.
+    int id() const override { return 5; }
+    bool mergeWith(const QUndoCommand *other) override;
+
+private:
+    QList<TextItem *> m_items;
+    QList<TextStyle> m_before;
+    TextStyle m_look;
+};
+
+// Records an edit on the canvas that already happened (F-25): the new
+// text, and the position if the text was moved back into the image.
+class EditTextCommand : public QUndoCommand
+{
+public:
+    EditTextCommand(TextItem *item, const QString &fromText, const QPointF &fromPos);
+    void redo() override;
+    void undo() override;
+
+private:
+    TextItem *m_item;
+    QString m_fromText;
+    QString m_toText;
+    QPointF m_fromPos;
+    QPointF m_toPos;
 };
 
 // Crop (F-12). Only the visible part changes; the image and the

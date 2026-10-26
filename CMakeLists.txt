@@ -15,6 +15,8 @@ qt_standard_project_setup()
 
 # Everything except main() lives in a library, so the tests can link it.
 add_library(nsl_snap_core STATIC
+    src/app/ColorRow.cpp
+    src/app/ColorRow.h
     src/app/MainWindow.cpp
     src/app/MainWindow.h
     src/app/PropertiesPanel.cpp
@@ -56,6 +58,9 @@ add_library(nsl_snap_core STATIC
     src/editor/ReplaceItem.cpp
     src/editor/ReplaceItem.h
     src/editor/ReplaceStyle.h
+    src/editor/TextItem.cpp
+    src/editor/TextItem.h
+    src/editor/TextStyle.h
     src/editor/Tool.cpp
     src/editor/Tool.h
     src/imaging/Blur.cpp
@@ -64,6 +69,10 @@ add_library(nsl_snap_core STATIC
     src/imaging/TextSample.h
     src/imaging/WindowImage.cpp
     src/imaging/WindowImage.h
+    src/ui/ColorPopup.cpp
+    src/ui/ColorPopup.h
+    src/ui/ColorWheel.cpp
+    src/ui/ColorWheel.h
     src/ui/Icons.cpp
     src/ui/Icons.h
     src/ui/Theme.cpp

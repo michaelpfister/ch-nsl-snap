@@ -4,11 +4,17 @@
 #include "editor/FrameStyle.h"
 #include "editor/RedactStyle.h"
 #include "editor/ReplaceStyle.h"
+#include "editor/TextStyle.h"
 #include "editor/Tool.h"
 
 #include <QColor>
+#include <QPointer>
 #include <QWidget>
 
+#include <functional>
+
+class ColorPopup;
+class ColorRow;
 class QButtonGroup;
 class QCheckBox;
 class QComboBox;
@@ -38,9 +44,16 @@ public:
 
     // Which property groups are visible: frame (colour, corners, line,
     // number) and/or pixelate (kind, strength).
-    void showSections(bool frame, bool redact, bool replace = false, bool crop = false);
+    void showSections(bool frame, bool redact, bool replace = false, bool crop = false, bool text = false);
     // Size of the crop draft (F-12), in image pixels.
     void setCropSize(const QSize &size);
+    // "Text" with the number of selected free texts (F-25).
+    void showTextSelection(int count);
+    // The look of free texts; the text itself is typed on the canvas.
+    TextStyle textStyle() const;
+    // Shows `style` without emitting textStyleChanged.
+    void setTextStyle(const TextStyle &style);
+
     // "Text ersetzen" for a selected replaced text.
     void showReplaceSelection();
 
@@ -67,6 +80,10 @@ public:
     // One entry per annotation; `selected` marks the selected ones.
     void setObjects(const QStringList &labels, const QList<bool> &selected);
 
+    // The end of the eyedropper: `color` is the picked colour, or invalid
+    // if the user cancelled. Applies it and opens the colour popup again.
+    void finishEyedropper(const QColor &color);
+
     // The advanced mode (settings) shows the dim sliders (F-27).
     void setAdvancedMode(bool enabled);
 
@@ -75,12 +92,17 @@ public:
     void setDimSettings(const DimSettings &settings);
 
 signals:
+    // The eyedropper in the colour popup: the editor should let the user
+    // click into the image and answer with finishEyedropper().
+    void eyedropperRequested();
     // The user changed colour, corners or line width.
     void frameStyleChanged(const FrameStyle &style);
     // The user changed kind or strength of pixelating (F-26).
     void redactStyleChanged(const RedactStyle &style);
     // The user changed the replaced text or its look (F-29).
     void replaceStyleChanged(const ReplaceStyle &style);
+    // The user changed colour, size, bold or box of free texts (F-25).
+    void textStyleChanged(const TextStyle &style);
     // "Original neu erkennen".
     void rematchRequested();
     // The user clicked an entry in the object list.
@@ -95,11 +117,23 @@ signals:
 
 private:
     void updateColorButtons();
+    // Opens the colour popup at `anchor`; `apply` receives every change.
+    void openColorPopup(QWidget *anchor, const QColor &color, std::function<void(const QColor &)> apply);
+
+    ColorPopup *m_colorPopup = nullptr;
+    QPointer<QWidget> m_popupAnchor;
+    std::function<void(const QColor &)> m_popupApply;
+    ColorRow *m_frameColors = nullptr;
+    ColorRow *m_textColors = nullptr;
 
     QWidget *m_frameSection = nullptr;
     QWidget *m_redactSection = nullptr;
     QWidget *m_replaceSection = nullptr;
     QWidget *m_cropSection = nullptr;
+    QWidget *m_textSection = nullptr;
+    QSpinBox *m_textSize = nullptr;
+    QCheckBox *m_textBold = nullptr;
+    QButtonGroup *m_textBox = nullptr;
     QLabel *m_cropSize = nullptr;
     QLineEdit *m_replaceText = nullptr;
     QFontComboBox *m_replaceFont = nullptr;
@@ -114,7 +148,6 @@ private:
     QButtonGroup *m_redactLevel = nullptr;
     QLabel *m_title = nullptr;
     QLabel *m_hint = nullptr;
-    QButtonGroup *m_swatches = nullptr;
     QPushButton *m_square = nullptr;
     QPushButton *m_rounded = nullptr;
     QSlider *m_width = nullptr;
@@ -124,7 +157,6 @@ private:
     QSlider *m_dimStrength = nullptr;
     QSlider *m_dimBlur = nullptr;
     QListWidget *m_objects = nullptr;
-    QColor m_color;
     QColor m_mutedText;
     bool m_updating = false; // true while setFrameStyle/setObjects run
 };

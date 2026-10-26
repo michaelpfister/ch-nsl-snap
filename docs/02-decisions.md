@@ -289,3 +289,27 @@ Each entry: context, decision, rationale, consequences. Entries marked **(assump
 **Consequences:**
 - The extension now has a settings schema, compiled by `scripts/dev-install.sh` (the compiled file is not in the repository); CI checks that it compiles. The global hotkeys (F-42) will use the same schema.
 - Tested in the headless GNOME Shell 46: the countdown is shown while a window keeps the focus, Escape sent to that window cancels, after running out the overlay opens and the countdown is not in the frozen picture; the app's backend with a 2 s delay and screen mode. `Countdown` tested offscreen on every platform (running out, click, Escape); the global Escape on Windows by hand.
+
+## D-026 Free text: typed on the canvas, one undo step per edit
+
+**Context:** F-25: labels and short explanations in instruction pages ("Hier klicken"), editable afterwards.
+**Decision:**
+- Tool T: a click on the image starts a **new text at the click** (its first line centred on it) and the user types right there; a click on an existing text, or a **double click with any tool**, edits it. Enter starts a new line; **Escape or a click elsewhere** ends the edit. A click that leaves nothing typed adds nothing; emptying a text deletes it.
+- Each edit is **one undo step** ("Text schreiben", "Text ändern"), pushed when the edit ends; inside the edit Ctrl+Z undoes the typing. Saving, copying, undo/redo and changing the tool end the edit first, so the export never shows a cursor.
+- `TextItem` is a `RectItem` without handles: a child `QGraphicsTextItem` lays out, draws and edits the text, the item draws the box and the outline, and its rectangle follows the text. A text that grows beyond the image is moved back into it when the edit ends.
+- Look in the panel: the frame colours plus black, size in logical px (default 16), bold (default on), background **Ohne / Weiss / Farbig** (white box with coloured text, or a box in the colour with white text, dark on light colours). The **system UI font**, like D-019. Changes apply to all selected texts and become the default for new ones.
+- Texts lie above the frames and, like them, are not dimmed (F-27).
+**Rationale:** Typing on the canvas is what users know from WinSnap and other editors, and shows the result while typing. One step per edit keeps undo meaningful.
+**Consequences:** No font choice and no resizing by handles in version 1 (size comes from the panel). With Inter bundled (Q-17) the font will be the same on all platforms.
+
+## D-027 Colours: standard colours plus a colour wheel, hex code and eyedropper
+
+**Context:** Frames and texts need colours beyond the presets (house colours, a colour taken from the screenshot), and texts need white (feedback 2026-10-26).
+**Decision:**
+- Every colour row (`ColorRow`: frames, numbered frames, texts) shows the same **eight standard colours** (red, orange, yellow, green, blue, violet, black, white) and, last, a **custom button** (rainbow ring). A colour that is not a standard one is shown inside that ring.
+- The custom button opens the **colour popup** (`ColorPopup`): a **ring with a triangle** (`ColorWheel`, HSV; the ring picks the hue, the triangle turns towards it and picks saturation and brightness, its corners being the hue, white and black), the **hex code** and an **eyedropper**. The colours of replaced texts (D-019) open the same popup directly.
+- Every change applies right away, also while dragging; style commands of the same objects merge, so a drag is one undo step. A click outside closes the popup.
+- The **eyedropper** works on the image in the editor, not on the whole screen: the popup closes, a click on the image takes the colour of that pixel of the captured image (without annotations and dimming), and the popup opens again with it. A loupe next to the cursor shows 11 × 11 pixels and the hex code; Escape or the right button cancel.
+**Rationale:** The ring and triangle follow the model the user knows (Affinity, GTK); the hex code is how web teams exchange colours. Picking on the whole desktop is not possible on Wayland without a portal round trip, and the colours that matter are in the screenshot anyway.
+**Consequences:** No list of recently used own colours yet; the last colour is not remembered across restarts (F-22).
+

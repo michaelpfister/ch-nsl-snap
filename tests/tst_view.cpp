@@ -3,11 +3,26 @@
 #include "editor/EditorScene.h"
 #include "editor/EditorView.h"
 #include "editor/FrameItem.h"
+#include "editor/TextItem.h"
 
+#include <QSignalSpy>
 #include <QTest>
 #include <QUndoStack>
 
 namespace {
+
+TextItem *onlyText(EditorScene *scene)
+{
+    TextItem *found = nullptr;
+    for (RectItem *item : scene->annotations()) {
+        if (item->type() == TextItem::Type) {
+            if (found)
+                return nullptr;
+            found = static_cast<TextItem *>(item);
+        }
+    }
+    return found;
+}
 
 void drag(QWidget *w, QPoint from, QPoint to)
 {
@@ -212,6 +227,160 @@ private slots:
         m_view->setTool(ToolId::Crop);
         QCOMPARE(m_view->sceneRect(), QRectF(0, 0, 1600, 1200));
         QCOMPARE(m_view->cropDraft(), QRect(100, 100, 400, 300));
+    }
+
+    // --- Free text (F-25) ---
+
+    void textToolTypesOnTheCanvas()
+    {
+        m_view->setZoom(0.5);
+        m_view->setTool(ToolId::Text);
+        QWidget *vp = m_view->viewport();
+        QTest::mouseClick(vp, Qt::LeftButton, {}, m_view->mapFromScene(QPointF(200, 200)));
+        QVERIFY(m_view->isEditingText());
+        QTest::keyClicks(m_view, QStringLiteral("Hallo"));
+        QCOMPARE(m_stack->count(), 0); // one step when the edit ends
+        QTest::keyClick(m_view, Qt::Key_Escape);
+        QCoreApplication::processEvents(); // the focus change is queued
+        QVERIFY(!m_view->isEditingText());
+        QCOMPARE(m_stack->count(), 1);
+        TextItem *text = onlyText(m_view->editorScene());
+        QVERIFY(text);
+        QCOMPARE(text->style().text, QStringLiteral("Hallo"));
+        // It starts at the click.
+        const QRectF r = text->mapRectToScene(text->rect());
+        QVERIFY(r.left() < 200 && r.left() > 180);
+        QVERIFY(r.top() < 200 && r.bottom() > 200);
+
+        m_stack->undo();
+        QVERIFY(!onlyText(m_view->editorScene()));
+        m_stack->redo();
+        QCOMPARE(onlyText(m_view->editorScene())->style().text, QStringLiteral("Hallo"));
+    }
+
+    void clickWithoutTypingAddsNothing()
+    {
+        m_view->setTool(ToolId::Text);
+        QWidget *vp = m_view->viewport();
+        QTest::mouseClick(vp, Qt::LeftButton, {}, m_view->mapFromScene(QPointF(200, 200)));
+        QTest::mouseClick(vp, Qt::LeftButton, {}, m_view->mapFromScene(QPointF(800, 800)));
+        QVERIFY(m_view->isEditingText()); // the second click starts a new one
+        m_view->finishTextEditing();
+        QCOMPARE(m_stack->count(), 0);
+        QVERIFY(m_view->editorScene()->annotations().isEmpty());
+    }
+
+    void doubleClickEditsAText()
+    {
+        m_view->setZoom(0.5);
+        m_view->setTool(ToolId::Text);
+        QWidget *vp = m_view->viewport();
+        QTest::mouseClick(vp, Qt::LeftButton, {}, m_view->mapFromScene(QPointF(200, 200)));
+        QTest::keyClicks(m_view, QStringLiteral("Hallo"));
+        m_view->finishTextEditing();
+
+        m_view->setTool(ToolId::Select);
+        TextItem *text = onlyText(m_view->editorScene());
+        const QPoint inside = m_view->mapFromScene(text->mapRectToScene(text->rect()).center());
+        QTest::mouseDClick(vp, Qt::LeftButton, {}, inside);
+        QVERIFY(m_view->isEditingText());
+        QTest::keyClick(m_view, Qt::Key_End);
+        QTest::keyClicks(m_view, QStringLiteral(" Welt"));
+        // A click elsewhere ends the edit.
+        QTest::mouseClick(vp, Qt::LeftButton, {}, m_view->mapFromScene(QPointF(1200, 1000)));
+        QCoreApplication::processEvents();
+        QVERIFY(!m_view->isEditingText());
+        QCOMPARE(text->style().text, QStringLiteral("Hallo Welt"));
+        QCOMPARE(m_stack->count(), 2);
+        m_stack->undo();
+        QCOMPARE(text->style().text, QStringLiteral("Hallo"));
+    }
+
+    void emptyingATextDeletesIt()
+    {
+        m_view->setTool(ToolId::Text);
+        QWidget *vp = m_view->viewport();
+        const QPoint at = m_view->mapFromScene(QPointF(200, 200));
+        QTest::mouseClick(vp, Qt::LeftButton, {}, at);
+        QTest::keyClicks(m_view, QStringLiteral("Ab"));
+        m_view->finishTextEditing();
+        // The text tool edits a text it is clicked on.
+        TextItem *text = onlyText(m_view->editorScene());
+        QTest::mouseClick(vp, Qt::LeftButton, {}, m_view->mapFromScene(text->mapRectToScene(text->rect()).center()));
+        QVERIFY(m_view->isEditingText());
+        QTest::keyClick(m_view, Qt::Key_End);
+        QTest::keyClick(m_view, Qt::Key_Backspace);
+        QTest::keyClick(m_view, Qt::Key_Backspace);
+        m_view->finishTextEditing();
+        QVERIFY(m_view->editorScene()->annotations().isEmpty());
+        QCOMPARE(m_stack->count(), 2);
+        m_stack->undo();
+        QCOMPARE(onlyText(m_view->editorScene())->style().text, QStringLiteral("Ab"));
+    }
+
+    void textStaysInsideTheImage()
+    {
+        m_view->setTool(ToolId::Text);
+        QWidget *vp = m_view->viewport();
+        QTest::mouseClick(vp, Qt::LeftButton, {}, m_view->mapFromScene(QPointF(1550, 1190)));
+        QTest::keyClicks(m_view, QStringLiteral("Ein ziemlich langer Text am Rand"));
+        m_view->finishTextEditing();
+        TextItem *text = onlyText(m_view->editorScene());
+        const QRectF r = text->mapRectToScene(text->rect());
+        QVERIFY2(m_view->editorScene()->sceneRect().contains(r), qPrintable(QStringLiteral("%1 %2 %3 %4")
+                     .arg(r.left()).arg(r.top()).arg(r.right()).arg(r.bottom())));
+        // Undo and redo bring back the moved position.
+        m_stack->undo();
+        m_stack->redo();
+        QCOMPARE(text->mapRectToScene(text->rect()), r);
+    }
+
+    void exportEndsTheEdit()
+    {
+        m_view->setTool(ToolId::Text);
+        QTest::mouseClick(m_view->viewport(), Qt::LeftButton, {}, m_view->mapFromScene(QPointF(200, 200)));
+        QTest::keyClicks(m_view, QStringLiteral("X"));
+        const QImage image = m_view->renderedImage();
+        QVERIFY(!m_view->isEditingText());
+        QCOMPARE(m_stack->count(), 1);
+        // Red letters on the white image.
+        bool red = false;
+        for (int y = 150; y < 260 && !red; ++y)
+            for (int x = 190; x < 260 && !red; ++x)
+                red = qRed(image.pixel(x, y)) > 200 && qGreen(image.pixel(x, y)) < 120;
+        QVERIFY(red);
+    }
+
+    // --- Eyedropper ---
+
+    void eyedropperPicksFromTheImage()
+    {
+        QImage image(1600, 1200, QImage::Format_ARGB32);
+        image.fill(Qt::white);
+        image.setPixelColor(400, 300, QColor(0x293049));
+        m_view->setImage(image, 2.0);
+        m_view->setZoom(1.0);
+        m_view->centerOn(400, 300);
+        QSignalSpy picked(m_view, &EditorView::colorPicked);
+        m_view->startColorPick();
+        QVERIFY(m_view->isPickingColor());
+        const QPoint pixel = m_view->mapFromScene(QPointF(400.5, 300.5));
+        QTest::mouseMove(m_view->viewport(), pixel);
+        m_view->viewport()->grab(); // draws the loupe
+        QTest::mouseClick(m_view->viewport(), Qt::LeftButton, {}, pixel);
+        QCOMPARE(picked.count(), 1);
+        QCOMPARE(picked.first().first().value<QColor>(), QColor(0x293049));
+        QVERIFY(!m_view->isPickingColor());
+        QCOMPARE(m_stack->count(), 0); // the click drew nothing
+    }
+
+    void eyedropperCancelsWithEscape()
+    {
+        QSignalSpy picked(m_view, &EditorView::colorPicked);
+        m_view->startColorPick();
+        QTest::keyClick(m_view, Qt::Key_Escape);
+        QCOMPARE(picked.count(), 1);
+        QVERIFY(!picked.first().first().value<QColor>().isValid());
     }
 
 private:

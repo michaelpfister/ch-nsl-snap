@@ -10,6 +10,7 @@
 
 class EditorScene;
 class RectItem;
+class TextItem;
 class QGraphicsItem;
 class QUndoStack;
 
@@ -32,7 +33,8 @@ public:
 
     bool hasImage() const;
     // The result with annotations, as saved and copied.
-    QImage renderedImage() const;
+    // Ends a text edit first, so the export never shows a text cursor.
+    QImage renderedImage();
 
     // Zoom (D-017). 1.0 = the image at its logical size (100 %).
     static constexpr double kMinZoom = 0.05;
@@ -57,6 +59,18 @@ public:
     void applyCrop();
     void cancelCrop();
 
+    // Free text (F-25): typing happens on the canvas. Ending the edit (click
+    // outside, Escape, another tool) turns it into one undo step; an empty
+    // text is removed.
+    bool isEditingText() const { return m_editingText != nullptr; }
+    void finishTextEditing();
+
+    // Eyedropper of the colour popup: the next click on the image picks the
+    // colour of that pixel (colorPicked); Escape or the right button cancel.
+    // A magnifier near the cursor shows the pixels and the colour.
+    void startColorPick();
+    bool isPickingColor() const { return m_pickingColor; }
+
     // Deletes the selected annotations (Delete key, F-46). False if none.
     bool deleteSelection();
 
@@ -71,6 +85,8 @@ signals:
     void replaceNoPlainBackground();
     // The crop draft changed (dragged, reset); `rect` in image pixels.
     void cropDraftChanged(const QRect &rect);
+    // The eyedropper ended: the picked colour, or invalid if cancelled.
+    void colorPicked(const QColor &color);
     // Enter or a double click confirmed the crop.
     void cropConfirmed();
 
@@ -99,6 +115,10 @@ private:
     void restoreCursor();
     bool isDrawingTool() const;
     QGraphicsItem *annotationAt(const QPoint &viewPos) const;
+    // `isNew`: the item is in the scene but not yet on the undo stack.
+    void startTextEditing(TextItem *item, bool isNew);
+    // Forgets the edit without an undo step (the scene is being cleared).
+    void dropTextEditing();
 
     // Crop tool (F-12).
     enum class CropDrag { None, New, Move, Handle };
@@ -109,6 +129,11 @@ private:
     void updateCropDrag(const QPointF &scenePos);
     void updateCropCursor(const QPoint &viewPos);
     void drawCropOverlay(QPainter *painter);
+    // Eyedropper: ends the pick with `color` (invalid = cancelled).
+    void endColorPick(const QColor &color);
+    void drawColorPickLoupe(QPainter *painter);
+    // The base image's colour at a viewport position; invalid off the image.
+    QColor colorAt(const QPoint &viewPos) const;
 
     EditorScene *m_scene;
     ToolId m_tool = ToolId::Select;
@@ -116,6 +141,12 @@ private:
     // A frame or pixelated area being drawn, not yet on the undo stack.
     RectItem *m_drawing = nullptr;
     QPointF m_drawStart;
+
+    // The free text being typed (F-25), with its state before the edit.
+    TextItem *m_editingText = nullptr;
+    bool m_editingIsNew = false;
+    QString m_textBefore;
+    QPointF m_textPosBefore;
 
     // Positions of the selected items when a drag started, for the undo step.
     QHash<QGraphicsItem *, QPointF> m_positionsAtPress;
@@ -126,6 +157,9 @@ private:
     QPoint m_panLast;
 
     bool m_fitMode = true;
+
+    bool m_pickingColor = false;
+    QPoint m_pickPos; // viewport position of the cursor while picking
 
     QRect m_cropDraft;
     CropDrag m_cropDrag = CropDrag::None;
