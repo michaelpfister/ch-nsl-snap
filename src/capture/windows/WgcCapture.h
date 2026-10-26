@@ -36,6 +36,10 @@ struct Window
     // GetWindowRect: the frame plus the invisible resize borders.
     Rect windowRect;
     unsigned dpi = 96; // of the monitor the window is on
+    bool maximized = false;
+    // DWMWA_WINDOW_CORNER_PREFERENCE: 0 default, 1 square, 2 round,
+    // 3 round small. Windows 11 rounds the corners only when composing.
+    int cornerPreference = 0;
 };
 
 // An image as BGRA bytes with premultiplied alpha, rows without padding.

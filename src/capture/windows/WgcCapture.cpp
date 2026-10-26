@@ -92,6 +92,11 @@ BOOL CALLBACK collectWindow(HWND hwnd, LPARAM param)
     if (window.frame.width() <= 0 || window.frame.height() <= 0)
         return TRUE;
     window.dpi = GetDpiForWindow(hwnd);
+    window.maximized = IsZoomed(hwnd) != FALSE;
+    // Not readable before Windows 11; then it stays at the default.
+    DWM_WINDOW_CORNER_PREFERENCE corners = DWMWCP_DEFAULT;
+    if (SUCCEEDED(DwmGetWindowAttribute(hwnd, DWMWA_WINDOW_CORNER_PREFERENCE, &corners, sizeof corners)))
+        window.cornerPreference = int(corners);
     const int length = GetWindowTextLengthW(hwnd);
     window.title.resize(std::size_t(length) + 1);
     const int copied = GetWindowTextW(hwnd, window.title.data(), length + 1);

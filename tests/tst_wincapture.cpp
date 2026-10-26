@@ -4,6 +4,7 @@
 #include "capture/PickGeometry.h"
 #include "capture/CaptureResult.h"
 #include "capture/windows/WgcCapture.h"
+#include "capture/windows/WindowsBackend.h"
 #include "imaging/WindowImage.h"
 
 #include <QApplication>
@@ -127,6 +128,8 @@ private slots:
         result.scale = info.dpi / 96.0;
         result.frameRect = result.bufferRect = QRect(0, 0, int(std::ceil(frame.width() / result.scale)),
                                                      int(std::ceil(frame.height() / result.scale)));
+        result.cornerRadius = WindowsBackend::cornerRadius(info);
+        QCOMPARE(result.cornerRadius, 8.0);
         const QImage image = WindowImage::prepare(result);
         const auto alphaAt = [&image](int x, int y) { return image.pixelColor(x, y).alpha(); };
         const int right = image.width() - 1;

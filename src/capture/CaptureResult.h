@@ -28,4 +28,9 @@ struct CaptureResult
 
     // Image pixels per logical pixel, e.g. 2.0 on a HiDPI screen.
     double scale = 1.0;
+
+    // Corners the system rounds only when composing the screen, so the
+    // capture shows them square (Windows 11, D-022): their radius in
+    // logical px, 0 if the capture already has the window's real corners.
+    double cornerRadius = 0;
 };

@@ -5,6 +5,7 @@
 #include "capture/windows/WindowPicker.h"
 
 #include <QGuiApplication>
+#include <QOperatingSystemVersion>
 #include <QScreen>
 // The monitors' native (physical) geometry is only available from Qt's
 // platform layer.
@@ -56,6 +57,17 @@ QImage grabMonitor(const QRect &native)
 }
 
 } // namespace
+
+double WindowsBackend::cornerRadius(const WgcCapture::Window &window)
+{
+    if (QOperatingSystemVersion::current() < QOperatingSystemVersion::Windows11 || window.maximized)
+        return 0;
+    switch (window.cornerPreference) {
+    case 1: return 0; // DWMWCP_DONOTROUND
+    case 3: return 4; // DWMWCP_ROUNDSMALL
+    default: return 8; // DWMWCP_DEFAULT, DWMWCP_ROUND: Windows 11's 8 px
+    }
+}
 
 WindowsBackend::WindowsBackend(QObject *parent)
     : CaptureBackend(parent)
@@ -143,6 +155,7 @@ void WindowsBackend::onPicked(int index)
                         int(std::ceil(result.image.height() / result.scale)));
     result.frameRect = logical;
     result.bufferRect = logical;
+    result.cornerRadius = cornerRadius(window);
     emit captured(result);
 }
 

@@ -3,6 +3,8 @@
 #include "capture/CaptureResult.h"
 
 #include <QList>
+#include <QPainter>
+#include <QPainterPath>
 #include <QPoint>
 
 #include <algorithm>
@@ -124,6 +126,24 @@ int cleanCorners(QImage &image, double scale)
     return cleared;
 }
 
+void roundCorners(QImage &image, qreal radius)
+{
+    // Keep only what lies inside the rounded rectangle: DestinationIn keeps
+    // the image where the mask is opaque, partly at its anti-aliased edge.
+    QImage mask(image.size(), QImage::Format_ARGB32_Premultiplied);
+    mask.fill(Qt::transparent);
+    QPainter painter(&mask);
+    painter.setRenderHint(QPainter::Antialiasing);
+    painter.setPen(Qt::NoPen);
+    painter.setBrush(Qt::white);
+    painter.drawRoundedRect(QRectF(mask.rect()), radius, radius);
+    painter.end();
+
+    QPainter apply(&image);
+    apply.setCompositionMode(QPainter::CompositionMode_DestinationIn);
+    apply.drawImage(0, 0, mask);
+}
+
 QImage prepare(const CaptureResult &capture)
 {
     const QRect frame = frameInImage(capture.frameRect, capture.bufferRect, capture.scale)
@@ -131,6 +151,8 @@ QImage prepare(const CaptureResult &capture)
     const QRect core = opaqueCore(capture.image, frame, capture.scale).value_or(frame);
 
     QImage image = capture.image.copy(core).convertToFormat(QImage::Format_ARGB32);
+    if (capture.cornerRadius > 0)
+        roundCorners(image, capture.cornerRadius * capture.scale);
     cleanCorners(image, capture.scale);
     return image;
 }
