@@ -135,7 +135,8 @@ jobs:
           QT_FORCE_STDERR_LOGGING: '1'
         run: |
           $env:PATH = "$env:QT_DIR\bin;$env:PATH"
-          foreach ($test in Get-ChildItem build\tests\tst_*.exe) {
+          # qt_standard_project_setup() puts all executables directly into build\.
+          foreach ($test in Get-ChildItem build -Recurse -Filter tst_*.exe) {
             $log = "$env:RUNNER_TEMP\$($test.BaseName).txt"
             & $test.FullName -o "$log,txt" -o "-,txt" 2>&1 | Out-Host
             Write-Host ("{0}: exit code {1} (0x{1:X8})" -f $test.BaseName, $LASTEXITCODE)
