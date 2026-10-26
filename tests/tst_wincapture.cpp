@@ -4,6 +4,7 @@
 #include "capture/PickGeometry.h"
 #include "capture/windows/WgcCapture.h"
 
+#include <QApplication>
 #include <QPainter>
 #include <QTest>
 #include <QWidget>
@@ -153,5 +154,15 @@ private slots:
     }
 };
 
-QTEST_MAIN(TestWinCapture)
+// Real windows are needed: the "windows" platform even where the
+// environment asks for offscreen (the CI's test step does).
+int main(int argc, char *argv[])
+{
+    qputenv("QT_QPA_PLATFORM", "windows");
+    QApplication app(argc, argv);
+    TestWinCapture test;
+    QTEST_SET_MAIN_SOURCE_PATH
+    return QTest::qExec(&test, argc, argv);
+}
+
 #include "tst_wincapture.moc"
