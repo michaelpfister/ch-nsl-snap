@@ -28,6 +28,8 @@ add_library(nsl_snap_core STATIC
     src/capture/CaptureBackend.cpp
     src/capture/CaptureBackend.h
     src/capture/CaptureResult.h
+    src/capture/PickGeometry.cpp
+    src/capture/PickGeometry.h
     src/editor/Commands.cpp
     src/editor/Commands.h
     src/editor/DimItem.cpp
@@ -86,6 +88,20 @@ if(LINUX)
     )
     target_link_libraries(nsl_snap_core PUBLIC Qt6::DBus)
     target_compile_definitions(nsl_snap_core PUBLIC NSL_HAVE_GNOME_BACKEND)
+endif()
+if(WIN32)
+    # Windows.Graphics.Capture through C++/WinRT, Direct3D 11 and DWM (D-022).
+    target_sources(nsl_snap_core PRIVATE
+        src/capture/windows/WgcCapture.cpp
+        src/capture/windows/WgcCapture.h
+        src/capture/windows/WindowPicker.cpp
+        src/capture/windows/WindowPicker.h
+        src/capture/windows/WindowsBackend.cpp
+        src/capture/windows/WindowsBackend.h
+    )
+    # GuiPrivate: the monitors' physical geometry (QPlatformScreen).
+    target_link_libraries(nsl_snap_core PUBLIC Qt6::GuiPrivate d3d11 dxgi dwmapi windowsapp)
+    target_compile_definitions(nsl_snap_core PUBLIC NSL_HAVE_WINDOWS_BACKEND)
 endif()
 
 qt_add_executable(nsl-snap src/main.cpp)

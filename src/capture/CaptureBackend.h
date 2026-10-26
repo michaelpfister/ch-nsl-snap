@@ -26,6 +26,8 @@ public:
     virtual void captureWindow() = 0;
     // Lets the user drag a rectangle on the frozen screen (F-03).
     virtual void captureRegion() = 0;
+    // False where region capture is not written yet (Windows).
+    virtual bool supportsRegion() const { return true; }
 
 signals:
     void captured(const CaptureResult &result);

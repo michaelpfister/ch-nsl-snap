@@ -25,9 +25,14 @@ target_link_libraries(tst_view PRIVATE nsl_snap_core Qt6::Test)
 add_test(NAME tst_view COMMAND tst_view)
 set_tests_properties(tst_view PROPERTIES ENVIRONMENT "${NSL_OFFSCREEN_ENV}")
 
-# The GNOME backend exists only on Linux.
-if(LINUX)
-    qt_add_executable(tst_capture tst_capture.cpp)
-    target_link_libraries(tst_capture PRIVATE nsl_snap_core Qt6::Test)
-    add_test(NAME tst_capture COMMAND tst_capture)
+qt_add_executable(tst_capture tst_capture.cpp)
+target_link_libraries(tst_capture PRIVATE nsl_snap_core Qt6::Test)
+add_test(NAME tst_capture COMMAND tst_capture)
+
+# Captures real windows with Windows.Graphics.Capture: needs a desktop
+# session, so it uses the normal "windows" platform, not offscreen.
+if(WIN32)
+    qt_add_executable(tst_wincapture tst_wincapture.cpp)
+    target_link_libraries(tst_wincapture PRIVATE nsl_snap_core Qt6::Test)
+    add_test(NAME tst_wincapture COMMAND tst_wincapture)
 endif()
