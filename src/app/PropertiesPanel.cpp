@@ -149,7 +149,7 @@ PropertiesPanel::PropertiesPanel(QWidget *parent)
     frameLayout->setContentsMargins(0, 0, 0, 0);
     frameLayout->setSpacing(8);
     frameLayout->addWidget(sectionLabel(tr("Farbe"), this));
-    m_frameColors = new ColorRow(this);
+    m_frameColors = new ColorRow(ColorRow::Palette::Standard, this);
     connect(m_frameColors, &ColorRow::colorChosen, this, [this] { emit frameStyleChanged(frameStyle()); });
     connect(m_frameColors, &ColorRow::customRequested, this, [this] {
         openColorPopup(m_frameColors->customButton(), m_frameColors->color(), [this](const QColor &color) {
@@ -245,7 +245,7 @@ PropertiesPanel::PropertiesPanel(QWidget *parent)
     textLayout->setContentsMargins(0, 0, 0, 0);
     textLayout->setSpacing(8);
     textLayout->addWidget(sectionLabel(tr("Farbe"), this));
-    m_textColors = new ColorRow(this);
+    m_textColors = new ColorRow(ColorRow::Palette::Standard, this);
     connect(m_textColors, &ColorRow::colorChosen, this, [this] { emit textStyleChanged(textStyle()); });
     connect(m_textColors, &ColorRow::customRequested, this, [this] {
         openColorPopup(m_textColors->customButton(), m_textColors->color(), [this](const QColor &color) {
@@ -286,6 +286,53 @@ PropertiesPanel::PropertiesPanel(QWidget *parent)
     connect(m_textBold, &QCheckBox::toggled, this, emitText);
     connect(m_textBox, &QButtonGroup::idClicked, this, emitText);
     setTextStyle(TextStyle());
+
+    // Arrows (F-44).
+    m_arrowSection = new QWidget(this);
+    auto *arrowLayout = new QVBoxLayout(m_arrowSection);
+    arrowLayout->setContentsMargins(0, 0, 0, 0);
+    arrowLayout->setSpacing(8);
+    arrowLayout->addWidget(sectionLabel(tr("Farbe"), this));
+    m_arrowColors = new ColorRow(ColorRow::Palette::Standard, this);
+    connect(m_arrowColors, &ColorRow::colorChosen, this, [this] { emit arrowStyleChanged(arrowStyle()); });
+    connect(m_arrowColors, &ColorRow::customRequested, this, [this] {
+        openColorPopup(m_arrowColors->customButton(), m_arrowColors->color(), [this](const QColor &color) {
+            m_arrowColors->setColor(color);
+            emit arrowStyleChanged(arrowStyle());
+        });
+    });
+    arrowLayout->addWidget(m_arrowColors);
+    arrowLayout->addSpacing(12);
+    m_arrowWidth = labelledSlider(arrowLayout, tr("Linienstärke"), 2, 12, ArrowStyle().width, QStringLiteral("px"), this);
+    connect(m_arrowWidth, &QSlider::valueChanged, this, [this] {
+        if (!m_updating)
+            emit arrowStyleChanged(arrowStyle());
+    });
+    m_arrowSection->hide();
+    layout->addWidget(m_arrowSection);
+
+    // Text marker (F-28).
+    m_markerSection = new QWidget(this);
+    auto *markerLayout = new QVBoxLayout(m_markerSection);
+    markerLayout->setContentsMargins(0, 0, 0, 0);
+    markerLayout->setSpacing(8);
+    markerLayout->addWidget(sectionLabel(tr("Farbe"), this));
+    m_markerColors = new ColorRow(ColorRow::Palette::Marker, this);
+    connect(m_markerColors, &ColorRow::colorChosen, this, [this] { emit markerStyleChanged(markerStyle()); });
+    connect(m_markerColors, &ColorRow::customRequested, this, [this] {
+        openColorPopup(m_markerColors->customButton(), m_markerColors->color(), [this](const QColor &color) {
+            m_markerColors->setColor(color);
+            emit markerStyleChanged(markerStyle());
+        });
+    });
+    markerLayout->addWidget(m_markerColors);
+    auto *markerHint = new QLabel(tr("Die Farbe wird mit dem Bild multipliziert: Text bleibt schwarz. "
+                                     "Auf dunklem Hintergrund ist der Marker kaum sichtbar."), this);
+    markerHint->setProperty("role", QStringLiteral("hint"));
+    markerHint->setWordWrap(true);
+    markerLayout->addWidget(markerHint);
+    m_markerSection->hide();
+    layout->addWidget(m_markerSection);
 
     // Replaced text (F-29).
     m_replaceSection = new QWidget(this);
@@ -513,25 +560,49 @@ void PropertiesPanel::setRedactStyle(const RedactStyle &style)
     m_redactLevel->button(int(style.level))->setChecked(true);
 }
 
-void PropertiesPanel::showSections(bool frame, bool redact, bool replace, bool crop, bool text)
+void PropertiesPanel::showSections(const QList<PanelSection> &sections)
 {
-    m_textSection->setVisible(text);
-    m_frameSection->setVisible(frame);
-    m_redactSection->setVisible(redact);
-    m_replaceSection->setVisible(replace);
-    m_cropSection->setVisible(crop);
+    m_frameSection->setVisible(sections.contains(PanelSection::Frame));
+    m_redactSection->setVisible(sections.contains(PanelSection::Redact));
+    m_replaceSection->setVisible(sections.contains(PanelSection::Replace));
+    m_cropSection->setVisible(sections.contains(PanelSection::Crop));
+    m_textSection->setVisible(sections.contains(PanelSection::Text));
+    m_arrowSection->setVisible(sections.contains(PanelSection::Arrow));
+    m_markerSection->setVisible(sections.contains(PanelSection::Marker));
+}
+
+ArrowStyle PropertiesPanel::arrowStyle() const
+{
+    ArrowStyle style;
+    style.color = m_arrowColors->color();
+    style.width = m_arrowWidth->value();
+    return style;
+}
+
+void PropertiesPanel::setArrowStyle(const ArrowStyle &style)
+{
+    m_updating = true;
+    m_arrowColors->setColor(style.color);
+    m_arrowWidth->setValue(style.width);
+    m_updating = false;
+}
+
+MarkerStyle PropertiesPanel::markerStyle() const
+{
+    MarkerStyle style;
+    style.color = m_markerColors->color();
+    return style;
+}
+
+void PropertiesPanel::setMarkerStyle(const MarkerStyle &style)
+{
+    m_markerColors->setColor(style.color);
 }
 
 void PropertiesPanel::setCropSize(const QSize &size)
 {
     m_cropSize->setText(size.isEmpty() ? QStringLiteral("–")
                                        : tr("%1 × %2 px").arg(size.width()).arg(size.height()));
-}
-
-void PropertiesPanel::showTextSelection(int count)
-{
-    m_title->setText(tr("Text"));
-    m_hint->setText(count == 1 ? tr("1 ausgewählt") : tr("%1 ausgewählt").arg(count));
 }
 
 TextStyle PropertiesPanel::textStyle() const
@@ -552,12 +623,6 @@ void PropertiesPanel::setTextStyle(const TextStyle &style)
     m_textBold->setChecked(style.bold);
     m_textBox->button(int(style.box))->setChecked(true);
     m_updating = false;
-}
-
-void PropertiesPanel::showReplaceSelection()
-{
-    m_title->setText(tr("Text ersetzen"));
-    m_hint->setText(tr("1 ausgewählt"));
 }
 
 ReplaceStyle PropertiesPanel::replaceStyle() const
@@ -628,12 +693,6 @@ void PropertiesPanel::updateColorButtons()
     m_replaceBackground->setIcon(swatch(m_replaceBackgroundColor));
 }
 
-void PropertiesPanel::showRedactSelection(int count)
-{
-    m_title->setText(tr("Verpixeln"));
-    m_hint->setText(count == 1 ? tr("1 ausgewählt") : tr("%1 ausgewählt").arg(count));
-}
-
 void PropertiesPanel::setBadgeOptions(const QList<BadgePosition> &positions)
 {
     auto *list = static_cast<QListView *>(m_badge->view());
@@ -679,8 +738,8 @@ void PropertiesPanel::showTool(ToolId id)
         m_hint->setText(id == ToolId::Select ? tr("nichts ausgewählt") : tr("für neue Objekte"));
 }
 
-void PropertiesPanel::showSelection(int count)
+void PropertiesPanel::showSelection(const QString &title, int count)
 {
-    m_title->setText(tr("Rahmen"));  // numbered or not; the "Nummer" field tells
+    m_title->setText(title);
     m_hint->setText(count == 1 ? tr("1 ausgewählt") : tr("%1 ausgewählt").arg(count));
 }

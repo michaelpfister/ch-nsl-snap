@@ -1,19 +1,24 @@
 #pragma once
 
+#include "editor/ArrowStyle.h"
 #include "editor/DimSettings.h"
 #include "editor/FrameStyle.h"
+#include "editor/MarkerStyle.h"
 #include "editor/RedactStyle.h"
 #include "editor/ReplaceStyle.h"
 #include "editor/TextStyle.h"
 
+#include <QLineF>
 #include <QList>
 #include <QPointF>
 #include <QRect>
 #include <QRectF>
 #include <QUndoCommand>
 
+class ArrowItem;
 class EditorScene;
 class FrameItem;
+class MarkerItem;
 class RectItem;
 class RedactItem;
 class ReplaceItem;
@@ -193,6 +198,54 @@ private:
     QString m_toText;
     QPointF m_fromPos;
     QPointF m_toPos;
+};
+
+// An arrow end dragged to a new place (F-44).
+class SetArrowLineCommand : public QUndoCommand
+{
+public:
+    SetArrowLineCommand(ArrowItem *item, const QLineF &from, const QLineF &to);
+    void redo() override;
+    void undo() override;
+
+private:
+    ArrowItem *m_item;
+    QLineF m_from;
+    QLineF m_to;
+};
+
+class SetArrowStyleCommand : public QUndoCommand
+{
+public:
+    SetArrowStyleCommand(const QList<ArrowItem *> &items, const ArrowStyle &style);
+    void redo() override;
+    void undo() override;
+
+    // Slider drags and the colour wheel merge into one step.
+    int id() const override { return 6; }
+    bool mergeWith(const QUndoCommand *other) override;
+
+private:
+    QList<ArrowItem *> m_items;
+    QList<ArrowStyle> m_before;
+    ArrowStyle m_after;
+};
+
+class SetMarkerStyleCommand : public QUndoCommand
+{
+public:
+    SetMarkerStyleCommand(const QList<MarkerItem *> &items, const MarkerStyle &style);
+    void redo() override;
+    void undo() override;
+
+    // The colour wheel gives many changes; they merge into one step.
+    int id() const override { return 7; }
+    bool mergeWith(const QUndoCommand *other) override;
+
+private:
+    QList<MarkerItem *> m_items;
+    QList<MarkerStyle> m_before;
+    MarkerStyle m_after;
 };
 
 // Crop (F-12). Only the visible part changes; the image and the

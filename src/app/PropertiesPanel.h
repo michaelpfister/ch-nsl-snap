@@ -1,7 +1,9 @@
 #pragma once
 
+#include "editor/ArrowStyle.h"
 #include "editor/DimSettings.h"
 #include "editor/FrameStyle.h"
+#include "editor/MarkerStyle.h"
 #include "editor/RedactStyle.h"
 #include "editor/ReplaceStyle.h"
 #include "editor/TextStyle.h"
@@ -28,6 +30,9 @@ class QPushButton;
 class QSlider;
 struct Theme;
 
+// The property groups of the panel; one or more are visible at a time.
+enum class PanelSection { Frame, Redact, Replace, Crop, Text, Arrow, Marker };
+
 // The panel on the right: style of the selected frames, or of new frames
 // when nothing is selected, plus the list of objects (design mockup).
 class PropertiesPanel : public QWidget
@@ -39,31 +44,30 @@ public:
 
     void applyTheme(const Theme &theme);
     void showTool(ToolId id);
-    // "Rahmen" with the number of selected frames.
-    void showSelection(int count);
+    // Title for a selection, e.g. "Rahmen" and "2 ausgewählt".
+    void showSelection(const QString &title, int count);
 
-    // Which property groups are visible: frame (colour, corners, line,
-    // number) and/or pixelate (kind, strength).
-    void showSections(bool frame, bool redact, bool replace = false, bool crop = false, bool text = false);
+    // Shows these property groups and hides the others.
+    void showSections(const QList<PanelSection> &sections);
     // Size of the crop draft (F-12), in image pixels.
     void setCropSize(const QSize &size);
-    // "Text" with the number of selected free texts (F-25).
-    void showTextSelection(int count);
     // The look of free texts; the text itself is typed on the canvas.
     TextStyle textStyle() const;
     // Shows `style` without emitting textStyleChanged.
     void setTextStyle(const TextStyle &style);
 
-    // "Text ersetzen" for a selected replaced text.
-    void showReplaceSelection();
 
     ReplaceStyle replaceStyle() const;
     // Shows `style` without emitting replaceStyleChanged.
     void setReplaceStyle(const ReplaceStyle &style);
     // Puts the cursor into the text field, for typing right after drawing.
     void focusReplaceText();
-    // "Verpixeln" with the number of selected areas.
-    void showRedactSelection(int count);
+    ArrowStyle arrowStyle() const;
+    // Shows `style` without emitting arrowStyleChanged.
+    void setArrowStyle(const ArrowStyle &style);
+    MarkerStyle markerStyle() const;
+    // Shows `style` without emitting markerStyleChanged.
+    void setMarkerStyle(const MarkerStyle &style);
 
     RedactStyle redactStyle() const;
     // Shows `style` without emitting redactStyleChanged.
@@ -101,6 +105,9 @@ signals:
     void redactStyleChanged(const RedactStyle &style);
     // The user changed the replaced text or its look (F-29).
     void replaceStyleChanged(const ReplaceStyle &style);
+    // The user changed colour or width of arrows (F-44), or the marker colour (F-28).
+    void arrowStyleChanged(const ArrowStyle &style);
+    void markerStyleChanged(const MarkerStyle &style);
     // The user changed colour, size, bold or box of free texts (F-25).
     void textStyleChanged(const TextStyle &style);
     // "Original neu erkennen".
@@ -125,6 +132,11 @@ private:
     std::function<void(const QColor &)> m_popupApply;
     ColorRow *m_frameColors = nullptr;
     ColorRow *m_textColors = nullptr;
+    QWidget *m_arrowSection = nullptr;
+    ColorRow *m_arrowColors = nullptr;
+    QSlider *m_arrowWidth = nullptr;
+    QWidget *m_markerSection = nullptr;
+    ColorRow *m_markerColors = nullptr;
 
     QWidget *m_frameSection = nullptr;
     QWidget *m_redactSection = nullptr;

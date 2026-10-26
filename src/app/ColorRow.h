@@ -8,13 +8,16 @@ class QButtonGroup;
 
 // A row of round colour buttons: the standard colours (F-22) and, last, a
 // button for a colour of one's own (rainbow ring), which opens the colour
-// popup. Used for frames and texts.
+// popup. Used for frames, arrows, texts and markers.
 class ColorRow : public QWidget
 {
     Q_OBJECT
 
 public:
-    explicit ColorRow(QWidget *parent = nullptr);
+    // Standard: frames, arrows, texts. Marker: light felt-pen colours (F-28).
+    enum class Palette { Standard, Marker };
+
+    explicit ColorRow(Palette palette = Palette::Standard, QWidget *parent = nullptr);
 
     QColor color() const { return m_color; }
     // Shows `color` without emitting colorChosen: a standard colour checks

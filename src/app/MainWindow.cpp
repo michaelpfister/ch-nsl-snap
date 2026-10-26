@@ -5,10 +5,12 @@
 #include "app/SettingsDialog.h"
 #include "app/ToolRail.h"
 #include "capture/CaptureBackend.h"
+#include "editor/ArrowItem.h"
 #include "editor/Commands.h"
 #include "editor/EditorScene.h"
 #include "editor/EditorView.h"
 #include "editor/FrameItem.h"
+#include "editor/MarkerItem.h"
 #include "editor/RedactItem.h"
 #include "editor/ReplaceItem.h"
 #include "editor/TextItem.h"
@@ -158,6 +160,8 @@ MainWindow::MainWindow(QWidget *parent)
     connect(m_properties, &PropertiesPanel::redactStyleChanged, this, &MainWindow::onRedactStyleChanged);
     connect(m_properties, &PropertiesPanel::replaceStyleChanged, this, &MainWindow::onReplaceStyleChanged);
     connect(m_properties, &PropertiesPanel::textStyleChanged, this, &MainWindow::onTextStyleChanged);
+    connect(m_properties, &PropertiesPanel::arrowStyleChanged, this, &MainWindow::onArrowStyleChanged);
+    connect(m_properties, &PropertiesPanel::markerStyleChanged, this, &MainWindow::onMarkerStyleChanged);
     // Eyedropper of the colour popup: one click into the image.
     connect(m_properties, &PropertiesPanel::eyedropperRequested, this, [this] {
         m_view->startColorPick();
@@ -513,31 +517,81 @@ void MainWindow::onToolChanged(ToolId id)
     onSelectionChanged();
 }
 
+namespace {
+
+// The property group for new objects of a tool.
+PanelSection sectionFor(ToolId tool)
+{
+    switch (tool) {
+    case ToolId::Pixelate: return PanelSection::Redact;
+    case ToolId::ReplaceText: return PanelSection::Replace;
+    case ToolId::Crop: return PanelSection::Crop;
+    case ToolId::Text: return PanelSection::Text;
+    case ToolId::Arrow: return PanelSection::Arrow;
+    case ToolId::Marker: return PanelSection::Marker;
+    default: return PanelSection::Frame;
+    }
+}
+
+} // namespace
+
 void MainWindow::onSelectionChanged()
 {
     const EditorScene *scene = m_view->editorScene();
     const QList<FrameItem *> selected = scene->selectedFrames();
     const QList<RedactItem *> redactions = selectedRedactions();
+    ReplaceItem *replace = selectedReplace();
+    const QList<TextItem *> texts = selectedTexts();
+    const QList<ArrowItem *> arrows = selectedArrows();
+    const QList<MarkerItem *> markers = selectedMarkers();
+
+    // The panel shows the style of the first selected object of each kind.
     if (!redactions.isEmpty())
         m_properties->setRedactStyle(redactions.first()->style());
-
-    ReplaceItem *replace = selectedReplace();
     if (replace)
         m_properties->setReplaceStyle(replace->style());
-    const QList<TextItem *> texts = selectedTexts();
     if (!texts.isEmpty())
         m_properties->setTextStyle(texts.first()->style());
+    if (!arrows.isEmpty())
+        m_properties->setArrowStyle(arrows.first()->style());
+    if (!markers.isEmpty())
+        m_properties->setMarkerStyle(markers.first()->style());
 
-    if (selected.isEmpty() && redactions.isEmpty() && !replace && !texts.isEmpty()) {
-        m_properties->showTextSelection(int(texts.size()));
-        m_properties->showSections(false, false, false, false, true);
-    } else if (selected.isEmpty() && redactions.isEmpty() && replace) {
-        m_properties->showReplaceSelection();
-        m_properties->showSections(false, false, true);
-    } else if (selected.isEmpty() && !redactions.isEmpty()) {
-        m_properties->showRedactSelection(int(redactions.size()));
-        m_properties->showSections(false, true);
-    } else if (selected.isEmpty()) {
+    // Frames win in a mixed selection; otherwise the first kind selected.
+    if (!selected.isEmpty()) {
+        if (redactions.isEmpty())
+            m_properties->showSections({PanelSection::Frame});
+        else
+            m_properties->showSections({PanelSection::Frame, PanelSection::Redact});
+        // Numbered or not; the "Nummer" field tells.
+        m_properties->showSelection(tr("Rahmen"), int(selected.size()));
+        // Show where the number really is, and offer only corners where it
+        // fits for every selected frame.
+        FrameStyle style = selected.first()->style();
+        style.badge = selected.first()->effectiveBadge();
+        m_properties->setFrameStyle(style);
+        QList<BadgePosition> fitting = selected.first()->fittingBadgePositions();
+        for (const FrameItem *frame : selected)
+            fitting.removeIf([frame](BadgePosition p) { return !frame->fittingBadgePositions().contains(p); });
+        if (fitting.isEmpty() && style.badge != BadgePosition::None)
+            fitting << style.badge; // nothing fits: keep the current one selectable
+        m_properties->setBadgeOptions(fitting);
+    } else if (!redactions.isEmpty()) {
+        m_properties->showSelection(tr("Verpixeln"), int(redactions.size()));
+        m_properties->showSections({PanelSection::Redact});
+    } else if (replace) {
+        m_properties->showSelection(tr("Text ersetzen"), 1);
+        m_properties->showSections({PanelSection::Replace});
+    } else if (!texts.isEmpty()) {
+        m_properties->showSelection(tr("Text"), int(texts.size()));
+        m_properties->showSections({PanelSection::Text});
+    } else if (!arrows.isEmpty()) {
+        m_properties->showSelection(tr("Pfeil"), int(arrows.size()));
+        m_properties->showSections({PanelSection::Arrow});
+    } else if (!markers.isEmpty()) {
+        m_properties->showSelection(tr("Marker"), int(markers.size()));
+        m_properties->showSections({PanelSection::Marker});
+    } else {
         // Style for new objects; only the number tool draws with a number.
         const ToolId tool = m_toolRail->currentTool();
         FrameStyle style = scene->frameStyle();
@@ -550,26 +604,11 @@ void MainWindow::onSelectionChanged()
         replaceDefaults.text = scene->replaceText();
         m_properties->setReplaceStyle(replaceDefaults);
         m_properties->setTextStyle(scene->textStyle());
-        m_properties->showSections(tool != ToolId::Pixelate && tool != ToolId::ReplaceText && tool != ToolId::Crop
-                                       && tool != ToolId::Text,
-                                   tool == ToolId::Pixelate, tool == ToolId::ReplaceText, tool == ToolId::Crop,
-                                   tool == ToolId::Text);
+        m_properties->setArrowStyle(scene->arrowStyle());
+        m_properties->setMarkerStyle(scene->markerStyle());
+        m_properties->showSections({sectionFor(tool)});
         m_properties->setBadgeOptions({BadgePosition::TopRight, BadgePosition::TopLeft,
                                        BadgePosition::BottomRight, BadgePosition::BottomLeft});
-    } else {
-        m_properties->showSections(true, !redactions.isEmpty());
-        m_properties->showSelection(int(selected.size()));
-        // Show where the number really is, and offer only corners where it
-        // fits for every selected frame.
-        FrameStyle style = selected.first()->style();
-        style.badge = selected.first()->effectiveBadge();
-        m_properties->setFrameStyle(style);
-        QList<BadgePosition> fitting = selected.first()->fittingBadgePositions();
-        for (const FrameItem *frame : selected)
-            fitting.removeIf([frame](BadgePosition p) { return !frame->fittingBadgePositions().contains(p); });
-        if (fitting.isEmpty() && style.badge != BadgePosition::None)
-            fitting << style.badge; // nothing fits: keep the current one selectable
-        m_properties->setBadgeOptions(fitting);
     }
     updateObjectList();
 }
@@ -607,6 +646,46 @@ ReplaceItem *MainWindow::selectedReplace() const
     if (selected.size() == 1 && selected.first()->type() == ReplaceItem::Type)
         return static_cast<ReplaceItem *>(selected.first());
     return nullptr;
+}
+
+QList<ArrowItem *> MainWindow::selectedArrows() const
+{
+    QList<ArrowItem *> result;
+    for (RectItem *item : m_view->editorScene()->selectedAnnotations()) {
+        if (item->type() == ArrowItem::Type)
+            result << static_cast<ArrowItem *>(item);
+    }
+    return result;
+}
+
+QList<MarkerItem *> MainWindow::selectedMarkers() const
+{
+    QList<MarkerItem *> result;
+    for (RectItem *item : m_view->editorScene()->selectedAnnotations()) {
+        if (item->type() == MarkerItem::Type)
+            result << static_cast<MarkerItem *>(item);
+    }
+    return result;
+}
+
+void MainWindow::onArrowStyleChanged(const ArrowStyle &style)
+{
+    // Default for new arrows, and applied to the selected ones (F-44).
+    m_view->editorScene()->setArrowStyle(style);
+    QList<ArrowItem *> arrows = selectedArrows();
+    arrows.removeIf([&style](const ArrowItem *item) { return item->style() == style; });
+    if (!arrows.isEmpty())
+        m_undoStack->push(new SetArrowStyleCommand(arrows, style));
+}
+
+void MainWindow::onMarkerStyleChanged(const MarkerStyle &style)
+{
+    // Default for new markers, and applied to the selected ones (F-28).
+    m_view->editorScene()->setMarkerStyle(style);
+    QList<MarkerItem *> markers = selectedMarkers();
+    markers.removeIf([&style](const MarkerItem *item) { return item->style() == style; });
+    if (!markers.isEmpty())
+        m_undoStack->push(new SetMarkerStyleCommand(markers, style));
 }
 
 QList<TextItem *> MainWindow::selectedTexts() const

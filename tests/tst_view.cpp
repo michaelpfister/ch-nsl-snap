@@ -2,9 +2,13 @@
 
 #include "editor/EditorScene.h"
 #include "editor/EditorView.h"
+#include "editor/ArrowItem.h"
 #include "editor/FrameItem.h"
+#include "editor/MarkerItem.h"
 #include "editor/TextItem.h"
 
+#include <QApplication>
+#include <QMouseEvent>
 #include <QSignalSpy>
 #include <QTest>
 #include <QUndoStack>
@@ -381,6 +385,79 @@ private slots:
         QTest::keyClick(m_view, Qt::Key_Escape);
         QCOMPARE(picked.count(), 1);
         QVERIFY(!picked.first().first().value<QColor>().isValid());
+    }
+
+    // --- Arrows (F-44) and markers (F-28) ---
+
+    void arrowKeepsItsDirection()
+    {
+        m_view->setZoom(0.5);
+        m_view->setTool(ToolId::Arrow);
+        QWidget *vp = m_view->viewport();
+        // Drawn from bottom right to top left: the tip is top left.
+        drag(vp, m_view->mapFromScene(QPointF(800, 600)), m_view->mapFromScene(QPointF(400, 300)));
+        QCOMPARE(m_stack->count(), 1);
+        const QList<RectItem *> items = m_view->editorScene()->annotations();
+        QCOMPARE(items.size(), 1);
+        QCOMPARE(items.first()->type(), int(ArrowItem::Type));
+        auto *arrow = static_cast<ArrowItem *>(items.first());
+        QCOMPARE(arrow->mapToScene(arrow->line().p2()), QPointF(400, 300));
+        QCOMPARE(arrow->label(), QStringLiteral("Pfeil"));
+
+        // A horizontal arrow is not taken for a click.
+        drag(vp, m_view->mapFromScene(QPointF(200, 1000)), m_view->mapFromScene(QPointF(600, 1000)));
+        QCOMPARE(m_stack->count(), 2);
+    }
+
+    void shiftSnapsArrowsTo45Degrees()
+    {
+        m_view->setZoom(0.5);
+        m_view->setTool(ToolId::Arrow);
+        QWidget *vp = m_view->viewport();
+        const QPoint from = m_view->mapFromScene(QPointF(400, 400));
+        const QPoint to = m_view->mapFromScene(QPointF(800, 430)); // almost horizontal
+        QTest::mousePress(vp, Qt::LeftButton, {}, from);
+        QTest::mouseMove(vp, to);
+        QMouseEvent move(QEvent::MouseMove, QPointF(to), vp->mapToGlobal(QPointF(to)), Qt::NoButton,
+                         Qt::LeftButton, Qt::ShiftModifier);
+        QApplication::sendEvent(vp, &move);
+        QTest::mouseRelease(vp, Qt::LeftButton, Qt::ShiftModifier, to);
+        auto *arrow = static_cast<ArrowItem *>(m_view->editorScene()->annotations().first());
+        QVERIFY(qFuzzyCompare(arrow->line().p1().y(), arrow->line().p2().y()));
+    }
+
+    void arrowEndsAreDraggable()
+    {
+        m_view->setZoom(0.5);
+        m_view->setTool(ToolId::Arrow);
+        QWidget *vp = m_view->viewport();
+        drag(vp, m_view->mapFromScene(QPointF(400, 400)), m_view->mapFromScene(QPointF(800, 400)));
+        auto *arrow = static_cast<ArrowItem *>(m_view->editorScene()->annotations().first());
+        QVERIFY(arrow->isSelected());
+        // Drag the tip down; outside the image it stops at the edge.
+        drag(vp, m_view->mapFromScene(QPointF(800, 400)), m_view->mapFromScene(QPointF(800, 1500)));
+        QCOMPARE(arrow->mapToScene(arrow->line().p2()), QPointF(800, 1200));
+        QCOMPARE(arrow->mapToScene(arrow->line().p1()), QPointF(400, 400));
+        QCOMPARE(m_stack->count(), 2);
+        m_stack->undo();
+        QCOMPARE(arrow->mapToScene(arrow->line().p2()), QPointF(800, 400));
+    }
+
+    void markerMultipliesWithTheImage()
+    {
+        QImage image(1600, 1200, QImage::Format_ARGB32);
+        image.fill(Qt::white);
+        for (int x = 400; x < 420; ++x)
+            image.setPixelColor(x, 310, Qt::black); // a "letter"
+        m_view->setImage(image, 2.0);
+        m_view->setZoom(0.5);
+        m_view->setTool(ToolId::Marker);
+        drag(m_view->viewport(), m_view->mapFromScene(QPointF(380, 290)), m_view->mapFromScene(QPointF(500, 330)));
+        QCOMPARE(m_stack->count(), 1);
+        const QImage out = m_view->renderedImage();
+        QCOMPARE(out.pixelColor(450, 300), MarkerStyle().color); // white becomes the marker colour
+        QCOMPARE(out.pixelColor(410, 310), QColor(Qt::black));   // the text stays black
+        QCOMPARE(out.pixelColor(600, 300), QColor(Qt::white));   // outside unchanged
     }
 
 private:

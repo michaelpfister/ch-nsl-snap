@@ -16,14 +16,14 @@ Most of the work is in the **editor**, which is platform-independent. Only captu
 | F-03 | **Region capture**: drag a rectangle on the frozen screen | ✓ | ✓ Ext. | M | Open menus, tooltips and hover states are kept, because the freeze happens before the selection. **Done** on GNOME (2026-10-25, D-021) and Windows (2026-10-26). Since 2026-10-26 (D-023): two clicks (or a drag, setting), magnifier and crosshair lines, arrow keys by one physical pixel. |
 | F-04 | **Delayed capture** in seconds, with a countdown shown on screen | ✓ | ✓ Ext. | S | The countdown is drawn by the extension (GNOME) or a topmost window (Windows). When it reaches zero it disappears, the screen is frozen, and the normal selection of F-01 to F-03 follows on the frozen picture (D-011). Esc cancels. **Done** on GNOME and Windows (2026-10-26, D-025): timer in the top bar (remembered); the desktop stays usable during the countdown; Esc or a click on the countdown cancels. |
 | F-05 | **Never capture the mouse pointer** | ✓ | ✓ | – | Default and only behaviour. The extension already does not draw it. |
-| F-06 | **Import an existing image**: file dialog or drag & drop onto the editor | ✓ | ✓ | S | PNG, JPEG, WebP. |
+| F-06 | **Import an existing image**: file dialog or drag & drop onto the editor | ✓ | ✓ | S | PNG, JPEG, WebP. **Done**: Ctrl+O, drag & drop, Ctrl+V. |
 
 ## Editor basics
 
 | ID | Feature | Windows | GNOME | Effort | Notes |
 |---|---|---|---|---|---|
-| F-10 | **Clear editor**: remove the image and all annotations, start from scratch | ✓ | ✓ | S | Asks for confirmation if there are unsaved changes. |
-| F-11 | **Undo / redo** with many steps | ✓ | ✓ | M | Every edit is a command on a stack (D-012). |
+| F-10 | **Clear editor**: remove the image and all annotations, start from scratch | ✓ | ✓ | S | Asks for confirmation if there are unsaved changes. **Done**: Ctrl+Delete, always asks for now. |
+| F-11 | **Undo / redo** with many steps | ✓ | ✓ | M | Every edit is a command on a stack (D-012). **Done**: every annotation, style change and the crop. |
 | F-12 | **Crop** the image | ✓ | ✓ | S | Annotations outside the crop are kept but hidden, so undoing the crop restores them. **Done** (2026-10-25, D-020): tool C; drag, move or resize the draft on the whole image, Enter or double click confirms, Esc discards. |
 
 ## Annotations
@@ -40,7 +40,7 @@ All annotations are objects on top of the image: they can be selected, moved, re
 | F-25 | **Text**: free text with colour and font size | ✓ | ✓ | M | Editable afterwards; optional background box for legibility. **Done** (2026-10-26, D-026): tool T, click and type on the canvas, double click edits; colour, size, bold and box (none, white, coloured) in the panel; one undo step per edit. |
 | F-26 | **Pixelate or blur** a selected area | ✓ | ✓ | S | Choice per area. Strength adjustable. The export contains only the obscured pixels, never the original. **Done** (2026-10-25, D-018): tool P, Alt for blur; kind and light/medium/strong in the panel; movable, resizable, undoable. |
 | F-27 | **Dim the background**: darken and/or slightly blur everything except the highlights | ✓ | ✓ | M | Like the "Enter code" example: highlights keep full brightness. One global switch with strength sliders; the cut-outs follow the highlight frames automatically. **Done** (2026-10-25, D-016): switch in the tool rail (always 45 %, no blur); while on, three buttons above it for no, light (1 px) and strong (3 px) blur, so the switch never moves. Strength and blur sliders only in the advanced mode (settings, F2). Undoable; transparent window corners stay transparent. |
-| F-28 | **Text marker** (highlighter): semi-transparent colour over text, like a felt pen | ✓ | ✓ | S | Like the WinSnap example (yellow, orange, green, cyan). Multiply blending so the text stays black. |
+| F-28 | **Text marker** (highlighter): semi-transparent colour over text, like a felt pen | ✓ | ✓ | S | Like the WinSnap example (yellow, orange, green, cyan). Multiply blending so the text stays black. **Done** (2026-10-26, D-028): tool M, drag a rectangle; light felt-pen palette plus custom colour; dimmed with the background. |
 | F-29 | **Replace text**: overwrite a text in the screenshot with another text, e.g. a real name with "Firstname Lastname" | ✓ | ✓ | L | See below. **Version 1 done** (2026-10-25, D-019). |
 
 ### F-29 Replace text
@@ -61,11 +61,11 @@ Works well on flat backgrounds (forms, dialogs, lists). On gradients or images t
 
 Not on the original list, added and confirmed on 2026-10-25 (Q-11).
 
-| ID | Feature | Windows | GNOME |
-|---|---|---|---|
-| F-40 | Copy result to the clipboard | ✓ | ✓ |
-| F-41 | Save as PNG with a naming scheme and default folder; "save as" | ✓ | ✓ |
-| F-44 | Arrows (WinSnap has them) | ✓ | ✓ |
+| ID | Feature | Windows | GNOME | Status |
+|---|---|---|---|---|
+| F-40 | Copy result to the clipboard | ✓ | ✓ | **Done** (Ctrl+C, "Kopieren"). |
+| F-41 | Save as PNG with a naming scheme and default folder; "save as" | ✓ | ✓ | **Done** (Ctrl+S to `~/Pictures/NSL Snap/<date>_<title>.png`, Ctrl+Shift+S); the folder and scheme are not yet settings. |
+| F-44 | Arrows (WinSnap has them) | ✓ | ✓ | **Done** (2026-10-26, D-028): tool A, drag from start to tip, Shift for 45°; both ends draggable; colour and line width. |
 | F-45 | Tray icon | ✓ | ◐ needs the AppIndicator extension (installed on Zorin) |
 
 ## Keyboard shortcuts

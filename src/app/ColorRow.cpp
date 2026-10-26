@@ -7,6 +7,8 @@
 #include <QHBoxLayout>
 #include <QPainter>
 
+#include <iterator>
+
 namespace {
 
 // Standard colours; red first, as in the instruction pages.
@@ -20,6 +22,16 @@ const Swatch kSwatches[] = {
     {QColor(0x8E4EC6), QT_TRANSLATE_NOOP("ColorRow", "Violett")},
     {QColor(0x1F2328), QT_TRANSLATE_NOOP("ColorRow", "Schwarz")},
     {QColor(0xFFFFFF), QT_TRANSLATE_NOOP("ColorRow", "Weiss")},
+};
+// Felt-pen colours for the text marker: light, so text stays readable
+// when multiplied with them (F-28).
+const Swatch kMarkerSwatches[] = {
+    {QColor(0xFFE629), QT_TRANSLATE_NOOP("ColorRow", "Gelb")},
+    {QColor(0xFFB86B), QT_TRANSLATE_NOOP("ColorRow", "Orange")},
+    {QColor(0x9BE9A8), QT_TRANSLATE_NOOP("ColorRow", "Grün")},
+    {QColor(0x7DE3F4), QT_TRANSLATE_NOOP("ColorRow", "Cyan")},
+    {QColor(0xFFA3D7), QT_TRANSLATE_NOOP("ColorRow", "Pink")},
+    {QColor(0xC9B3FF), QT_TRANSLATE_NOOP("ColorRow", "Violett")},
 };
 
 constexpr int kButtonSize = 24;
@@ -87,15 +99,18 @@ private:
 
 } // namespace
 
-ColorRow::ColorRow(QWidget *parent)
+ColorRow::ColorRow(Palette palette, QWidget *parent)
     : QWidget(parent)
     , m_buttons(new QButtonGroup(this))
-    , m_color(kSwatches[0].color)
 {
+    const QList<Swatch> swatches = palette == Palette::Marker
+                                       ? QList<Swatch>(std::begin(kMarkerSwatches), std::end(kMarkerSwatches))
+                                       : QList<Swatch>(std::begin(kSwatches), std::end(kSwatches));
+    m_color = swatches.first().color;
     auto *layout = new QHBoxLayout(this);
     layout->setContentsMargins(0, 0, 0, 0);
     layout->setSpacing(4);
-    for (const Swatch &swatch : kSwatches) {
+    for (const Swatch &swatch : swatches) {
         auto *button = new SwatchButton(swatch.color, this);
         const QString name = QCoreApplication::translate("ColorRow", swatch.name);
         button->setToolTip(name);

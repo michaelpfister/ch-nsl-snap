@@ -1,7 +1,9 @@
 #pragma once
 
+#include "editor/ArrowStyle.h"
 #include "editor/DimSettings.h"
 #include "editor/FrameStyle.h"
+#include "editor/MarkerStyle.h"
 #include "editor/RedactStyle.h"
 #include "editor/ReplaceStyle.h"
 #include "editor/TextStyle.h"
@@ -92,6 +94,12 @@ public:
     QString replaceText() const { return m_replaceText; }
     void setReplaceText(const QString &text) { m_replaceText = text; }
 
+    // Look of new arrows (F-44) and text markers (F-28); follow the panel.
+    ArrowStyle arrowStyle() const { return m_arrowStyle; }
+    void setArrowStyle(const ArrowStyle &style) { m_arrowStyle = style; }
+    MarkerStyle markerStyle() const { return m_markerStyle; }
+    void setMarkerStyle(const MarkerStyle &style) { m_markerStyle = style; }
+
     // Look of new free texts (F-25); follows the properties panel.
     TextStyle textStyle() const { return m_textStyle; }
     void setTextStyle(const TextStyle &style) { m_textStyle = style; }
@@ -122,6 +130,8 @@ private:
     FrameStyle m_frameStyle;
     RedactStyle m_redactStyle;
     TextStyle m_textStyle;
+    ArrowStyle m_arrowStyle;
+    MarkerStyle m_markerStyle;
     QString m_replaceText = QStringLiteral("Firstname Lastname");
     DimSettings m_dim;
     DimItem *m_dimItem = nullptr;

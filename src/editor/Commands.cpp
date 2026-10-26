@@ -1,7 +1,9 @@
 #include "editor/Commands.h"
 
+#include "editor/ArrowItem.h"
 #include "editor/EditorScene.h"
 #include "editor/FrameItem.h"
+#include "editor/MarkerItem.h"
 #include "editor/RectItem.h"
 #include "editor/RedactItem.h"
 #include "editor/ReplaceItem.h"
@@ -335,6 +337,86 @@ void EditTextCommand::undo()
     style.text = m_fromText;
     m_item->setStyle(style);
     m_item->setPos(m_fromPos);
+}
+
+// --- Arrow and marker --------------------------------------------------
+
+SetArrowLineCommand::SetArrowLineCommand(ArrowItem *item, const QLineF &from, const QLineF &to)
+    : QUndoCommand(tr("Pfeil ändern"))
+    , m_item(item)
+    , m_from(from)
+    , m_to(to)
+{
+}
+
+void SetArrowLineCommand::redo()
+{
+    m_item->setLine(m_to);
+}
+
+void SetArrowLineCommand::undo()
+{
+    m_item->setLine(m_from);
+}
+
+SetArrowStyleCommand::SetArrowStyleCommand(const QList<ArrowItem *> &items, const ArrowStyle &style)
+    : QUndoCommand(tr("Pfeil formatieren"))
+    , m_items(items)
+    , m_after(style)
+{
+    for (const ArrowItem *item : items)
+        m_before << item->style();
+}
+
+void SetArrowStyleCommand::redo()
+{
+    for (ArrowItem *item : std::as_const(m_items))
+        item->setStyle(m_after);
+}
+
+void SetArrowStyleCommand::undo()
+{
+    for (qsizetype i = 0; i < m_items.size(); ++i)
+        m_items[i]->setStyle(m_before[i]);
+}
+
+bool SetArrowStyleCommand::mergeWith(const QUndoCommand *other)
+{
+    const auto *next = static_cast<const SetArrowStyleCommand *>(other);
+    if (next->m_items != m_items)
+        return false;
+    m_after = next->m_after;
+    return true;
+}
+
+SetMarkerStyleCommand::SetMarkerStyleCommand(const QList<MarkerItem *> &items, const MarkerStyle &style)
+    : QUndoCommand(tr("Marker formatieren"))
+    , m_items(items)
+    , m_after(style)
+{
+    for (const MarkerItem *item : items)
+        m_before << item->style();
+}
+
+void SetMarkerStyleCommand::redo()
+{
+    for (MarkerItem *item : std::as_const(m_items))
+        item->setStyle(m_after);
+}
+
+void SetMarkerStyleCommand::undo()
+{
+    for (qsizetype i = 0; i < m_items.size(); ++i)
+        m_items[i]->setStyle(m_before[i]);
+}
+
+bool SetMarkerStyleCommand::mergeWith(const QUndoCommand *other)
+{
+    const auto *next = static_cast<const SetMarkerStyleCommand *>(other);
+    if (next->m_items != m_items)
+        return false;
+    m_after = next->m_after;
+    return true;
 }
 
 // --- Crop --------------------------------------------------------------

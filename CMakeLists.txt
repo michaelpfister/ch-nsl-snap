@@ -38,6 +38,9 @@ add_library(nsl_snap_core STATIC
     src/capture/PickGeometry.h
     src/capture/RegionSelector.cpp
     src/capture/RegionSelector.h
+    src/editor/ArrowItem.cpp
+    src/editor/ArrowItem.h
+    src/editor/ArrowStyle.h
     src/editor/Commands.cpp
     src/editor/Commands.h
     src/editor/DimItem.cpp
@@ -50,6 +53,9 @@ add_library(nsl_snap_core STATIC
     src/editor/FrameItem.cpp
     src/editor/FrameItem.h
     src/editor/FrameStyle.h
+    src/editor/MarkerItem.cpp
+    src/editor/MarkerItem.h
+    src/editor/MarkerStyle.h
     src/editor/RectItem.cpp
     src/editor/RectItem.h
     src/editor/RedactItem.cpp
