@@ -58,7 +58,7 @@ The GNOME capture itself (extension in a running shell) is not tested in CI; it 
 
 ### 4. GNOME Shell extension
 
-See [06-poc-gnome-window-capture.md](06-poc-gnome-window-capture.md): `scripts/dev-install.sh`, then log out and in.
+See [06-poc-gnome-window-capture.md](06-poc-gnome-window-capture.md): `scripts/dev-install.sh`, then log out and in. The script also compiles the extension's settings schema (`glib-compile-schemas`, from `libglib2.0-bin`, installed with GNOME); run it again after pulling changes to `gnome-extension/*/schemas/`, otherwise the extension does not start.
 
 ### Smoke test result (2026-10-25)
 

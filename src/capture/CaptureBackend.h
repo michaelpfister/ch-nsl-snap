@@ -35,6 +35,10 @@ public:
     void setRegionByDragging(bool enabled) { m_regionByDragging = enabled; }
     bool regionByDragging() const { return m_regionByDragging; }
 
+    // Seconds of countdown before the freeze (F-04, D-025); 0 = at once.
+    void setDelay(int seconds) { m_delay = seconds; }
+    int delay() const { return m_delay; }
+
 signals:
     void captured(const CaptureResult &result);
     void cancelled();
@@ -42,6 +46,7 @@ signals:
 
 private:
     bool m_regionByDragging = false;
+    int m_delay = 0;
 };
 
 // Returns the backend for the platform the app runs on.

@@ -5,6 +5,8 @@
 
 #include <memory>
 
+class Countdown;
+
 namespace WgcCapture { class Freeze; struct Window; }
 
 // Capture on Windows (D-022, D-023): freezes every window with
@@ -31,7 +33,9 @@ public:
     static double cornerRadius(const WgcCapture::Window &window);
 
 private:
+    // After the countdown, if a delay is set (F-04), then freeze and pick.
     void start(CaptureOverlay::Mode mode);
+    void freezeAndPick(CaptureOverlay::Mode mode);
     void onWindowPicked(int index);
     // A region or a whole monitor (or all), from the frozen monitors.
     void deliverPart(const QRect &native, CaptureResult::Kind kind);
@@ -40,4 +44,5 @@ private:
     std::unique_ptr<WgcCapture::Freeze> m_freeze;
     QList<CaptureOverlay::Screen> m_screens;
     CaptureOverlay *m_overlay = nullptr;
+    Countdown *m_countdown = nullptr;
 };

@@ -19,6 +19,8 @@ const QString kInterface = QStringLiteral("ch.netslash.Snap1");
 // version 4 the screen mode (F-01).
 constexpr uint kCaptureVersion = 2;
 constexpr uint kScreenVersion = 4;
+// Version 5 the delay with a countdown (F-04).
+constexpr uint kDelayVersion = 5;
 
 // "frame-rect", "buffer-rect" and "rect" are D-Bus structs (iiii): x, y,
 // width, height.
@@ -98,6 +100,11 @@ void GnomeShellBackend::capture(const QString &mode)
                        "Bitte ab- und wieder anmelden, damit die neue Version geladen wird."));
         return;
     }
+    if (delay() > 0 && version < kDelayVersion) {
+        emit failed(tr("Die GNOME-Erweiterung «NSL Snap» ist veraltet und kennt die verzögerte Aufnahme noch nicht. "
+                       "Bitte ab- und wieder anmelden, damit die neue Version geladen wird."));
+        return;
+    }
     if (!hasCapture && mode != QLatin1String("window")) {
         emit failed(tr("Die GNOME-Erweiterung «NSL Snap» ist veraltet und kennt die Bereichsaufnahme noch nicht. "
                        "Bitte ab- und wieder anmelden, damit die neue Version geladen wird."));
@@ -113,6 +120,8 @@ void GnomeShellBackend::capture(const QString &mode)
         // How a region is selected (D-023); older extensions ignore it.
         options.insert(QStringLiteral("region-select"),
                        regionByDragging() ? QStringLiteral("drag") : QStringLiteral("clicks"));
+        if (delay() > 0)
+            options.insert(QStringLiteral("delay"), QVariant::fromValue(uint(delay()))); // D-Bus type u
     }
 
     auto message = QDBusMessage::createMethodCall(kService, kPath, kInterface,

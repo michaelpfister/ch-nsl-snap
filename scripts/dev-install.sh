@@ -8,6 +8,9 @@ UUID="nsl-snap@netslash.ch"
 SRC="$(cd "$(dirname "$0")/.." && pwd)/gnome-extension/$UUID"
 DEST="${XDG_DATA_HOME:-$HOME/.local/share}/gnome-shell/extensions/$UUID"
 
+# The settings schema (keybindings) has to be compiled next to it.
+glib-compile-schemas --strict "$SRC/schemas"
+
 mkdir -p "$(dirname "$DEST")"
 if [ -L "$DEST" ] || [ ! -e "$DEST" ]; then
     ln -sfn "$SRC" "$DEST"

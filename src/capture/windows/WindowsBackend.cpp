@@ -1,5 +1,6 @@
 #include "capture/windows/WindowsBackend.h"
 
+#include "capture/Countdown.h"
 #include "capture/PickGeometry.h"
 #include "capture/windows/WgcCapture.h"
 
@@ -104,13 +105,33 @@ void WindowsBackend::captureScreen()
 
 void WindowsBackend::start(CaptureOverlay::Mode mode)
 {
-    if (m_overlay)
+    if (m_overlay || m_countdown)
         return;
     if (!isAvailable()) {
         emit failed(unavailableReason());
         return;
     }
+    if (delay() <= 0) {
+        freezeAndPick(mode);
+        return;
+    }
+    // The countdown first (F-04); it is off the screen before the freeze.
+    m_countdown = new Countdown;
+    connect(m_countdown, &Countdown::finished, this, [this, mode] {
+        m_countdown->deleteLater();
+        m_countdown = nullptr;
+        freezeAndPick(mode);
+    });
+    connect(m_countdown, &Countdown::cancelled, this, [this] {
+        m_countdown->deleteLater();
+        m_countdown = nullptr;
+        emit cancelled();
+    });
+    m_countdown->start(delay());
+}
 
+void WindowsBackend::freezeAndPick(CaptureOverlay::Mode mode)
+{
     // Freeze first (D-011): every window on its own, and the monitors for
     // the overlay's background and for region captures.
     m_freeze = WgcCapture::Freeze::capture();

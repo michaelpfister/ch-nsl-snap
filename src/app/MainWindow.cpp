@@ -42,6 +42,8 @@
 #include <QUndoStack>
 #include <QUrl>
 
+#include <algorithm>
+
 #ifdef NSL_HAVE_GNOME_BACKEND
 #include <QDBusConnection>
 #include <QDBusMessage>
@@ -305,11 +307,16 @@ QWidget *MainWindow::createTopBar()
     auto *timerLabel = new QLabel(tr("Timer"), bar);
     timerLabel->setProperty("role", QStringLiteral("muted"));
     m_timer = new QComboBox(bar);
-    m_timer->addItems({tr("Aus"), tr("3 s"), tr("5 s"), tr("10 s")});
+    // Delayed capture (F-04): the seconds as item data; remembered.
+    m_timer->addItem(tr("Aus"), 0);
+    for (int seconds : {3, 5, 10})
+        m_timer->addItem(tr("%1 s").arg(seconds), seconds);
+    m_timer->setCurrentIndex(std::max(0, m_timer->findData(Settings::captureDelay())));
     m_timer->setAccessibleName(tr("Timer"));
-    m_timer->setEnabled(false);
-    m_timer->setToolTip(tr("Folgt mit dem Aufnahme-Overlay (D-011)"));
+    m_timer->setToolTip(tr("Verzögerte Aufnahme: Countdown, dann einfrieren und auswählen. Esc bricht ab."));
     m_timer->setFocusPolicy(Qt::NoFocus);
+    connect(m_timer, &QComboBox::currentIndexChanged, this,
+            [this] { Settings::setCaptureDelay(m_timer->currentData().toInt()); });
     layout->addWidget(m_timerIcon);
     layout->addWidget(timerLabel);
     layout->addWidget(m_timer);
@@ -684,6 +691,7 @@ void MainWindow::startCapture(CaptureResult::Kind kind)
     modeButton(kind)->setChecked(true);
     // The overlay can switch to region mode, so it always gets the setting.
     m_capture->setRegionByDragging(Settings::regionByDragging());
+    m_capture->setDelay(m_timer->currentData().toInt());
     for (QToolButton *button : {m_windowButton, m_regionButton, m_screenButton})
         button->setEnabled(false);
     // The app hides first, so it is not in the frozen screen (D-011).

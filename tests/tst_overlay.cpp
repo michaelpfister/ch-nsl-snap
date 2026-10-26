@@ -3,6 +3,7 @@
 // pixels as logical ones.
 
 #include "capture/CaptureOverlay.h"
+#include "capture/Countdown.h"
 
 #include <QGuiApplication>
 #include <QScreen>
@@ -189,6 +190,41 @@ private slots:
         const QImage part = CaptureOverlay::compose({left, right}, QRect(390, 60, 20, 10), &scale);
         QCOMPARE(part.pixelColor(9, 5), QColor(Qt::red));
         QCOMPARE(part.pixelColor(10, 5), QColor(Qt::blue));
+    }
+
+    void countdownRunsOut()
+    {
+        Countdown countdown;
+        countdown.setTickInterval(20);
+        QSignalSpy finished(&countdown, &Countdown::finished);
+        QSignalSpy cancelled(&countdown, &Countdown::cancelled);
+        countdown.start(3);
+        QVERIFY(countdown.isVisible());
+        QCOMPARE(countdown.secondsLeft(), 3);
+        // Hidden first, then finished (after the compositor had a frame).
+        QTRY_VERIFY(!countdown.isVisible());
+        QVERIFY(finished.wait(1000));
+        QCOMPARE(cancelled.count(), 0);
+    }
+
+    void countdownCancels()
+    {
+        for (const bool byKey : {false, true}) {
+            Countdown countdown;
+            countdown.setTickInterval(5000);
+            QSignalSpy finished(&countdown, &Countdown::finished);
+            QSignalSpy cancelled(&countdown, &Countdown::cancelled);
+            countdown.start(5);
+            QVERIFY(QTest::qWaitForWindowExposed(&countdown));
+            if (byKey)
+                QTest::keyClick(&countdown, Qt::Key_Escape);
+            else
+                QTest::mouseClick(&countdown, Qt::LeftButton, {}, QPoint(50, 50));
+            QCOMPARE(cancelled.count(), 1);
+            QVERIFY(!countdown.isVisible());
+            QTest::qWait(50);
+            QCOMPARE(finished.count(), 0);
+        }
     }
 
     void magnifierIsDrawn()
