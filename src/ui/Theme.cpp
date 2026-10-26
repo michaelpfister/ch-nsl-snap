@@ -21,6 +21,7 @@ Theme Theme::light()
     t.accent = QColor(0x2563EB);
     t.soft = QColor(0xE3ECFD);
     t.softText = QColor(0x1D4ED8);
+    t.success = QColor(0x1F8A55);
     return t;
 }
 
@@ -38,6 +39,7 @@ Theme Theme::darkTheme()
     t.accent = QColor(0x2563EB);
     t.soft = QColor(0x1E2A44);
     t.softText = QColor(0x9DBDFF);
+    t.success = QColor(0x3DD68C);
     return t;
 }
 
@@ -107,6 +109,13 @@ QPushButton[role="primary"] {
     padding: 0 14px; min-height: 34px; font-weight: 600;
 }
 QPushButton[role="primary"]:hover { background: @accentHover; }
+/* Pressed: darker, so a click is felt; "done": green for a moment after
+   copying or saving (MainWindow::showDone). */
+QPushButton[role="secondary"]:pressed { background: @border; }
+QPushButton[role="primary"]:pressed { background: @accentPressed; }
+QPushButton[role="secondary"][done="true"] { border-color: @success; color: @success; }
+QPushButton[role="primary"][done="true"] { background: @success; }
+QToolButton[role="icon"]:pressed { background: @border; }
 QPushButton:disabled, QToolButton:disabled { color: @muted; }
 QPushButton[role="primary"]:disabled { background: @border; color: @muted; }
 
@@ -144,7 +153,9 @@ QScrollBar::add-line, QScrollBar::sub-line { width: 0; height: 0; }
 )");
     const QList<std::pair<QString, QColor>> tokens = {
         // Longest names first, so "@accentHover" is not hit by "@accent".
+        {QStringLiteral("@accentPressed"), accent.darker(125)},
         {QStringLiteral("@accentHover"), accent.darker(112)},
+        {QStringLiteral("@success"), success},
         {QStringLiteral("@accent"), accent},
         {QStringLiteral("@border"), border},
         {QStringLiteral("@canvas"), canvas},

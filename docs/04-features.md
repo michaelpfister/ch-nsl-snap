@@ -22,7 +22,7 @@ Most of the work is in the **editor**, which is platform-independent. Only captu
 
 | ID | Feature | Windows | GNOME | Effort | Notes |
 |---|---|---|---|---|---|
-| F-10 | **Clear editor**: remove the image and all annotations, start from scratch | ✓ | ✓ | S | Asks for confirmation if there are unsaved changes. **Done**: Ctrl+Delete, always asks for now. |
+| F-10 | **Clear editor**: remove the image and all annotations, start from scratch | ✓ | ✓ | S | Asks for confirmation if there are unsaved changes. **Done**: Ctrl+Delete or the bin button in the top bar; asks only if the image was neither saved nor copied since the last change (2026-10-26, D-030). |
 | F-11 | **Undo / redo** with many steps | ✓ | ✓ | M | Every edit is a command on a stack (D-012). **Done**: every annotation, style change and the crop. |
 | F-12 | **Crop** the image | ✓ | ✓ | S | Annotations outside the crop are kept but hidden, so undoing the crop restores them. **Done** (2026-10-25, D-020): tool C; drag, move or resize the draft on the whole image, Enter or double click confirms, Esc discards. |
 
@@ -64,9 +64,9 @@ Not on the original list, added and confirmed on 2026-10-25 (Q-11).
 | ID | Feature | Windows | GNOME | Status |
 |---|---|---|---|---|
 | F-40 | Copy result to the clipboard | ✓ | ✓ | **Done** (Ctrl+C, "Kopieren"). |
-| F-41 | Save as PNG with a naming scheme and default folder; "save as" | ✓ | ✓ | **Done** (Ctrl+S to `~/Pictures/NSL Snap/<date>_<title>.png`, Ctrl+Shift+S); the folder and scheme are not yet settings. |
+| F-41 | Save as PNG with a naming scheme and default folder; "save as" | ✓ | ✓ | **Done**: the "Speichern" button and Ctrl+Shift+S open the save dialog with folder and name filled in; Ctrl+S saves directly. Folder and pattern (`{Datum}_{Zeit}_{Titel}`) are settings since 2026-10-26 (D-030). |
 | F-44 | Arrows (WinSnap has them) | ✓ | ✓ | **Done** (2026-10-26, D-028): tool A, drag from start to tip, Shift for 45°; both ends draggable; colour and line width. |
-| F-45 | Tray icon | ✓ | ◐ needs the AppIndicator extension (installed on Zorin) |
+| F-45 | Tray icon | ✓ | ◐ needs the AppIndicator extension (installed on Zorin) | **Done** (2026-10-26, D-030): capture, open the editor, settings and quit from the tray menu; closing or Escape keeps the app in the tray (setting). |
 
 ## Keyboard shortcuts
 

@@ -21,6 +21,7 @@ struct Theme
     QColor accent;    // primary button, focus, handles
     QColor soft;      // background of the active tool
     QColor softText;  // icon colour of the active tool
+    QColor success;   // "done" feedback, e.g. after copying
 
     static Theme light();
     static Theme darkTheme();

@@ -1,5 +1,7 @@
 #include "app/Settings.h"
 
+#include "app/FileNames.h"
+
 #include <QSettings>
 
 #include <algorithm>
@@ -40,6 +42,48 @@ bool regionByDragging()
 void setRegionByDragging(bool enabled)
 {
     QSettings().setValue(kRegionByDragging, enabled);
+}
+
+QString saveFolder()
+{
+    const QString folder = QSettings().value("save/folder").toString();
+    return folder.isEmpty() ? FileNames::defaultFolder() : folder;
+}
+
+void setSaveFolder(const QString &folder)
+{
+    QSettings().setValue("save/folder", folder);
+}
+
+QString fileNamePattern()
+{
+    const QString pattern = QSettings().value("save/pattern").toString();
+    return pattern.trimmed().isEmpty() ? FileNames::defaultPattern() : pattern;
+}
+
+void setFileNamePattern(const QString &pattern)
+{
+    QSettings().setValue("save/pattern", pattern);
+}
+
+bool closeToTray()
+{
+    return QSettings().value("tray/closeToTray", true).toBool();
+}
+
+void setCloseToTray(bool enabled)
+{
+    QSettings().setValue("tray/closeToTray", enabled);
+}
+
+bool trayHintShown()
+{
+    return QSettings().value("tray/hintShown", false).toBool();
+}
+
+void setTrayHintShown(bool shown)
+{
+    QSettings().setValue("tray/hintShown", shown);
 }
 
 namespace {

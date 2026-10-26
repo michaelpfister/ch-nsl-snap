@@ -26,6 +26,20 @@ void setCaptureDelay(int seconds);
 bool regionByDragging();
 void setRegionByDragging(bool enabled);
 
+// Saving (F-41): the folder for Ctrl+S and the save dialog, and the
+// pattern for file names (FileNames).
+QString saveFolder();
+void setSaveFolder(const QString &folder);
+QString fileNamePattern();
+void setFileNamePattern(const QString &pattern);
+
+// Tray icon (F-45): closing the window keeps the app running in the tray.
+bool closeToTray();
+void setCloseToTray(bool enabled);
+// Whether the "still running in the tray" message was shown once.
+bool trayHintShown();
+void setTrayHintShown(bool shown);
+
 // Styles for new objects (F-22): the last ones chosen in the panel, so a
 // restart keeps the colours, widths and sizes the user works with.
 FrameStyle frameStyle();

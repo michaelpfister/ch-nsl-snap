@@ -1,26 +1,46 @@
 #include "app/SettingsDialog.h"
 
+#include "app/FileNames.h"
 #include "app/Settings.h"
 
 #include <QButtonGroup>
 #include <QCheckBox>
 #include <QRadioButton>
+#include <QDateTime>
 #include <QDialogButtonBox>
+#include <QDir>
+#include <QFileDialog>
 #include <QHBoxLayout>
 #include <QLabel>
+#include <QLineEdit>
 #include <QMessageBox>
 #include <QPushButton>
+#include <QSystemTrayIcon>
+#include <QTabWidget>
 #include <QVBoxLayout>
 
 SettingsDialog::SettingsDialog(QWidget *parent)
     : QDialog(parent)
 {
     setWindowTitle(tr("Einstellungen"));
-    setMinimumWidth(420);
+    setMinimumWidth(540);
 
-    auto *layout = new QVBoxLayout(this);
-    layout->setContentsMargins(20, 20, 20, 16);
-    layout->setSpacing(6);
+    // Three tabs keep the dialog small enough for laptop screens.
+    auto *outer = new QVBoxLayout(this);
+    outer->setContentsMargins(16, 16, 16, 12);
+    auto *tabs = new QTabWidget(this);
+    outer->addWidget(tabs);
+    const auto page = [this, tabs](const QString &title) {
+        auto *widget = new QWidget(this);
+        auto *pageLayout = new QVBoxLayout(widget);
+        pageLayout->setContentsMargins(16, 16, 16, 16);
+        pageLayout->setSpacing(6);
+        tabs->addTab(widget, title);
+        return pageLayout;
+    };
+
+    // --- Allgemein ---
+    QVBoxLayout *layout = page(tr("Allgemein"));
 
     m_advanced = new QCheckBox(tr("Erweiterter Modus"), this);
     m_advanced->setChecked(Settings::advancedMode());
@@ -38,7 +58,7 @@ SettingsDialog::SettingsDialog(QWidget *parent)
     auto *region = new QLabel(tr("Bereich auswählen"), this);
     region->setProperty("role", QStringLiteral("section"));
     layout->addWidget(region);
-    auto *clicks = new QRadioButton(tr("Mit zwei Klicks: der erste setzt eine Ecke, der zweite die gegenüberliegende"), this);
+    auto *clicks = new QRadioButton(tr("Mit zwei Klicks: erst eine Ecke, dann die gegenüberliegende"), this);
     auto *drag = new QRadioButton(tr("Durch Ziehen mit gedrückter Maustaste"), this);
     auto *regionGroup = new QButtonGroup(this);
     regionGroup->addButton(clicks);
@@ -54,10 +74,78 @@ SettingsDialog::SettingsDialog(QWidget *parent)
     connect(drag, &QRadioButton::toggled, this, [](bool enabled) { Settings::setRegionByDragging(enabled); });
     layout->addSpacing(16);
 
-    // Styles for new objects (F-22, D-029).
-    auto *styles = new QLabel(tr("Farben und Stile"), this);
-    styles->setProperty("role", QStringLiteral("section"));
-    layout->addWidget(styles);
+    // Tray icon (F-45).
+    auto *trayTitle = new QLabel(tr("Infobereich"), this);
+    trayTitle->setProperty("role", QStringLiteral("section"));
+    layout->addWidget(trayTitle);
+    auto *tray = new QCheckBox(tr("Beim Schliessen im Infobereich weiterlaufen"), this);
+    tray->setChecked(Settings::closeToTray());
+    layout->addWidget(tray);
+    const bool hasTray = QSystemTrayIcon::isSystemTrayAvailable();
+    auto *trayHint = new QLabel(hasTray ? tr("Aufnahmen lassen sich dann über das Symbol im Infobereich starten; "
+                                             "«Beenden» im Menü des Symbols schliesst die App.")
+                                        : tr("Diese Arbeitsfläche hat keinen Infobereich. Unter GNOME braucht es "
+                                             "dafür die Erweiterung «AppIndicator»."), this);
+    trayHint->setProperty("role", QStringLiteral("hint"));
+    trayHint->setWordWrap(true);
+    trayHint->setContentsMargins(26, 0, 0, 0);
+    layout->addWidget(trayHint);
+    tray->setEnabled(hasTray);
+    connect(tray, &QCheckBox::toggled, this, [](bool enabled) { Settings::setCloseToTray(enabled); });
+
+    layout->addStretch(1);
+
+    // --- Speichern (F-41): folder and file name pattern ---
+    layout = page(tr("Speichern"));
+    auto *folderLabel = new QLabel(tr("Ordner"), this);
+    layout->addWidget(folderLabel);
+    auto *folderRow = new QHBoxLayout;
+    auto *folder = new QLineEdit(QDir::toNativeSeparators(Settings::saveFolder()), this);
+    folder->setReadOnly(true);
+    folder->setAccessibleName(tr("Speicherordner"));
+    auto *chooseFolder = new QPushButton(tr("Ändern …"), this);
+    chooseFolder->setProperty("role", QStringLiteral("secondary"));
+    folderRow->addWidget(folder, 1);
+    folderRow->addWidget(chooseFolder);
+    layout->addLayout(folderRow);
+    connect(chooseFolder, &QPushButton::clicked, this, [this, folder] {
+        const QString chosen = QFileDialog::getExistingDirectory(this, tr("Speicherordner wählen"), Settings::saveFolder());
+        if (chosen.isEmpty())
+            return;
+        Settings::setSaveFolder(chosen);
+        folder->setText(QDir::toNativeSeparators(chosen));
+    });
+    layout->addSpacing(6);
+
+    layout->addWidget(new QLabel(tr("Dateiname"), this));
+    auto *pattern = new QLineEdit(Settings::fileNamePattern(), this);
+    pattern->setAccessibleName(tr("Dateiname"));
+    pattern->setPlaceholderText(FileNames::defaultPattern());
+    layout->addWidget(pattern);
+    auto *preview = new QLabel(this);
+    preview->setProperty("role", QStringLiteral("hint"));
+    preview->setWordWrap(true);
+    layout->addWidget(preview);
+    const auto showPreview = [preview](const QString &text) {
+        preview->setText(tr("{Datum}, {Zeit} und {Titel} werden ersetzt. Beispiel: %1")
+                             .arg(FileNames::fromPattern(text, tr("Einstellungen"), QDateTime::currentDateTime())));
+    };
+    showPreview(pattern->text());
+    connect(pattern, &QLineEdit::textChanged, this, [showPreview](const QString &text) {
+        Settings::setFileNamePattern(text);
+        showPreview(text);
+    });
+    layout->addSpacing(10);
+    auto *saveHint = new QLabel(tr("Ctrl+S speichert direkt in diesem Ordner, der Knopf «Speichern» fragt "
+                                   "nach Ordner und Name."), this);
+    saveHint->setProperty("role", QStringLiteral("hint"));
+    saveHint->setWordWrap(true);
+    layout->addWidget(saveHint);
+
+    layout->addStretch(1);
+
+    // --- Farben und Stile (F-22, D-029) ---
+    layout = page(tr("Farben und Stile"));
     auto *stylesHint = new QLabel(tr("Die App merkt sich Farben, Linienstärken und Schriftgrössen für neue Objekte "
                                      "und die zuletzt verwendeten eigenen Farben. Bereits gezeichnete Objekte "
                                      "bleiben beim Zurücksetzen, wie sie sind."), this);
@@ -83,12 +171,12 @@ SettingsDialog::SettingsDialog(QWidget *parent)
         reset->setText(tr("Zurückgesetzt"));
         reset->setEnabled(false);
     });
-    layout->addSpacing(16);
+    layout->addStretch(1);
 
     auto *buttons = new QDialogButtonBox(QDialogButtonBox::Close, this);
     buttons->button(QDialogButtonBox::Close)->setText(tr("Schliessen"));
     connect(buttons, &QDialogButtonBox::rejected, this, &QDialog::reject);
-    layout->addWidget(buttons);
+    outer->addWidget(buttons);
 
     connect(m_advanced, &QCheckBox::toggled, this, [this](bool enabled) {
         Settings::setAdvancedMode(enabled);

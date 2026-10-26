@@ -334,3 +334,15 @@ Each entry: context, decision, rationale, consequences. Entries marked **(assump
 - **Reset:** "Auf Standard zurücksetzen" in the settings (F2), after a question, forgets the stored styles and the recent colours; the editor and the panel take the defaults at once. Objects already drawn keep their look, and the other settings stay.
 **Consequences:** Each new setting for objects needs its pair in `Settings` and a line in `MainWindow::loadDefaultStyles()`.
 
+## D-030 Saving with a dialog, feedback on the buttons, clearing, tray icon
+
+**Context:** Testing showed that "Kopieren" and "Speichern" worked but gave no noticeable feedback, and that saving without asking surprised users; a visible way to clear the editor was missing (2026-10-26).
+**Decision:**
+- **Feedback:** buttons get darker while pressed; after copying or saving, the button shows a check mark and "Kopiert" / "Gespeichert" in green for 1.6 s, with the same width, plus the message in the status bar.
+- **Saving:** the "Speichern" button (and Ctrl+Shift+S) opens the save dialog with the folder and a name from the pattern filled in; it starts in the folder of the last save of the session, else in the folder from the settings. **Ctrl+S** keeps saving directly into the folder from the settings, like WinSnap (F-46).
+- **Settings** (now in tabs: Allgemein, Speichern, Farben und Stile): save folder (default `~/Pictures/NSL Snap`) and file name pattern with `{Datum}`, `{Zeit}` and `{Titel}` (default `{Datum}_{Zeit}_{Titel}`, as before) with a live example. Characters that are not allowed in file names on any platform become `_` (`FileNames`).
+- **Clearing:** a bin button in the top bar next to undo/redo (Ctrl+Delete as before). It asks only if the image was neither saved nor copied since the last change (undo stack clean state); opened files count as saved. Quitting asks the same way.
+- **Tray icon** (F-45): menu with the three capture modes, "Editor öffnen", "Einstellungen" and "Beenden"; a click opens the editor. Closing the window or Escape (with nothing left to cancel) hides it to the tray, once with a notice; a setting turns this off. A capture started from the tray and cancelled leaves the window hidden. Without a tray (GNOME without the AppIndicator extension) the app behaves as before.
+**Rationale:** Visible confirmation is what makes the two most used buttons trustworthy; the dialog is the expected behaviour of a "Speichern" button, while the shortcut stays fast for experienced users.
+**Consequences:** On GNOME the tray needs the AppIndicator extension; the settings say so when there is no tray.
+
