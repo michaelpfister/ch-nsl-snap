@@ -231,3 +231,19 @@ Each entry: context, decision, rationale, consequences. Entries marked **(assump
 **Consequences:**
 - Tested in a headless GNOME Shell 46 with injected input (2026-10-25): window and region, the freeze (a window moved during the overlay is captured where it was), Escape, right click, mode switch, Backspace, `PickWindow`, and the whole chain from the app (Ctrl+5 → region in the editor).
 - The handles of the region cannot be dragged; a new drag replaces it. Arrow keys for pixel-exact positioning (F-47) are still open.
+
+## D-022 Window capture on Windows: freeze every window with Windows.Graphics.Capture, pick in the app's own overlay
+
+**Context:** F-02 on Windows. On Windows the app may enumerate and capture windows itself; there is no shell extension. The result must match GNOME: only the window, clean edges, transparent corners, as it was at the freeze (D-011), even if other windows cover it.
+**Decision:**
+- **Freeze:** when the capture starts (the app has hidden itself), `src/capture/windows/WgcCapture` lists the pickable top-level windows like Alt+Tab does (visible, not minimised, not cloaked, i.e. not on another virtual desktop, with a title, no tool windows, no desktop or taskbar), topmost first, and takes **one Windows.Graphics.Capture frame of each, all in parallel**. The frames stay on the GPU; only the picked one is read back. No pointer (F-05), no yellow capture border where Windows allows switching it off (Windows 11). The monitors are grabbed as pictures (GDI `BitBlt`) for the overlay's background.
+- **Pick:** the app shows its own overlay (`WindowPicker`), one frameless top-most window per monitor with the frozen picture, at the monitor's physical pixels. The window under the pointer gets the same blue highlight as on GNOME; click, Enter or Space picks it, Escape or a right click cancels, F1 hides the hint.
+- **Result:** the picked window's frozen frame, cut to its **DWM extended frame bounds** (the visible frame without the invisible resize borders and without the shadow, `PickGeometry::frameInCapture`), scale = the window's DPI / 96, then the shared cleanup of D-009/D-010.
+- The WinRT code is C++/WinRT in its own file without Qt (Qt's keyword macros and C++/WinRT do not mix); geometry that can be tested anywhere lives in `src/capture/PickGeometry`.
+- Region capture (F-03) is not available on Windows yet; "Bereich" is disabled there.
+**Rationale:** Windows.Graphics.Capture renders each window on its own, with alpha, also when it is covered, which is what the GNOME extension's offscreen render does. Capturing all windows at the freeze keeps hover states that disappear once the overlay takes the pointer.
+**Rejected:** Cutting the window out of a screenshot of the desktop (wrong when covered, background in the corners); `PrintWindow` (many apps, e.g. browsers, draw black or nothing); capturing only after the pick (the window may have changed, hover states are gone).
+**Consequences:**
+- Needs Windows 10 version 1903 or later (`GraphicsCaptureSession::IsSupported`); before Windows 11 a yellow border may flash around the windows during the freeze.
+- The freeze takes one frame time plus the readback; tested on the GitHub runners (Windows Server 2022 x64, Windows 11 ARM64) with real windows: frame size, colours, a covered window, stacking order (`tests/tst_wincapture.cpp`). The overlay itself (multi-monitor, keyboard focus) is tested by hand.
+- Test programs are console programs on Windows, so their output reaches ctest.
