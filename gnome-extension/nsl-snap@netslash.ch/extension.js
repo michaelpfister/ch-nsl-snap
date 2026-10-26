@@ -11,7 +11,7 @@ import Shell from 'gi://Shell';
 
 import {Extension} from 'resource:///org/gnome/shell/extensions/extension.js';
 
-import {Mode, freeze, select} from './overlay.js';
+import {Mode, RegionSelect, freeze, select} from './overlay.js';
 
 Gio._promisify(Shell.Screenshot, 'composite_to_stream');
 Gio._promisify(Shell.Screenshot.prototype, 'screenshot_stage_to_content');
@@ -20,7 +20,8 @@ const BUS_NAME = 'ch.netslash.Snap.Shell';
 const OBJECT_PATH = '/ch/netslash/Snap';
 const ERROR_PREFIX = 'ch.netslash.Snap1.Error';
 // 2: Capture with window and region mode, both on a frozen screen.
-const API_VERSION = 2;
+// 3: region by two clicks or a drag (region-select), with a magnifier.
+const API_VERSION = 3;
 
 const IFACE_XML = `
 <node>
@@ -33,10 +34,12 @@ const IFACE_XML = `
                   starts in.
         crop (s): window captures only. "frame" (default) crops to the
                   visible window, "buffer" keeps client-side shadow margins.
+        region-select (s): "clicks" (default): two clicks set the corners;
+                  "drag": press, drag, release (D-023).
       png:  the capture as PNG with alpha channel.
       info: mode ("window" or "region"), scale, width, height (image px);
             window: title, app-id, wm-class, frame-rect, buffer-rect, crop;
-            region: rect (logical px).
+            region: rect (logical px), pixels (physical px).
     -->
     <method name="Capture">
       <arg type="a{sv}" name="options" direction="in"/>
@@ -120,22 +123,27 @@ async function encodeWindow(entry, crop) {
  * Encodes a region of the frozen screen (F-03).
  *
  * @param {object} frozen - result of freeze()
- * @param {object} region - {x, y, width, height} in logical px
+ * @param {object} region - {x, y, width, height} in physical px (texture px)
  * @returns {Promise<[GLib.Bytes, object]>} PNG bytes and info dictionary
  */
 async function encodeRegion(frozen, region) {
     const texture = frozen.content.get_texture();
     const scale = frozen.scale;
-    // Logical px to texture px, inside the texture.
-    const x = Math.max(0, Math.round(region.x * scale));
-    const y = Math.max(0, Math.round(region.y * scale));
-    const width = Math.min(Math.round(region.width * scale), texture.get_width() - x);
-    const height = Math.min(Math.round(region.height * scale), texture.get_height() - y);
+    // Inside the texture.
+    const x = Math.max(0, region.x);
+    const y = Math.max(0, region.y);
+    const width = Math.min(region.width, texture.get_width() - x);
+    const height = Math.min(region.height, texture.get_height() - y);
 
     const png = await encode(texture, x, y, width, height, scale);
+    const logical = {
+        x: Math.round(x / scale), y: Math.round(y / scale),
+        width: Math.round(width / scale), height: Math.round(height / scale),
+    };
     const info = {
         'mode': GLib.Variant.new_string(Mode.REGION),
-        'rect': rectVariant(region),
+        'rect': rectVariant(logical),
+        'pixels': rectVariant({x, y, width, height}),
         'scale': GLib.Variant.new_double(scale),
         'width': GLib.Variant.new_int32(width),
         'height': GLib.Variant.new_int32(height),
@@ -189,16 +197,19 @@ class SnapService {
             throw new CaptureError('Busy', 'A capture is already in progress');
         const mode = options.mode ?? Mode.WINDOW;
         const crop = options.crop ?? 'frame';
+        const how = options['region-select'] ?? RegionSelect.CLICKS;
         if (mode !== Mode.WINDOW && mode !== Mode.REGION)
             throw new CaptureError('InvalidArgs', `Unknown mode "${mode}"`);
         if (crop !== 'frame' && crop !== 'buffer')
             throw new CaptureError('InvalidArgs', `Unknown crop "${crop}"`);
+        if (how !== RegionSelect.CLICKS && how !== RegionSelect.DRAG)
+            throw new CaptureError('InvalidArgs', `Unknown region-select "${how}"`);
 
         this._busy = true;
         try {
             // Freeze first, then select on the frozen picture (D-011).
             const frozen = await freeze();
-            this._selection = select(frozen, mode);
+            this._selection = select(frozen, mode, how);
             const result = await this._selection.promise;
             this._selection = null;
             if (!result)

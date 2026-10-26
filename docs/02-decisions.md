@@ -223,7 +223,7 @@ Each entry: context, decision, rationale, consequences. Entries marked **(assump
 **Context:** F-03 on GNOME, the first part of the capture overlay of D-011 besides window capture (F-02).
 **Decision:**
 - The extension's new D-Bus method **`Capture(a{sv} options)`** (API version 2) freezes the screen and opens the overlay in the mode the app asks for (`mode`: `window` or `region`). The user can switch with **W** and **R**; the reply says which mode was used (`info.mode`), and the app takes that as the last used mode for Ctrl+N. `PickWindow` stays as `Capture` in window mode for the PoC client.
-- **Region:** dragging draws the region on the frozen picture, the rest is darkened. A **click into the region, Enter or Space** captures it; dragging again starts a new one, **Backspace/Delete** discards it (F-47). A drag under 4 logical px counts as a click. A hint bar at the top of the primary monitor names the keys; F1 hides it.
+- **Region:** dragging draws the region on the frozen picture, the rest is darkened. A **click into the region, Enter or Space** captures it; dragging again starts a new one, **Backspace/Delete** discards it (F-47). A drag under 4 logical px counts as a click. A hint bar at the top of the primary monitor names the keys; F1 hides it. *(Replaced on 2026-10-26 by D-023: two clicks or a drag, captured without a confirmation step.)*
 - **Escape or a right click** cancels in both modes.
 - The region is cut from the frozen stage picture in physical pixels (logical × scale) and returned as PNG with the scale; the app opens it as it is, without the window cleanup of D-009/D-010.
 - If the extension that is running is still version 1 (updated but not logged out yet), window capture uses `PickWindow` and region capture says that a new login is needed.
@@ -241,10 +241,27 @@ Each entry: context, decision, rationale, consequences. Entries marked **(assump
 - **Result:** the picked window's frozen frame, cut to its **DWM extended frame bounds** (the visible frame without the invisible resize borders and without the shadow, `PickGeometry::frameInCapture`), scale = the window's DPI / 96, then the shared cleanup of D-009/D-010.
 - **Corners:** the capture is square, because DWM rounds the corners of Windows 11 windows only when composing the screen (on the Windows 11 runner the corner pixel had alpha 108 from the 1 px window border). The app therefore rounds them itself after the core crop, anti-aliased, with DWM's radius: 8 px, 4 px for "round small", none for maximised windows, windows that ask for square corners, and before Windows 11 (`CaptureResult::cornerRadius`, `WindowImage::roundCorners`). Snapped windows, which Windows 11 shows square, still get round corners (accepted for now).
 - The WinRT code is C++/WinRT in its own file without Qt (Qt's keyword macros and C++/WinRT do not mix); geometry that can be tested anywhere lives in `src/capture/PickGeometry`.
-- Region capture (F-03) is not available on Windows yet; "Bereich" is disabled there.
+- Region capture (F-03) on Windows uses the same overlay and the frozen monitors (D-023).
 **Rationale:** Windows.Graphics.Capture renders each window on its own, with alpha, also when it is covered, which is what the GNOME extension's offscreen render does. Capturing all windows at the freeze keeps hover states that disappear once the overlay takes the pointer.
 **Rejected:** Cutting the window out of a screenshot of the desktop (wrong when covered, background in the corners); `PrintWindow` (many apps, e.g. browsers, draw black or nothing); capturing only after the pick (the window may have changed, hover states are gone).
 **Consequences:**
 - Needs Windows 10 version 1903 or later (`GraphicsCaptureSession::IsSupported`); before Windows 11 a yellow border may flash around the windows during the freeze.
 - The freeze takes one frame time plus the readback; tested on the GitHub runners (Windows Server 2022 x64, Windows 11 ARM64) with real windows: frame size, colours, a covered window, stacking order (`tests/tst_wincapture.cpp`). The overlay itself (multi-monitor, keyboard focus) is tested by hand.
 - Test programs are console programs on Windows, so their output reaches ctest.
+
+## D-023 Region: two clicks or a drag (setting), with a magnifier, to the physical pixel
+
+**Context:** The user wants regions without dragging: the first click sets one corner, the second the opposite one, with a magnifier for pixel-exact selection like WinSnap (2026-10-26). Dragging stays available as a setting. On Windows, GNOME and later macOS alike.
+**Decision:**
+- **Setting** "Bereich auswählen" (F2): **with two clicks** (default) or **by dragging**. The app passes it with every capture: as `region-select` (`clicks`, `drag`) to the GNOME extension (API version 3), as `RegionSelector::Mode` to its own overlay.
+- **Two clicks:** the first click sets a corner, the region then follows the pointer, the second click closes it and captures right away. A drag works too. A second click less than 2 px away from the first is ignored (double click).
+- **Drag:** press, drag, release captures. A plain click starts nothing.
+- **Both corner pixels belong to the region.** Points are **physical pixels** of the frozen picture, so the selection is exact on HiDPI screens too.
+- **Crosshair lines** across the whole screen through the selection point (a light and a dark line, visible on any background) and a **magnifier** below right of the pointer (flipped at the monitor edge): 15 × 15 pixels as 11 px squares, the middle row and column marked, the selection pixel framed; underneath the coordinates and, after the first corner, the size.
+- **Keyboard (F-47):** arrow keys move the selection point by one physical pixel, Ctrl + arrow by 10, and move the real pointer along; Enter or Space acts as a click (in both modes); Backspace or Delete discards the first corner; W and R switch between window and region; Escape or a right click cancels.
+- The same behaviour in two places: `RegionSelector` and `CaptureOverlay` in the app (Windows, later macOS; tested on every platform, `tests/tst_overlay.cpp` on a simulated HiDPI monitor) and the extension's overlay (`overlay.js`, which mirrors `RegionSelector`).
+**Rationale:** Two clicks are easier on a touchpad than holding a button down, and the magnifier makes the click land on the intended pixel. Capturing on the second click needs no extra confirmation.
+**Consequences:**
+- Replaces the confirmation step of D-021 (click into the region or Enter): the second click captures.
+- Tested in the headless GNOME Shell 46 with injected input, also at scale 2 (`scale-monitor-framebuffer`): two clicks (200 × 150 px exactly), arrow keys across a colour boundary (3 red and 3 blue pixels), drag mode (a click starts nothing), Backspace, and 4 × 2 physical pixels at scale 2 that the mouse alone cannot reach.
+- On Windows the region may span several monitors; it is put together from the frozen monitors in physical pixels, with the scale of the monitor that holds its middle.
