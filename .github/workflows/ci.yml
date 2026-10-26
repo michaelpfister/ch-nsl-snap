@@ -125,6 +125,23 @@ jobs:
           $env:PATH = "$env:QT_DIR\bin;$env:PATH"
           ctest --test-dir build --output-on-failure
 
+      # When a test program fails without output, run each one directly:
+      # its exit code, the Qt Test log written to a file, and Qt messages
+      # on stderr (on Windows they may otherwise go to the debugger only).
+      - name: Diagnose failed tests
+        if: failure()
+        env:
+          QT_QPA_PLATFORM: offscreen
+          QT_FORCE_STDERR_LOGGING: '1'
+        run: |
+          $env:PATH = "$env:QT_DIR\bin;$env:PATH"
+          foreach ($test in Get-ChildItem build\tests\tst_*.exe) {
+            $log = "$env:RUNNER_TEMP\$($test.BaseName).txt"
+            & $test.FullName -o "$log,txt" -o "-,txt" 2>&1 | Out-Host
+            Write-Host ("{0}: exit code {1} (0x{1:X8})" -f $test.BaseName, $LASTEXITCODE)
+            if (Test-Path $log) { Get-Content $log | Select-Object -Last 40 | Out-Host }
+          }
+
   extension:
     name: Check GNOME extension and tools
     runs-on: ubuntu-24.04
