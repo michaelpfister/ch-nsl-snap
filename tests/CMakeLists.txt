@@ -36,3 +36,12 @@ if(WIN32)
     target_link_libraries(tst_wincapture PRIVATE nsl_snap_core Qt6::Test)
     add_test(NAME tst_wincapture COMMAND tst_wincapture)
 endif()
+
+# On Windows qt_add_executable builds GUI programs, whose Qt Test log goes
+# to the debugger instead of the console; tests must be console programs,
+# so ctest --output-on-failure shows what failed.
+if(WIN32)
+    foreach(test_target tst_windowimage tst_editor tst_blur tst_view tst_capture tst_wincapture)
+        set_target_properties(${test_target} PROPERTIES WIN32_EXECUTABLE FALSE)
+    endforeach()
+endif()
