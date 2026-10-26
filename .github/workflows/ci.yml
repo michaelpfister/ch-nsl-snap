@@ -125,14 +125,6 @@ jobs:
           $env:PATH = "$env:QT_DIR\bin;$env:PATH"
           ctest --test-dir build --output-on-failure
 
-      # What window capture delivers on this runner's Windows: frame and
-      # window size, DPI, corner alpha (D-022). Informational only.
-      - name: Window capture details
-        run: |
-          $env:PATH = "$env:QT_DIR\bin;$env:PATH"
-          & build\tst_wincapture.exe capturesAWindowWithItsFrame 2>&1 | Out-Host
-          exit 0
-
       # When a test program fails without output, run each one directly:
       # its exit code, the Qt Test log written to a file, and Qt messages
       # on stderr (on Windows they may otherwise go to the debugger only).

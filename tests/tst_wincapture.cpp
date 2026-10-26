@@ -2,12 +2,17 @@
 // desktop session, which the GitHub Windows runners have.
 
 #include "capture/PickGeometry.h"
+#include "capture/CaptureResult.h"
 #include "capture/windows/WgcCapture.h"
+#include "imaging/WindowImage.h"
 
 #include <QApplication>
+#include <QOperatingSystemVersion>
 #include <QPainter>
 #include <QTest>
 #include <QWidget>
+
+#include <cmath>
 
 namespace {
 
@@ -97,6 +102,42 @@ private slots:
                  qPrintable(image.pixelColor(image.width() / 4, y).name(QColor::HexArgb)));
         QVERIFY2(near(image.pixelColor(image.width() * 3 / 4, y), kBlue),
                  qPrintable(image.pixelColor(image.width() * 3 / 4, y).name(QColor::HexArgb)));
+    }
+
+    void roundedCornersBecomeTransparent()
+    {
+        // Windows 11 rounds the corners of normal windows (DWM); the result
+        // must show them as transparent, like on GNOME (D-009, D-022).
+        if (QOperatingSystemVersion::current() < QOperatingSystemVersion::Windows11)
+            QSKIP("square window corners before Windows 11");
+        Pattern window;
+        window.setWindowTitle(QStringLiteral("NSL Snap Testfenster"));
+        window.resize(400, 300);
+        window.show();
+        QVERIFY(QTest::qWaitForWindowExposed(&window));
+        QTest::qWait(500);
+
+        const auto freeze = WgcCapture::Freeze::capture();
+        WgcCapture::Window info;
+        const QImage frame = captureOf(*freeze, window, &info);
+        QVERIFY(!frame.isNull());
+        // As the backend hands it to the editor.
+        CaptureResult result;
+        result.image = frame;
+        result.scale = info.dpi / 96.0;
+        result.frameRect = result.bufferRect = QRect(0, 0, int(std::ceil(frame.width() / result.scale)),
+                                                     int(std::ceil(frame.height() / result.scale)));
+        const QImage image = WindowImage::prepare(result);
+        const auto alphaAt = [&image](int x, int y) { return image.pixelColor(x, y).alpha(); };
+        const int right = image.width() - 1;
+        const int bottom = image.height() - 1;
+        QVERIFY2(alphaAt(0, 0) == 0 && alphaAt(right, 0) == 0 && alphaAt(0, bottom) == 0 && alphaAt(right, bottom) == 0,
+                 qPrintable(QStringLiteral("corner alpha %1 %2 %3 %4 (raw %5), image %6x%7")
+                                .arg(alphaAt(0, 0)).arg(alphaAt(right, 0)).arg(alphaAt(0, bottom))
+                                .arg(alphaAt(right, bottom)).arg(frame.pixelColor(0, 0).alpha())
+                                .arg(image.width()).arg(image.height())));
+        // The middle of the edges stays opaque: the corners are cut, not the sides.
+        QCOMPARE(alphaAt(image.width() / 2, 0), 255);
     }
 
     void coveredWindowIsCapturedWhole()
