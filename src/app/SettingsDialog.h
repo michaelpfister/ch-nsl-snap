@@ -14,6 +14,8 @@ public:
 
 signals:
     void advancedModeChanged(bool enabled);
+    // The styles for new objects were reset to the defaults (F-22).
+    void stylesReset();
 
 private:
     QCheckBox *m_advanced = nullptr;

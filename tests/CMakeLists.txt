@@ -55,3 +55,7 @@ qt_add_executable(tst_colors tst_colors.cpp)
 target_link_libraries(tst_colors PRIVATE nsl_snap_core Qt6::Test)
 add_test(NAME tst_colors COMMAND tst_colors)
 set_tests_properties(tst_colors PROPERTIES ENVIRONMENT "${NSL_OFFSCREEN_ENV}")
+
+qt_add_executable(tst_filenames tst_filenames.cpp)
+target_link_libraries(tst_filenames PRIVATE nsl_snap_core Qt6::Test)
+add_test(NAME tst_filenames COMMAND tst_filenames)

@@ -17,6 +17,8 @@ qt_standard_project_setup()
 add_library(nsl_snap_core STATIC
     src/app/ColorRow.cpp
     src/app/ColorRow.h
+    src/app/FileNames.cpp
+    src/app/FileNames.h
     src/app/MainWindow.cpp
     src/app/MainWindow.h
     src/app/PropertiesPanel.cpp

@@ -139,6 +139,19 @@ ColorRow::ColorRow(Palette palette, QWidget *parent)
     setColor(m_color);
 }
 
+bool ColorRow::isStandard(const QColor &color)
+{
+    for (const Swatch &swatch : kSwatches) {
+        if (swatch.color == color)
+            return true;
+    }
+    for (const Swatch &swatch : kMarkerSwatches) {
+        if (swatch.color == color)
+            return true;
+    }
+    return false;
+}
+
 QWidget *ColorRow::customButton() const
 {
     return m_custom;

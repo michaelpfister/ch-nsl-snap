@@ -1,4 +1,5 @@
 #include "app/MainWindow.h"
+#include "app/FileNames.h"
 
 #include "app/PropertiesPanel.h"
 #include "app/Settings.h"
@@ -19,6 +20,9 @@
 #include "ui/Theme.h"
 
 #include <QAction>
+#include <QCloseEvent>
+#include <QSystemTrayIcon>
+#include <QTimer>
 #include <QCheckBox>
 #include <QApplication>
 #include <QClipboard>
@@ -57,28 +61,6 @@ namespace {
 // Time the compositor needs to unmap our window before the capture starts,
 // so the app does not show up in it (D-011).
 constexpr int kHideDelayMs = 250;
-
-// "2026-10-25_16-27-43_Home.png", as in the PoC client.
-QString suggestedFileName(const QString &name)
-{
-    QString slug = name;
-    slug.replace(QRegularExpression(QStringLiteral(R"([^\w.-]+)")), QStringLiteral("_"));
-    slug = slug.left(60);
-    while (slug.startsWith(u'_'))
-        slug.remove(0, 1);
-    while (slug.endsWith(u'_'))
-        slug.chop(1);
-    if (slug.isEmpty())
-        slug = QStringLiteral("screenshot");
-    const QString stamp = QDateTime::currentDateTime().toString(QStringLiteral("yyyy-MM-dd_HH-mm-ss"));
-    return stamp + u'_' + slug + QStringLiteral(".png");
-}
-
-QString defaultSaveDir()
-{
-    const QString pictures = QStandardPaths::writableLocation(QStandardPaths::PicturesLocation);
-    return QDir(pictures.isEmpty() ? QDir::homePath() : pictures).filePath(QStringLiteral("NSL Snap"));
-}
 
 QToolButton *segmentButton(const QString &text, QWidget *parent)
 {
@@ -152,7 +134,7 @@ MainWindow::MainWindow(QWidget *parent)
 
     // Selection and object list (D-012).
     EditorScene *scene = m_view->editorScene();
-    scene->setFrameStyle(m_properties->frameStyle());
+    loadDefaultStyles();
     connect(scene, &QGraphicsScene::selectionChanged, this, &MainWindow::onSelectionChanged);
     connect(scene, &EditorScene::annotationsChanged, this, &MainWindow::updateObjectList);
     connect(m_undoStack, &QUndoStack::indexChanged, this, &MainWindow::onSelectionChanged);
@@ -253,7 +235,7 @@ MainWindow::MainWindow(QWidget *parent)
 
     connect(m_capture.get(), &CaptureBackend::captured, this, &MainWindow::onCaptured);
     connect(m_capture.get(), &CaptureBackend::cancelled, this, [this] {
-        onCaptureEnded();
+        onCaptureEnded(!m_hiddenBeforeCapture);
         statusBar()->showMessage(tr("Aufnahme abgebrochen."), 3000);
     });
     connect(m_capture.get(), &CaptureBackend::failed, this, [this](const QString &message) {
@@ -261,6 +243,17 @@ MainWindow::MainWindow(QWidget *parent)
         QMessageBox::warning(this, tr("Aufnahme fehlgeschlagen"), message);
     });
 
+    // Feedback on Kopieren / Speichern lasts a moment (showDone).
+    m_copyFeedback = new QTimer(this);
+    m_saveFeedback = new QTimer(this);
+    for (QTimer *timer : {m_copyFeedback, m_saveFeedback}) {
+        timer->setSingleShot(true);
+        timer->setInterval(1600);
+    }
+    connect(m_copyFeedback, &QTimer::timeout, this, [this] { restoreButton(m_copyButton); });
+    connect(m_saveFeedback, &QTimer::timeout, this, [this] { restoreButton(m_saveButton); });
+
+    createTrayIcon();
     createShortcuts();
     onToolChanged(m_toolRail->currentTool());
     updateActions();
@@ -349,6 +342,10 @@ QWidget *MainWindow::createTopBar()
     m_redoButton->setEnabled(false);
     layout->addWidget(m_undoButton);
     layout->addWidget(m_redoButton);
+    // Clear (F-10): remove the image and start over.
+    m_clearButton = iconButton(tr("Editor leeren (Ctrl+Entf)"), bar);
+    connect(m_clearButton, &QToolButton::clicked, this, &MainWindow::clearEditor);
+    layout->addWidget(m_clearButton);
 
     layout->addStretch(1);
 
@@ -398,9 +395,11 @@ QWidget *MainWindow::createTopBar()
     m_copyButton = textButton(tr("Kopieren"), QStringLiteral("secondary"), bar);
     m_copyButton->setToolTip(tr("Bild in die Zwischenablage kopieren (Ctrl+C)"));
     m_saveButton = textButton(tr("Speichern"), QStringLiteral("primary"), bar);
-    m_saveButton->setToolTip(tr("Im Ordner «NSL Snap» speichern (Ctrl+S)"));
+    m_saveButton->setToolTip(tr("Speichern unter: Ordner und Name wählen (Ctrl+Shift+S)\n"
+                                "Ctrl+S speichert direkt im eingestellten Ordner"));
     connect(m_copyButton, &QPushButton::clicked, this, &MainWindow::copyImage);
-    connect(m_saveButton, &QPushButton::clicked, this, &MainWindow::saveImage);
+    // The button asks where to save; Ctrl+S saves directly, like WinSnap.
+    connect(m_saveButton, &QPushButton::clicked, this, &MainWindow::saveImageAs);
     layout->addWidget(m_copyButton);
     layout->addWidget(m_saveButton);
 
@@ -456,10 +455,90 @@ void MainWindow::createShortcuts()
     addAction(redo);
 }
 
+void MainWindow::createTrayIcon()
+{
+    // F-45. On GNOME only with the AppIndicator extension (Zorin has it);
+    // without a tray the window works as before and closing quits.
+    if (!QSystemTrayIcon::isSystemTrayAvailable())
+        return;
+    m_tray = new QSystemTrayIcon(QIcon(QStringLiteral(":/icons/logo.svg")), this);
+    m_tray->setToolTip(tr("NSL Snap"));
+    auto *menu = new QMenu(this);
+    menu->addAction(tr("Fenster aufnehmen"), this, &MainWindow::captureWindow);
+    menu->addAction(tr("Bereich aufnehmen"), this, &MainWindow::captureRegion);
+    menu->addAction(tr("Bildschirm aufnehmen"), this, &MainWindow::captureScreen);
+    menu->addSeparator();
+    menu->addAction(tr("Editor öffnen"), this, &MainWindow::showEditor);
+    menu->addAction(tr("Einstellungen"), this, [this] {
+        showEditor();
+        showSettings();
+    });
+    menu->addSeparator();
+    menu->addAction(tr("Beenden"), this, &MainWindow::quit);
+    m_tray->setContextMenu(menu);
+    // A click on the icon opens the editor (where the tray supports it).
+    connect(m_tray, &QSystemTrayIcon::activated, this, [this](QSystemTrayIcon::ActivationReason reason) {
+        if (reason == QSystemTrayIcon::Trigger || reason == QSystemTrayIcon::DoubleClick)
+            showEditor();
+    });
+    m_tray->show();
+    // The app keeps running while only the tray icon is left.
+    QApplication::setQuitOnLastWindowClosed(false);
+}
+
+void MainWindow::showEditor()
+{
+    showNormal();
+    raise();
+    activateWindow();
+}
+
+bool MainWindow::hideToTray()
+{
+    if (!m_tray || !Settings::closeToTray())
+        return false;
+    hide();
+    // Once, so nobody wonders where the app went.
+    if (!Settings::trayHintShown()) {
+        m_tray->showMessage(tr("NSL Snap läuft weiter"),
+                            tr("Aufnehmen und Öffnen über das Symbol im Infobereich. "
+                               "Beenden ebenfalls dort; das Verhalten lässt sich in den Einstellungen ändern."));
+        Settings::setTrayHintShown(true);
+    }
+    return true;
+}
+
+void MainWindow::quit()
+{
+    // Unsaved work is not lost without a question.
+    if (hasUnsavedChanges()) {
+        showEditor();
+        if (!confirmDiscard(tr("NSL Snap beenden"), tr("Trotzdem beenden?")))
+            return;
+    }
+    m_quitting = true;
+    QApplication::quit();
+}
+
+void MainWindow::closeEvent(QCloseEvent *event)
+{
+    // Closing the window keeps the app in the tray (setting, F-45).
+    if (!m_quitting && hideToTray()) {
+        event->ignore();
+        return;
+    }
+    if (!m_quitting && hasUnsavedChanges() && !confirmDiscard(tr("NSL Snap beenden"), tr("Trotzdem beenden?"))) {
+        event->ignore();
+        return;
+    }
+    event->accept();
+    QApplication::quit(); // also when the tray keeps the app alive
+}
+
 void MainWindow::keyPressEvent(QKeyEvent *event)
 {
-    // Escape: leave the current tool first (F-46). Hiding to the tray
-    // follows with the tray icon (F-45).
+    // Escape: leave the current tool first, then the selection, then hide
+    // to the tray (F-46, F-45).
     // In the crop tool Enter confirms and Escape discards the draft, also
     // when the focus is not in the editor.
     if (m_toolRail->currentTool() == ToolId::Crop
@@ -475,6 +554,8 @@ void MainWindow::keyPressEvent(QKeyEvent *event)
         m_view->editorScene()->clearSelection();
         return;
     }
+    if (event->key() == Qt::Key_Escape && m_tray && hideToTray())
+        return;
     QMainWindow::keyPressEvent(event);
 }
 
@@ -491,6 +572,8 @@ void MainWindow::applyTheme(const Theme &theme)
     m_undoButton->setIcon(Icons::icon(QStringLiteral("undo"), theme.muted));
     m_redoButton->setIcon(Icons::icon(QStringLiteral("redo"), theme.muted));
     m_settingsButton->setIcon(Icons::icon(QStringLiteral("settings"), theme.muted));
+    m_clearButton->setIcon(Icons::icon(QStringLiteral("clear"), theme.muted));
+    m_successColor = theme.success;
     m_zoomOutButton->setIcon(Icons::icon(QStringLiteral("zoom-out"), theme.muted));
     m_zoomInButton->setIcon(Icons::icon(QStringLiteral("zoom-in"), theme.muted));
     m_fitButton->setIcon(Icons::toggleIcon(QStringLiteral("fit"), theme.muted, theme.softText));
@@ -508,6 +591,18 @@ void MainWindow::finishCrop(bool apply)
     else
         m_view->cancelCrop();
     m_toolRail->setCurrentTool(ToolId::Select);
+}
+
+void MainWindow::loadDefaultStyles()
+{
+    // Styles for new objects as the user left them (F-22).
+    EditorScene *scene = m_view->editorScene();
+    scene->setFrameStyle(Settings::frameStyle());
+    scene->setTextStyle(Settings::textStyle());
+    scene->setArrowStyle(Settings::arrowStyle());
+    scene->setMarkerStyle(Settings::markerStyle());
+    scene->setRedactStyle(Settings::redactStyle());
+    scene->setReplaceText(Settings::replaceText());
 }
 
 void MainWindow::onToolChanged(ToolId id)
@@ -623,6 +718,7 @@ void MainWindow::onFrameStyleChanged(const FrameStyle &style)
     if (defaults.badge == BadgePosition::None)
         defaults.badge = scene->frameStyle().badge;
     scene->setFrameStyle(defaults);
+    Settings::setFrameStyle(defaults);
     const QList<FrameItem *> selected = scene->selectedFrames();
     if (!selected.isEmpty())
         m_undoStack->push(new SetFrameStyleCommand(selected, style));
@@ -672,6 +768,7 @@ void MainWindow::onArrowStyleChanged(const ArrowStyle &style)
 {
     // Default for new arrows, and applied to the selected ones (F-44).
     m_view->editorScene()->setArrowStyle(style);
+    Settings::setArrowStyle(style);
     QList<ArrowItem *> arrows = selectedArrows();
     arrows.removeIf([&style](const ArrowItem *item) { return item->style() == style; });
     if (!arrows.isEmpty())
@@ -682,6 +779,7 @@ void MainWindow::onMarkerStyleChanged(const MarkerStyle &style)
 {
     // Default for new markers, and applied to the selected ones (F-28).
     m_view->editorScene()->setMarkerStyle(style);
+    Settings::setMarkerStyle(style);
     QList<MarkerItem *> markers = selectedMarkers();
     markers.removeIf([&style](const MarkerItem *item) { return item->style() == style; });
     if (!markers.isEmpty())
@@ -703,6 +801,7 @@ void MainWindow::onTextStyleChanged(const TextStyle &style)
     // Default for new texts, and applied to the selected ones (F-25).
     EditorScene *scene = m_view->editorScene();
     scene->setTextStyle(style);
+    Settings::setTextStyle(style);
     QList<TextItem *> texts = selectedTexts();
     texts.removeIf([&style](const TextItem *item) { return item->style().sameLook(style); });
     if (!texts.isEmpty())
@@ -712,6 +811,7 @@ void MainWindow::onTextStyleChanged(const TextStyle &style)
 void MainWindow::onReplaceStyleChanged(const ReplaceStyle &style)
 {
     m_view->editorScene()->setReplaceText(style.text); // default for the next one
+    Settings::setReplaceText(style.text);
     if (ReplaceItem *item = selectedReplace())
         m_undoStack->push(new SetReplaceStyleCommand(item, style));
 }
@@ -720,6 +820,7 @@ void MainWindow::onRedactStyleChanged(const RedactStyle &style)
 {
     // Default for new areas, and applied to the selected ones (F-26).
     m_view->editorScene()->setRedactStyle(style);
+    Settings::setRedactStyle(style);
     const QList<RedactItem *> selected = selectedRedactions();
     if (!selected.isEmpty())
         m_undoStack->push(new SetRedactStyleCommand(selected, style));
@@ -751,6 +852,7 @@ void MainWindow::updateActions()
     const bool hasImage = m_view->hasImage();
     m_saveButton->setEnabled(hasImage);
     m_copyButton->setEnabled(hasImage);
+    m_clearButton->setEnabled(hasImage);
     if (!hasImage)
         m_imageInfo->setText(tr("Kein Bild"));
 }
@@ -817,6 +919,8 @@ void MainWindow::startCapture(CaptureResult::Kind kind)
     for (QToolButton *button : {m_windowButton, m_regionButton, m_screenButton})
         button->setEnabled(false);
     // The app hides first, so it is not in the frozen screen (D-011).
+    // Started from the tray, a cancelled capture leaves it there.
+    m_hiddenBeforeCapture = !isVisible();
     hide();
     void (CaptureBackend::*capture)() = &CaptureBackend::captureWindow;
     if (kind == CaptureResult::Kind::Region)
@@ -845,15 +949,14 @@ void MainWindow::onCaptured(const CaptureResult &result)
     setImage(image, result.scale, result.title, tr("Fenster «%1»").arg(result.title));
 }
 
-void MainWindow::onCaptureEnded()
+void MainWindow::onCaptureEnded(bool showWindow)
 {
     m_windowButton->setEnabled(true);
     m_regionButton->setEnabled(m_capture->supportsRegion());
     m_screenButton->setEnabled(m_capture->supportsRegion());
     modeButton(m_lastMode)->setChecked(true); // after a cancel: the last real mode
-    show();
-    raise();
-    activateWindow();
+    if (showWindow)
+        showEditor();
 }
 
 void MainWindow::openImage()
@@ -892,6 +995,7 @@ void MainWindow::loadImageFile(const QString &path)
     }
     const QString name = QFileInfo(path).completeBaseName();
     setImage(image, EditorScene::scaleFromMetadata(image), name, QFileInfo(path).fileName());
+    m_handedOff = true; // the file is already on disk
 }
 
 void MainWindow::setImage(const QImage &image, double scale, const QString &name, const QString &source)
@@ -902,6 +1006,7 @@ void MainWindow::setImage(const QImage &image, double scale, const QString &name
     m_imageName = name;
     m_imageSource = source;
     m_savedPath.clear();
+    m_handedOff = false;
     updateImageInfo();
     updateActions();
     updateZoomLabel();
@@ -927,20 +1032,30 @@ void MainWindow::saveImage()
     // Ctrl+S saves without asking, like WinSnap (F-41).
     if (!m_view->hasImage())
         return;
-    QDir().mkpath(defaultSaveDir());
-    writeImage(QDir(defaultSaveDir()).filePath(suggestedFileName(m_imageName)));
+    const QString folder = Settings::saveFolder();
+    QDir().mkpath(folder);
+    writeImage(QDir(folder).filePath(suggestedFileName()));
 }
 
 void MainWindow::saveImageAs()
 {
     if (!m_view->hasImage())
         return;
-    QDir().mkpath(defaultSaveDir());
-    const QString suggested = QDir(defaultSaveDir()).filePath(suggestedFileName(m_imageName));
-    const QString path = QFileDialog::getSaveFileName(this, tr("Bild speichern unter"), suggested,
-                                                      tr("PNG-Bild (*.png)"));
-    if (!path.isEmpty())
-        writeImage(path);
+    // Starts in the folder of the last save, else in the one from the settings.
+    const QString folder = m_lastSaveFolder.isEmpty() ? Settings::saveFolder() : m_lastSaveFolder;
+    QDir().mkpath(folder);
+    QString path = QFileDialog::getSaveFileName(this, tr("Bild speichern"), QDir(folder).filePath(suggestedFileName()),
+                                                tr("PNG-Bild (*.png)"));
+    if (path.isEmpty())
+        return;
+    if (!path.endsWith(QStringLiteral(".png"), Qt::CaseInsensitive))
+        path += QStringLiteral(".png");
+    writeImage(path);
+}
+
+QString MainWindow::suggestedFileName() const
+{
+    return FileNames::fromPattern(Settings::fileNamePattern(), m_imageName, QDateTime::currentDateTime());
 }
 
 bool MainWindow::writeImage(const QString &path)
@@ -950,8 +1065,59 @@ bool MainWindow::writeImage(const QString &path)
         return false;
     }
     m_savedPath = path;
+    m_lastSaveFolder = QFileInfo(path).absolutePath();
+    markHandedOff();
+    showDone(m_saveButton, tr("Gespeichert"));
     statusBar()->showMessage(tr("Gespeichert: %1 · Ctrl+E zeigt die Datei").arg(path), 6000);
     return true;
+}
+
+void MainWindow::markHandedOff()
+{
+    // Saved or copied: clearing needs no question until the next change.
+    m_handedOff = true;
+    m_undoStack->setClean();
+}
+
+bool MainWindow::hasUnsavedChanges() const
+{
+    return m_view->hasImage() && (!m_handedOff || !m_undoStack->isClean());
+}
+
+bool MainWindow::confirmDiscard(const QString &title, const QString &question)
+{
+    const auto answer = QMessageBox::question(
+        this, title, tr("Das Bild wurde seit der letzten Änderung weder gespeichert noch kopiert. %1").arg(question),
+        QMessageBox::Yes | QMessageBox::Cancel, QMessageBox::Cancel);
+    return answer == QMessageBox::Yes;
+}
+
+void MainWindow::showDone(QPushButton *button, const QString &text)
+{
+    // A short confirmation on the button itself: a check mark and "Kopiert"
+    // or "Gespeichert", then back. The width stays, so nothing jumps.
+    const bool primary = button == m_saveButton;
+    QTimer *timer = primary ? m_saveFeedback : m_copyFeedback;
+    if (!timer->isActive()) {
+        button->setProperty("normalText", button->text());
+        button->setProperty("normalIcon", button->icon());
+        button->setMinimumWidth(button->width());
+    }
+    button->setText(text);
+    button->setIcon(Icons::icon(QStringLiteral("check"), primary ? QColor(Qt::white) : m_successColor));
+    button->setProperty("done", true);
+    button->style()->unpolish(button); // the style sheet has a "done" look
+    button->style()->polish(button);
+    timer->start();
+}
+
+void MainWindow::restoreButton(QPushButton *button)
+{
+    button->setText(button->property("normalText").toString());
+    button->setIcon(button->property("normalIcon").value<QIcon>());
+    button->setProperty("done", false);
+    button->style()->unpolish(button);
+    button->style()->polish(button);
 }
 
 void MainWindow::showSavedFile()
@@ -978,6 +1144,8 @@ void MainWindow::copyImage()
     if (!m_view->hasImage())
         return;
     QApplication::clipboard()->setImage(m_view->renderedImage());
+    markHandedOff();
+    showDone(m_copyButton, tr("Kopiert"));
     statusBar()->showMessage(tr("In die Zwischenablage kopiert."), 3000);
 }
 
@@ -995,6 +1163,10 @@ void MainWindow::showSettings()
 {
     SettingsDialog dialog(this);
     connect(&dialog, &SettingsDialog::advancedModeChanged, m_properties, &PropertiesPanel::setAdvancedMode);
+    connect(&dialog, &SettingsDialog::stylesReset, this, [this] {
+        loadDefaultStyles();
+        onSelectionChanged(); // the panel shows the defaults again
+    });
     dialog.exec();
 }
 
@@ -1002,9 +1174,8 @@ void MainWindow::clearEditor()
 {
     if (!m_view->hasImage())
         return;
-    const auto answer = QMessageBox::question(this, tr("Leeren"),
-                                              tr("Das Bild und alle Änderungen aus dem Editor entfernen?"));
-    if (answer != QMessageBox::Yes)
+    // Only unsaved work needs a question (F-10).
+    if (hasUnsavedChanges() && !confirmDiscard(tr("Editor leeren"), tr("Trotzdem leeren?")))
         return;
     m_undoStack->clear();
     m_view->clear();

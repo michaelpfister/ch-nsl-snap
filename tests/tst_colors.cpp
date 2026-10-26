@@ -1,12 +1,16 @@
 // Tests for choosing colours: colour wheel, colour row and popup.
 
 #include "app/ColorRow.h"
+#include "app/Settings.h"
 #include "ui/ColorPopup.h"
 #include "ui/ColorWheel.h"
 
 #include <QAbstractButton>
 #include <QLineEdit>
+#include <QSettings>
 #include <QSignalSpy>
+#include <QTemporaryDir>
+#include <QToolButton>
 #include <QTest>
 
 #include <cmath>
@@ -29,6 +33,143 @@ class TestColors : public QObject
     Q_OBJECT
 
 private slots:
+    void initTestCase()
+    {
+        // Settings go to a temporary folder, never the user's own (an
+        // ini file on every platform, also instead of the Windows registry).
+        QVERIFY(m_settingsDir.isValid());
+        QSettings::setDefaultFormat(QSettings::IniFormat);
+        QSettings::setPath(QSettings::IniFormat, QSettings::UserScope, m_settingsDir.path());
+        QCoreApplication::setOrganizationName(QStringLiteral("nsl-snap-tests"));
+        QCoreApplication::setApplicationName(QStringLiteral("tst_colors"));
+    }
+
+    void init()
+    {
+        QSettings().clear();
+    }
+
+
+    void stylesSurviveARestart()
+    {
+        // Defaults without stored values.
+        QCOMPARE(Settings::frameStyle().color, FrameStyle().color);
+        QCOMPARE(Settings::replaceText(), QStringLiteral("Firstname Lastname"));
+
+        FrameStyle frame;
+        frame.color = QColor(0x293049);
+        frame.width = 5;
+        frame.rounded = false;
+        frame.badge = BadgePosition::BottomLeft;
+        Settings::setFrameStyle(frame);
+        QCOMPARE(Settings::frameStyle(), frame);
+
+        TextStyle text;
+        text.color = Qt::white;
+        text.fontSize = 22;
+        text.bold = false;
+        text.box = TextBox::Filled;
+        Settings::setTextStyle(text);
+        QCOMPARE(Settings::textStyle(), text);
+
+        ArrowStyle arrow;
+        arrow.color = QColor(0x0090FF);
+        arrow.width = 9;
+        Settings::setArrowStyle(arrow);
+        QCOMPARE(Settings::arrowStyle(), arrow);
+
+        MarkerStyle marker;
+        marker.color = QColor(0x7DE3F4);
+        Settings::setMarkerStyle(marker);
+        QCOMPARE(Settings::markerStyle(), marker);
+
+        RedactStyle redact;
+        redact.mode = RedactMode::Blur;
+        redact.level = RedactLevel::Strong;
+        Settings::setRedactStyle(redact);
+        QCOMPARE(Settings::redactStyle(), redact);
+
+        Settings::setReplaceText(QStringLiteral("Max Muster"));
+        QCOMPARE(Settings::replaceText(), QStringLiteral("Max Muster"));
+    }
+
+    void plainFramesKeepTheNumberCorner()
+    {
+        FrameStyle style;
+        style.badge = BadgePosition::BottomRight;
+        Settings::setFrameStyle(style);
+        style.badge = BadgePosition::None; // a plain frame drawn later
+        Settings::setFrameStyle(style);
+        QCOMPARE(Settings::frameStyle().badge, BadgePosition::BottomRight);
+    }
+
+    void brokenSettingsFallBack()
+    {
+        QSettings settings;
+        settings.setValue("styles/frame/color", QStringLiteral("no colour"));
+        settings.setValue("styles/text/box", 42);
+        settings.setValue("styles/arrow/width", 500);
+        QCOMPARE(Settings::frameStyle().color, FrameStyle().color);
+        QCOMPARE(Settings::textStyle().box, TextBox::None);
+        QCOMPARE(Settings::arrowStyle().width, 12);
+    }
+
+    void recentColorsNewestFirst()
+    {
+        QVERIFY(Settings::recentColors().isEmpty());
+        for (int i = 0; i < 10; ++i)
+            Settings::addRecentColor(QColor(i, 0, 0));
+        QList<QColor> colors = Settings::recentColors();
+        QCOMPARE(colors.size(), Settings::kMaxRecentColors);
+        QCOMPARE(colors.first(), QColor(9, 0, 0));
+        // Used again: it moves to the front, no duplicate.
+        Settings::addRecentColor(QColor(5, 0, 0));
+        colors = Settings::recentColors();
+        QCOMPARE(colors.first(), QColor(5, 0, 0));
+        QCOMPARE(colors.count(QColor(5, 0, 0)), 1);
+        QCOMPARE(colors.size(), Settings::kMaxRecentColors);
+    }
+
+    void resetForgetsOnlyStyles()
+    {
+        FrameStyle frame;
+        frame.color = QColor(0x293049);
+        Settings::setFrameStyle(frame);
+        Settings::addRecentColor(QColor(0x293049));
+        Settings::setAdvancedMode(true);
+        Settings::resetStyles();
+        QCOMPARE(Settings::frameStyle().color, FrameStyle().color);
+        QVERIFY(Settings::recentColors().isEmpty());
+        QVERIFY(Settings::advancedMode()); // other settings stay
+    }
+
+    void popupOffersRecentColors()
+    {
+        QWidget anchor;
+        anchor.resize(30, 30);
+        anchor.show();
+        ColorPopup popup(&anchor);
+        popup.setRecentColors({QColor(0x293049), QColor(0x123456)});
+        popup.showAt(&anchor, QColor(Qt::red));
+        QSignalSpy changed(&popup, &ColorPopup::colorChanged);
+        QToolButton *recent = nullptr;
+        for (QToolButton *button : popup.findChildren<QToolButton *>()) {
+            if (button->toolTip() == QStringLiteral("123456"))
+                recent = button;
+        }
+        QVERIFY(recent);
+        QTest::mouseClick(recent, Qt::LeftButton);
+        QCOMPARE(changed.count(), 1);
+        QCOMPARE(popup.color(), QColor(0x123456));
+    }
+
+    void standardColorsAreNotRecent()
+    {
+        QVERIFY(ColorRow::isStandard(QColor(Qt::white)));
+        QVERIFY(ColorRow::isStandard(QColor(0xFFE629))); // marker yellow
+        QVERIFY(!ColorRow::isStandard(QColor(0x293049)));
+    }
+
     void wheelKeepsTheColor()
     {
         ColorWheel wheel;
@@ -99,6 +240,9 @@ private slots:
         QCOMPARE(changed.count(), 1);
         QCOMPARE(popup.color(), QColor(0x293049));
     }
+
+private:
+    QTemporaryDir m_settingsDir;
 };
 
 QTEST_MAIN(TestColors)

@@ -1,6 +1,7 @@
 #include "app/PropertiesPanel.h"
 
 #include "app/ColorRow.h"
+#include "app/Settings.h"
 #include "editor/ReplaceItem.h"
 #include "ui/ColorPopup.h"
 #include "ui/Theme.h"
@@ -123,6 +124,14 @@ PropertiesPanel::PropertiesPanel(QWidget *parent)
     connect(m_colorPopup, &ColorPopup::colorChanged, this, [this](const QColor &color) {
         if (m_popupApply)
             m_popupApply(color);
+        m_popupApplied = color;
+    });
+    // When the popup closes, an own colour it applied joins the recent
+    // colours (F-22); while dragging in the wheel only the last one counts.
+    connect(m_colorPopup, &ColorPopup::closed, this, [this] {
+        if (m_popupApplied.isValid() && !ColorRow::isStandard(m_popupApplied))
+            Settings::addRecentColor(m_popupApplied);
+        m_popupApplied = QColor();
     });
     connect(m_colorPopup, &ColorPopup::eyedropperRequested, this, &PropertiesPanel::eyedropperRequested);
 
@@ -664,6 +673,7 @@ void PropertiesPanel::openColorPopup(QWidget *anchor, const QColor &color,
 {
     m_popupAnchor = anchor;
     m_popupApply = std::move(apply);
+    m_colorPopup->setRecentColors(Settings::recentColors());
     m_colorPopup->showAt(anchor, color);
 }
 
@@ -671,9 +681,12 @@ void PropertiesPanel::finishEyedropper(const QColor &color)
 {
     if (!m_popupAnchor)
         return;
-    if (color.isValid() && m_popupApply)
+    if (color.isValid() && m_popupApply) {
         m_popupApply(color);
+        m_popupApplied = color;
+    }
     // Back to the popup, to fine-tune the picked colour.
+    m_colorPopup->setRecentColors(Settings::recentColors());
     m_colorPopup->showAt(m_popupAnchor, color.isValid() ? color : m_colorPopup->color());
 }
 

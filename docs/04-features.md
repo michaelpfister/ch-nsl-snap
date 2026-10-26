@@ -22,7 +22,7 @@ Most of the work is in the **editor**, which is platform-independent. Only captu
 
 | ID | Feature | Windows | GNOME | Effort | Notes |
 |---|---|---|---|---|---|
-| F-10 | **Clear editor**: remove the image and all annotations, start from scratch | ✓ | ✓ | S | Asks for confirmation if there are unsaved changes. **Done**: Ctrl+Delete, always asks for now. |
+| F-10 | **Clear editor**: remove the image and all annotations, start from scratch | ✓ | ✓ | S | Asks for confirmation if there are unsaved changes. **Done**: Ctrl+Delete or the bin button in the top bar; asks only if the image was neither saved nor copied since the last change (2026-10-26, D-030). |
 | F-11 | **Undo / redo** with many steps | ✓ | ✓ | M | Every edit is a command on a stack (D-012). **Done**: every annotation, style change and the crop. |
 | F-12 | **Crop** the image | ✓ | ✓ | S | Annotations outside the crop are kept but hidden, so undoing the crop restores them. **Done** (2026-10-25, D-020): tool C; drag, move or resize the draft on the whole image, Enter or double click confirms, Esc discards. |
 
@@ -34,7 +34,7 @@ All annotations are objects on top of the image: they can be selected, moved, re
 |---|---|---|---|---|---|
 | F-20 | **Highlight frame**: draw a rectangle around an element | ✓ | ✓ | M | Example: red and yellow frames around settings. As many as needed. **Done** (2026-10-25): tool R, Shift for a square. |
 | F-21 | Highlights can be **moved and resized** afterwards | ✓ | ✓ | (in F-20) | Handles on corners and edges. **Done.** Frames stay inside the image when drawn, moved or resized. |
-| F-22 | **Frame colour** per highlight | ✓ | ✓ | S | Preset palette (red, yellow, green, blue, …) plus custom colour; the last used colour is remembered. **Done** (palette 2026-10-25; custom colour 2026-10-26, D-027): eight standard colours including black and white, plus a custom colour from a colour wheel, a hex code or the eyedropper; the same for texts and replaced texts. Remembering across restarts still open. |
+| F-22 | **Frame colour** per highlight | ✓ | ✓ | S | Preset palette (red, yellow, green, blue, …) plus custom colour; the last used colour is remembered. **Done** (palette 2026-10-25; custom colour 2026-10-26, D-027): eight standard colours including black and white, plus a custom colour from a colour wheel, a hex code or the eyedropper; the same for texts and replaced texts. Since 2026-10-26 (D-029) the styles for new objects survive a restart, and the popup offers the last 8 own colours; both can be reset in the settings. |
 | F-23 | **Square or rounded** frame corners | ✓ | ✓ | S | Per highlight; default configurable. Line width configurable. **Done** (in logical px, D-015). |
 | F-24 | **Numbered callouts**: a highlight with a number badge, numbered automatically 1, 2, 3, … | ✓ | ✓ | M | Like the A–D example, but with numbers. Deleting or reordering renumbers the rest. Badge in the frame colour, placed at a corner of the frame (choosable). Matches step lists in instructions ("1. Klicken Sie auf …"). **Done** (2026-10-25): tool N; numbers follow creation order and survive undo; deleting or switching a number off renumbers the rest; position or "Ohne Nummer" per frame. Reorder by dragging entries in the object list (Q-18), undoable. Near the image edge the number moves to the nearest corner where it is fully visible, and the "Nummer" field offers only such corners; the chosen corner returns when the frame moves away from the edge. |
 | F-25 | **Text**: free text with colour and font size | ✓ | ✓ | M | Editable afterwards; optional background box for legibility. **Done** (2026-10-26, D-026): tool T, click and type on the canvas, double click edits; colour, size, bold and box (none, white, coloured) in the panel; one undo step per edit. |
@@ -64,9 +64,9 @@ Not on the original list, added and confirmed on 2026-10-25 (Q-11).
 | ID | Feature | Windows | GNOME | Status |
 |---|---|---|---|---|
 | F-40 | Copy result to the clipboard | ✓ | ✓ | **Done** (Ctrl+C, "Kopieren"). |
-| F-41 | Save as PNG with a naming scheme and default folder; "save as" | ✓ | ✓ | **Done** (Ctrl+S to `~/Pictures/NSL Snap/<date>_<title>.png`, Ctrl+Shift+S); the folder and scheme are not yet settings. |
+| F-41 | Save as PNG with a naming scheme and default folder; "save as" | ✓ | ✓ | **Done**: the "Speichern" button and Ctrl+Shift+S open the save dialog with folder and name filled in; Ctrl+S saves directly. Folder and pattern (`{Datum}_{Zeit}_{Titel}`) are settings since 2026-10-26 (D-030). |
 | F-44 | Arrows (WinSnap has them) | ✓ | ✓ | **Done** (2026-10-26, D-028): tool A, drag from start to tip, Shift for 45°; both ends draggable; colour and line width. |
-| F-45 | Tray icon | ✓ | ◐ needs the AppIndicator extension (installed on Zorin) |
+| F-45 | Tray icon | ✓ | ◐ needs the AppIndicator extension (installed on Zorin) | **Done** (2026-10-26, D-030): capture, open the editor, settings and quit from the tray menu; closing or Escape keeps the app in the tray (setting). |
 
 ## Keyboard shortcuts
 

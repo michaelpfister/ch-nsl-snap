@@ -3,6 +3,7 @@
 #include "capture/CaptureResult.h"
 #include "editor/Tool.h"
 
+#include <QColor>
 #include <QMainWindow>
 
 #include <memory>
@@ -13,6 +14,8 @@ class PropertiesPanel;
 class QComboBox;
 class QLabel;
 class QPushButton;
+class QSystemTrayIcon;
+class QTimer;
 class QToolButton;
 class QUndoStack;
 class ToolRail;
@@ -43,10 +46,18 @@ public:
 
 protected:
     void keyPressEvent(QKeyEvent *event) override;
+    void closeEvent(QCloseEvent *event) override;
 
 private:
     QWidget *createTopBar();
     void createShortcuts();
+    // Tray icon (F-45), if the desktop has a tray.
+    void createTrayIcon();
+    void showEditor();
+    // Hides the window if the tray icon is there and the setting allows it.
+    bool hideToTray();
+    // "Beenden": asks first if the image is neither saved nor copied.
+    void quit();
 
     void captureWindow();
     void captureRegion();
@@ -56,7 +67,7 @@ private:
     void startCapture(CaptureResult::Kind kind);
     QToolButton *modeButton(CaptureResult::Kind kind) const;
     void onCaptured(const CaptureResult &result);
-    void onCaptureEnded();
+    void onCaptureEnded(bool showWindow = true);
 
     void openImage();
     void pasteImage();
@@ -64,6 +75,16 @@ private:
     void saveImage();
     void saveImageAs();
     bool writeImage(const QString &path);
+    // The file name from the pattern in the settings (F-41).
+    QString suggestedFileName() const;
+    // After saving or copying: no question when clearing (F-10).
+    void markHandedOff();
+    bool hasUnsavedChanges() const;
+    // "… weder gespeichert noch kopiert. <question>" with Yes / Cancel.
+    bool confirmDiscard(const QString &title, const QString &question);
+    // Feedback on Kopieren / Speichern: check mark and text for a moment.
+    void showDone(QPushButton *button, const QString &text);
+    void restoreButton(QPushButton *button);
     void showSavedFile();
     void copyImage();
     void copyFilePath();
@@ -77,6 +98,8 @@ private:
     void onRedactStyleChanged(const RedactStyle &style);
     void onReplaceStyleChanged(const ReplaceStyle &style);
     void onTextStyleChanged(const TextStyle &style);
+    // Takes the styles for new objects from the settings (F-22).
+    void loadDefaultStyles();
     QList<TextItem *> selectedTexts() const;
     void onArrowStyleChanged(const ArrowStyle &style);
     void onMarkerStyleChanged(const MarkerStyle &style);
@@ -104,6 +127,11 @@ private:
     QString m_imageName;  // for the suggested file name (F-41)
     QString m_imageSource; // status bar: where the image came from
     QString m_savedPath;  // last saved file, for Ctrl+E and Ctrl+Alt+C
+    QString m_lastSaveFolder; // the save dialog starts here
+    bool m_handedOff = false; // saved or copied since the image came in
+    QSystemTrayIcon *m_tray = nullptr;
+    bool m_quitting = false;
+    bool m_hiddenBeforeCapture = false;
 
     // Top bar.
     QLabel *m_logo = nullptr;
@@ -123,6 +151,10 @@ private:
     QToolButton *m_settingsButton = nullptr;
     QPushButton *m_copyButton = nullptr;
     QPushButton *m_saveButton = nullptr;
+    QToolButton *m_clearButton = nullptr;
+    QTimer *m_copyFeedback = nullptr;
+    QTimer *m_saveFeedback = nullptr;
+    QColor m_successColor; // theme colour of the check mark
 
     // Status bar.
     QLabel *m_imageInfo = nullptr;
