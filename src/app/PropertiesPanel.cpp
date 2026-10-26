@@ -1,12 +1,13 @@
 #include "app/PropertiesPanel.h"
 
+#include "app/ColorRow.h"
 #include "editor/ReplaceItem.h"
+#include "ui/ColorPopup.h"
 #include "ui/Theme.h"
 
 #include <QAbstractButton>
 #include <QButtonGroup>
 #include <QCheckBox>
-#include <QColorDialog>
 #include <QComboBox>
 #include <QFontComboBox>
 #include <QLineEdit>
@@ -27,48 +28,6 @@
 #include <QVBoxLayout>
 
 namespace {
-
-// Frame colours (F-22); red first, as in the instruction pages.
-struct Swatch { QColor color; const char *name; };
-const Swatch kSwatches[] = {
-    {QColor(0xE5484D), QT_TRANSLATE_NOOP("PropertiesPanel", "Rot")},
-    {QColor(0xF76B15), QT_TRANSLATE_NOOP("PropertiesPanel", "Orange")},
-    {QColor(0xFFC53D), QT_TRANSLATE_NOOP("PropertiesPanel", "Gelb")},
-    {QColor(0x30A46C), QT_TRANSLATE_NOOP("PropertiesPanel", "Grün")},
-    {QColor(0x0090FF), QT_TRANSLATE_NOOP("PropertiesPanel", "Blau")},
-    {QColor(0x8E4EC6), QT_TRANSLATE_NOOP("PropertiesPanel", "Violett")},
-};
-
-// A round colour button; the checked one gets a ring in its own colour.
-class SwatchButton : public QAbstractButton
-{
-public:
-    SwatchButton(const QColor &color, QWidget *parent)
-        : QAbstractButton(parent), m_color(color)
-    {
-        setCheckable(true);
-        setFixedSize(30, 30);
-        setCursor(Qt::PointingHandCursor);
-    }
-
-protected:
-    void paintEvent(QPaintEvent *) override
-    {
-        QPainter p(this);
-        p.setRenderHint(QPainter::Antialiasing);
-        if (isChecked()) {
-            p.setPen(QPen(m_color, 2));
-            p.setBrush(Qt::NoBrush);
-            p.drawEllipse(QRectF(rect()).adjusted(1, 1, -1, -1));
-        }
-        p.setPen(Qt::NoPen);
-        p.setBrush(m_color);
-        p.drawEllipse(QRectF(rect()).adjusted(4, 4, -4, -4));
-    }
-
-private:
-    QColor m_color;
-};
 
 // The object list: entries can be dragged to change the order. The list
 // does not move the entry itself; it reports the move and is rebuilt from
@@ -154,12 +113,18 @@ QSlider *labelledSlider(QVBoxLayout *layout, const QString &label, int min, int 
 
 PropertiesPanel::PropertiesPanel(QWidget *parent)
     : QWidget(parent)
-    , m_swatches(new QButtonGroup(this))
-    , m_color(kSwatches[0].color)
+    , m_colorPopup(new ColorPopup(this))
 {
     setObjectName(QStringLiteral("PropertiesPanel"));
     setAttribute(Qt::WA_StyledBackground);
     setFixedWidth(288);
+
+    // One colour popup for all colours; it applies to whatever opened it.
+    connect(m_colorPopup, &ColorPopup::colorChanged, this, [this](const QColor &color) {
+        if (m_popupApply)
+            m_popupApply(color);
+    });
+    connect(m_colorPopup, &ColorPopup::eyedropperRequested, this, &PropertiesPanel::eyedropperRequested);
 
     auto *layout = new QVBoxLayout(this);
     layout->setContentsMargins(16, 16, 16, 16);
@@ -184,23 +149,15 @@ PropertiesPanel::PropertiesPanel(QWidget *parent)
     frameLayout->setContentsMargins(0, 0, 0, 0);
     frameLayout->setSpacing(8);
     frameLayout->addWidget(sectionLabel(tr("Farbe"), this));
-    auto *swatchRow = new QHBoxLayout;
-    swatchRow->setSpacing(6);
-    for (const Swatch &swatch : kSwatches) {
-        auto *button = new SwatchButton(swatch.color, this);
-        button->setToolTip(tr(swatch.name));
-        button->setAccessibleName(tr(swatch.name));
-        m_swatches->addButton(button);
-        swatchRow->addWidget(button);
-        button->setProperty("color", swatch.color);
-        connect(button, &QAbstractButton::clicked, this, [this, color = swatch.color] {
-            m_color = color;
+    m_frameColors = new ColorRow(this);
+    connect(m_frameColors, &ColorRow::colorChosen, this, [this] { emit frameStyleChanged(frameStyle()); });
+    connect(m_frameColors, &ColorRow::customRequested, this, [this] {
+        openColorPopup(m_frameColors->customButton(), m_frameColors->color(), [this](const QColor &color) {
+            m_frameColors->setColor(color);
             emit frameStyleChanged(frameStyle());
         });
-    }
-    m_swatches->buttons().first()->setChecked(true);
-    swatchRow->addStretch(1);
-    frameLayout->addLayout(swatchRow);
+    });
+    frameLayout->addWidget(m_frameColors);
     frameLayout->addSpacing(12);
 
     // Corners (F-23): segmented control.
@@ -282,6 +239,54 @@ PropertiesPanel::PropertiesPanel(QWidget *parent)
     m_redactSection->hide();
     layout->addWidget(m_redactSection);
 
+    // Free text (F-25).
+    m_textSection = new QWidget(this);
+    auto *textLayout = new QVBoxLayout(m_textSection);
+    textLayout->setContentsMargins(0, 0, 0, 0);
+    textLayout->setSpacing(8);
+    textLayout->addWidget(sectionLabel(tr("Farbe"), this));
+    m_textColors = new ColorRow(this);
+    connect(m_textColors, &ColorRow::colorChosen, this, [this] { emit textStyleChanged(textStyle()); });
+    connect(m_textColors, &ColorRow::customRequested, this, [this] {
+        openColorPopup(m_textColors->customButton(), m_textColors->color(), [this](const QColor &color) {
+            m_textColors->setColor(color);
+            emit textStyleChanged(textStyle());
+        });
+    });
+    textLayout->addWidget(m_textColors);
+    textLayout->addSpacing(12);
+
+    textLayout->addWidget(sectionLabel(tr("Schrift"), this));
+    auto *textSizeRow = new QHBoxLayout;
+    m_textSize = new QSpinBox(this);
+    m_textSize->setRange(8, 96);
+    m_textSize->setSuffix(QStringLiteral(" px"));
+    m_textSize->setAccessibleName(tr("Schriftgrösse"));
+    m_textBold = new QCheckBox(tr("Fett"), this);
+    textSizeRow->addWidget(m_textSize, 1);
+    textSizeRow->addWidget(m_textBold);
+    textLayout->addLayout(textSizeRow);
+    textLayout->addSpacing(12);
+
+    m_textBox = new QButtonGroup(this);
+    segmentedRow(textLayout, tr("Hintergrund"), {tr("Ohne"), tr("Weiss"), tr("Farbig")}, m_textBox);
+    auto *textHint = new QLabel(tr("Doppelklick auf einen Text, um ihn zu ändern. "
+                                   "Escape oder ein Klick daneben beendet die Eingabe."), this);
+    textHint->setProperty("role", QStringLiteral("hint"));
+    textHint->setWordWrap(true);
+    textLayout->addWidget(textHint);
+    m_textSection->hide();
+    layout->addWidget(m_textSection);
+
+    const auto emitText = [this] {
+        if (!m_updating)
+            emit textStyleChanged(textStyle());
+    };
+    connect(m_textSize, &QSpinBox::valueChanged, this, emitText);
+    connect(m_textBold, &QCheckBox::toggled, this, emitText);
+    connect(m_textBox, &QButtonGroup::idClicked, this, emitText);
+    setTextStyle(TextStyle());
+
     // Replaced text (F-29).
     m_replaceSection = new QWidget(this);
     auto *replaceLayout = new QVBoxLayout(m_replaceSection);
@@ -347,17 +352,18 @@ PropertiesPanel::PropertiesPanel(QWidget *parent)
     connect(m_replaceFont, &QFontComboBox::currentFontChanged, this, emitReplace);
     connect(m_replaceSize, &QSpinBox::valueChanged, this, emitReplace);
     connect(m_replaceBold, &QCheckBox::toggled, this, emitReplace);
-    const auto pickColor = [this, emitReplace](QColor *target, const QString &title) {
-        const QColor color = QColorDialog::getColor(*target, this, title);
-        if (!color.isValid())
-            return;
-        *target = color;
-        updateColorButtons();
-        emitReplace();
+    // Both colours open the colour popup; the recognised colours are
+    // rarely standard colours, so there are no swatches here.
+    const auto pickColor = [this, emitReplace](QToolButton *button, QColor *target) {
+        openColorPopup(button, *target, [this, emitReplace, target](const QColor &color) {
+            *target = color;
+            updateColorButtons();
+            emitReplace();
+        });
     };
-    connect(m_replaceColor, &QToolButton::clicked, this, [this, pickColor] { pickColor(&m_replaceTextColor, tr("Textfarbe")); });
+    connect(m_replaceColor, &QToolButton::clicked, this, [this, pickColor] { pickColor(m_replaceColor, &m_replaceTextColor); });
     connect(m_replaceBackground, &QToolButton::clicked, this,
-            [this, pickColor] { pickColor(&m_replaceBackgroundColor, tr("Hintergrundfarbe")); });
+            [this, pickColor] { pickColor(m_replaceBackground, &m_replaceBackgroundColor); });
     connect(rematch, &QPushButton::clicked, this, &PropertiesPanel::rematchRequested);
 
     // Crop (F-12).
@@ -476,7 +482,7 @@ void PropertiesPanel::setDimSettings(const DimSettings &settings)
 FrameStyle PropertiesPanel::frameStyle() const
 {
     FrameStyle style;
-    style.color = m_color;
+    style.color = m_frameColors->color();
     style.width = m_width->value();
     style.rounded = m_rounded->isChecked();
     style.badge = BadgePosition(m_badge->currentData().toInt());
@@ -486,11 +492,7 @@ FrameStyle PropertiesPanel::frameStyle() const
 void PropertiesPanel::setFrameStyle(const FrameStyle &style)
 {
     m_updating = true;
-    m_color = style.color;
-    for (QAbstractButton *button : m_swatches->buttons()) {
-        if (button->property("color").value<QColor>() == style.color)
-            button->setChecked(true);
-    }
+    m_frameColors->setColor(style.color);
     m_width->setValue(style.width);
     (style.rounded ? m_rounded : m_square)->setChecked(true);
     m_badge->setCurrentIndex(m_badge->findData(int(style.badge)));
@@ -511,8 +513,9 @@ void PropertiesPanel::setRedactStyle(const RedactStyle &style)
     m_redactLevel->button(int(style.level))->setChecked(true);
 }
 
-void PropertiesPanel::showSections(bool frame, bool redact, bool replace, bool crop)
+void PropertiesPanel::showSections(bool frame, bool redact, bool replace, bool crop, bool text)
 {
+    m_textSection->setVisible(text);
     m_frameSection->setVisible(frame);
     m_redactSection->setVisible(redact);
     m_replaceSection->setVisible(replace);
@@ -523,6 +526,32 @@ void PropertiesPanel::setCropSize(const QSize &size)
 {
     m_cropSize->setText(size.isEmpty() ? QStringLiteral("–")
                                        : tr("%1 × %2 px").arg(size.width()).arg(size.height()));
+}
+
+void PropertiesPanel::showTextSelection(int count)
+{
+    m_title->setText(tr("Text"));
+    m_hint->setText(count == 1 ? tr("1 ausgewählt") : tr("%1 ausgewählt").arg(count));
+}
+
+TextStyle PropertiesPanel::textStyle() const
+{
+    TextStyle style;
+    style.color = m_textColors->color();
+    style.fontSize = m_textSize->value();
+    style.bold = m_textBold->isChecked();
+    style.box = TextBox(std::max(0, m_textBox->checkedId()));
+    return style;
+}
+
+void PropertiesPanel::setTextStyle(const TextStyle &style)
+{
+    m_updating = true;
+    m_textColors->setColor(style.color);
+    m_textSize->setValue(style.fontSize);
+    m_textBold->setChecked(style.bold);
+    m_textBox->button(int(style.box))->setChecked(true);
+    m_updating = false;
 }
 
 void PropertiesPanel::showReplaceSelection()
@@ -563,6 +592,24 @@ void PropertiesPanel::focusReplaceText()
 {
     m_replaceText->setFocus();
     m_replaceText->selectAll();
+}
+
+void PropertiesPanel::openColorPopup(QWidget *anchor, const QColor &color,
+                                     std::function<void(const QColor &)> apply)
+{
+    m_popupAnchor = anchor;
+    m_popupApply = std::move(apply);
+    m_colorPopup->showAt(anchor, color);
+}
+
+void PropertiesPanel::finishEyedropper(const QColor &color)
+{
+    if (!m_popupAnchor)
+        return;
+    if (color.isValid() && m_popupApply)
+        m_popupApply(color);
+    // Back to the popup, to fine-tune the picked colour.
+    m_colorPopup->showAt(m_popupAnchor, color.isValid() ? color : m_colorPopup->color());
 }
 
 void PropertiesPanel::updateColorButtons()
@@ -616,6 +663,7 @@ void PropertiesPanel::setObjects(const QStringList &labels, const QList<bool> &s
 
 void PropertiesPanel::applyTheme(const Theme &theme)
 {
+    m_colorPopup->setIconColor(theme.text);
     m_mutedText = theme.muted;
     if (QListWidgetItem *item = m_objects->item(0); item && item->flags() == Qt::NoItemFlags)
         item->setForeground(theme.muted);

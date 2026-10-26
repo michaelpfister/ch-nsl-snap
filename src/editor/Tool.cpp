@@ -23,7 +23,7 @@ const QList<ToolInfo> &allTools()
         {ToolId::Number, QStringLiteral("number"), tr("Nummerierter Rahmen"), QKeySequence(Qt::Key_N),
          tr("Ziehen zum Zeichnen · Nummer wird automatisch vergeben")},
         {ToolId::Text, QStringLiteral("text"), tr("Text"), QKeySequence(Qt::Key_T),
-         tr("Klicken zum Schreiben")},
+         tr("Klicken zum Schreiben · Doppelklick auf einen Text bearbeitet ihn")},
         {ToolId::Arrow, QStringLiteral("arrow"), tr("Pfeil"), QKeySequence(Qt::Key_A),
          tr("Ziehen von Anfang bis Spitze")},
         {ToolId::Marker, QStringLiteral("marker"), tr("Marker"), QKeySequence(Qt::Key_M),

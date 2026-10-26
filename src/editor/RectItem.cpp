@@ -51,6 +51,12 @@ void RectItem::setRect(const QRectF &rect)
     m_rect = r;
 }
 
+void RectItem::keepInsideScene()
+{
+    // setPos() ignores an unchanged position, so ask itemChange() directly.
+    setPos(itemChange(ItemPositionChange, pos()).toPointF());
+}
+
 qreal RectItem::screenToItem(qreal pixels) const
 {
     const QList<QGraphicsView *> views = scene() ? scene()->views() : QList<QGraphicsView *>();

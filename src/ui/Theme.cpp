@@ -77,6 +77,7 @@ QFrame[role="segment"] QToolButton, QFrame[role="segment"] QPushButton {
 }
 QFrame[role="segment"] QToolButton:hover, QFrame[role="segment"] QPushButton:hover { color: @text; }
 QFrame[role="segment"] QToolButton::menu-indicator { image: none; width: 0; }
+#ColorPopup { background: @panel; border: 1px solid @border; }
 QMenu { background: @panel; color: @text; border: 1px solid @border; padding: 4px; }
 QMenu::item { padding: 6px 24px 6px 12px; border-radius: 6px; }
 QMenu::item:selected { background: @soft; }

@@ -6,6 +6,7 @@
 #include "editor/FrameItem.h"
 #include "editor/RedactItem.h"
 #include "editor/ReplaceItem.h"
+#include "editor/TextItem.h"
 #include "imaging/TextSample.h"
 
 #include <QPainter>
@@ -532,6 +533,48 @@ private slots:
         m_scene->setBaseImage(base, 1.0);
         QVERIFY(!m_scene->isCropped());
         QCOMPARE(m_scene->cropRect(), QRect(0, 0, 300, 50));
+    }
+
+    // --- Free text (F-25) ---
+
+    void textStyleKeepsEachText()
+    {
+        TextStyle style;
+        style.text = QStringLiteral("Eins");
+        auto *a = new TextItem(QPointF(10, 10), style, 1.0);
+        style.text = QStringLiteral("Zwei");
+        auto *b = new TextItem(QPointF(10, 50), style, 1.0);
+        m_stack->push(new AddItemsCommand(m_scene, {a, b}, QStringLiteral("add")));
+        QCOMPARE(a->label(), QStringLiteral("Text: Eins"));
+
+        const qreal widthBefore = a->rect().width();
+        TextStyle look;
+        look.fontSize = 24;
+        look.box = TextBox::Filled;
+        m_stack->push(new SetTextStyleCommand({a, b}, look));
+        QCOMPARE(a->style().text, QStringLiteral("Eins"));
+        QCOMPARE(b->style().text, QStringLiteral("Zwei"));
+        QCOMPARE(b->style().box, TextBox::Filled);
+        QVERIFY(a->rect().width() > widthBefore); // the rectangle follows the text
+
+        // The filled box is in the export, in the text colour.
+        const QImage out = m_scene->renderImage();
+        const QPointF corner = a->mapToScene(a->rect().topLeft()) + QPointF(4, 4);
+        QCOMPARE(pixel(out, int(corner.x()), int(corner.y())), TextStyle().color);
+
+        m_stack->undo();
+        QCOMPARE(a->style().fontSize, TextStyle().fontSize);
+        QCOMPARE(a->rect().width(), widthBefore);
+    }
+
+    void textFollowsImageScale()
+    {
+        TextStyle style;
+        style.text = QStringLiteral("Text");
+        TextItem small(QPointF(), style, 1.0);
+        TextItem large(QPointF(), style, 2.0);
+        QCOMPARE(large.font().pixelSize(), 2 * small.font().pixelSize());
+        QVERIFY(large.rect().height() > 1.8 * small.rect().height());
     }
 
 private:

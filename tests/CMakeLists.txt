@@ -50,3 +50,8 @@ if(WIN32)
         set_target_properties(${test_target} PROPERTIES WIN32_EXECUTABLE FALSE)
     endforeach()
 endif()
+
+qt_add_executable(tst_colors tst_colors.cpp)
+target_link_libraries(tst_colors PRIVATE nsl_snap_core Qt6::Test)
+add_test(NAME tst_colors COMMAND tst_colors)
+set_tests_properties(tst_colors PROPERTIES ENVIRONMENT "${NSL_OFFSCREEN_ENV}")

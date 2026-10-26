@@ -22,6 +22,10 @@ public:
     qint64 order() const { return m_order; }
     void setOrder(qint64 order) { m_order = order; }
 
+    // Moves the item back into the image if it reaches beyond it, e.g. a
+    // text that grew while typing. Moves by dragging are kept inside anyway.
+    void keepInsideScene();
+
     // Name in the object list, e.g. "Rahmen".
     virtual QString label() const = 0;
 

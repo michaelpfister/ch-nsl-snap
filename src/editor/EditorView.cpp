@@ -5,6 +5,7 @@
 #include "editor/FrameItem.h"
 #include "editor/RedactItem.h"
 #include "editor/ReplaceItem.h"
+#include "editor/TextItem.h"
 
 #include <QDragEnterEvent>
 #include <QDropEvent>
@@ -85,10 +86,18 @@ EditorView::EditorView(QUndoStack *undoStack, QWidget *parent)
         }
         viewport()->update();
     });
+    // A text edit ends when its editor loses the keyboard focus: a click
+    // elsewhere, Escape, or another widget or window. Queued, because the
+    // scene is still changing the focus when it emits this.
+    connect(m_scene, &QGraphicsScene::focusItemChanged, this, [this] {
+        if (m_editingText && m_scene->focusItem() != m_editingText->editor())
+            finishTextEditing();
+    }, Qt::QueuedConnection);
 }
 
 void EditorView::setImage(const QImage &image, double scale)
 {
+    dropTextEditing();
     m_scene->setBaseImage(image, scale);
     if (m_tool == ToolId::Crop)
         beginCropEditing();
@@ -97,6 +106,8 @@ void EditorView::setImage(const QImage &image, double scale)
 
 void EditorView::clear()
 {
+    endColorPick(QColor());
+    dropTextEditing();
     m_scene->clearAll();
     m_cropDraft = QRect();
     m_cropDrag = CropDrag::None;
@@ -112,8 +123,9 @@ bool EditorView::hasImage() const
     return m_scene->hasImage();
 }
 
-QImage EditorView::renderedImage() const
+QImage EditorView::renderedImage()
 {
+    finishTextEditing();
     return m_scene->renderImage();
 }
 
@@ -126,12 +138,14 @@ void EditorView::setTool(ToolId tool)
 {
     if (tool == m_tool)
         return;
+    endColorPick(QColor());
+    finishTextEditing();
     if (m_tool == ToolId::Crop)
         endCropEditing();
     m_tool = tool;
     if (m_tool == ToolId::Crop && hasImage())
         beginCropEditing();
-    setDragMode(isDrawingTool() || m_tool == ToolId::Crop ? QGraphicsView::NoDrag : QGraphicsView::RubberBandDrag);
+    setDragMode(isDrawingTool() || m_tool == ToolId::Crop || m_tool == ToolId::Text ? QGraphicsView::NoDrag : QGraphicsView::RubberBandDrag);
     restoreCursor();
 }
 
@@ -140,6 +154,153 @@ bool EditorView::isDrawingTool() const
     // Tools that draw a new annotation; the others follow (docs/04-features.md).
     return m_tool == ToolId::Frame || m_tool == ToolId::Number || m_tool == ToolId::Pixelate
            || m_tool == ToolId::ReplaceText;
+}
+
+// --- Free text (F-25) ---------------------------------------------------
+
+void EditorView::startTextEditing(TextItem *item, bool isNew)
+{
+    finishTextEditing();
+    m_editingText = item;
+    m_editingIsNew = isNew;
+    m_textBefore = item->style().text;
+    m_textPosBefore = item->pos();
+    m_scene->clearSelection();
+    item->setSelected(true);
+    setFocus();
+    item->setEditing(true);
+}
+
+void EditorView::finishTextEditing()
+{
+    if (!m_editingText)
+        return;
+    TextItem *item = m_editingText;
+    m_editingText = nullptr; // first: the focus change below calls back
+    item->setEditing(false);
+    // A text that grew beyond the image is moved back into it.
+    item->keepInsideScene();
+
+    const bool empty = item->style().text.trimmed().isEmpty();
+    if (m_editingIsNew) {
+        m_scene->removeItem(item); // AddItemsCommand puts it back
+        if (empty) {
+            delete item; // just a click
+            return;
+        }
+        m_scene->undoStack()->push(new AddItemsCommand(m_scene, {item}, tr("Text schreiben")));
+        emit annotationCreated(item);
+    } else if (empty) {
+        // Emptied: delete it, but undo brings back the old text.
+        TextStyle style = item->style();
+        style.text = m_textBefore;
+        item->setStyle(style);
+        item->setPos(m_textPosBefore);
+        m_scene->undoStack()->push(new RemoveItemsCommand(m_scene, {item}));
+    } else if (item->style().text != m_textBefore || item->pos() != m_textPosBefore) {
+        m_scene->undoStack()->push(new EditTextCommand(item, m_textBefore, m_textPosBefore));
+    }
+}
+
+void EditorView::dropTextEditing()
+{
+    if (m_editingText)
+        m_editingText->setEditing(false);
+    m_editingText = nullptr;
+}
+
+// --- Eyedropper ----------------------------------------------------------
+
+void EditorView::startColorPick()
+{
+    if (!hasImage()) {
+        emit colorPicked(QColor());
+        return;
+    }
+    finishTextEditing();
+    m_pickingColor = true;
+    m_pickPos = viewport()->mapFromGlobal(QCursor::pos());
+    viewport()->setCursor(Qt::CrossCursor);
+    setFocus();
+    viewport()->update();
+}
+
+void EditorView::endColorPick(const QColor &color)
+{
+    if (!m_pickingColor)
+        return;
+    m_pickingColor = false;
+    restoreCursor();
+    viewport()->update();
+    emit colorPicked(color);
+}
+
+QColor EditorView::colorAt(const QPoint &viewPos) const
+{
+    const QPointF scenePos = mapToScene(viewPos);
+    const QPoint pixel(int(std::floor(scenePos.x())), int(std::floor(scenePos.y())));
+    // The base image as captured: annotations and the dim layer are not
+    // part of the colours of the screenshot.
+    if (!m_scene->cropRect().contains(pixel))
+        return {};
+    QColor color = m_scene->baseImage().pixelColor(pixel);
+    color.setAlpha(255);
+    return color;
+}
+
+void EditorView::drawColorPickLoupe(QPainter *painter)
+{
+    const QColor color = colorAt(m_pickPos);
+    if (!color.isValid())
+        return;
+    // 11 × 11 image pixels, 8 screen pixels each, next to the cursor.
+    constexpr int kPixels = 11;
+    constexpr int kCell = 8;
+    constexpr int kSize = kPixels * kCell;
+    const QPointF scenePos = mapToScene(m_pickPos);
+    const QPoint center(int(std::floor(scenePos.x())), int(std::floor(scenePos.y())));
+    const QImage source = m_scene->baseImage().copy(center.x() - kPixels / 2, center.y() - kPixels / 2, kPixels, kPixels);
+
+    painter->save();
+    painter->resetTransform(); // viewport coordinates
+    QPoint topLeft = m_pickPos + QPoint(20, 20);
+    if (topLeft.x() + kSize > viewport()->width())
+        topLeft.rx() = m_pickPos.x() - 20 - kSize;
+    if (topLeft.y() + kSize + 28 > viewport()->height())
+        topLeft.ry() = m_pickPos.y() - 20 - kSize - 28;
+    const QRect box(topLeft, QSize(kSize, kSize));
+    QPainterPath clip;
+    clip.addRoundedRect(QRectF(box), 8, 8);
+    painter->setRenderHint(QPainter::Antialiasing);
+    painter->fillPath(clip, palette().color(QPalette::Dark));
+    painter->setClipPath(clip);
+    painter->setRenderHint(QPainter::SmoothPixmapTransform, false);
+    painter->drawImage(box, source);
+    painter->setClipping(false);
+    // The picked pixel, and a frame around the loupe.
+    const QRect middle(box.topLeft() + QPoint(kPixels / 2 * kCell, kPixels / 2 * kCell), QSize(kCell, kCell));
+    painter->setBrush(Qt::NoBrush);
+    painter->setPen(QPen(Qt::white, 1));
+    painter->drawRect(middle);
+    painter->setPen(QPen(QColor(0, 0, 0, 160), 1));
+    painter->drawRect(middle.adjusted(-1, -1, 1, 1));
+    painter->setPen(QPen(palette().color(QPalette::Mid), 1));
+    painter->drawPath(clip);
+
+    // Colour and hex code below it.
+    const QRect label(box.left(), box.bottom() + 6, kSize, 22);
+    painter->setPen(Qt::NoPen);
+    painter->setBrush(QColor(0, 0, 0, 190));
+    painter->drawRoundedRect(label, 6, 6);
+    painter->setBrush(color);
+    painter->setPen(QPen(Qt::white, 1));
+    painter->drawEllipse(QRect(label.left() + 6, label.top() + 5, 12, 12));
+    painter->setPen(Qt::white);
+    QFont font = painter->font();
+    font.setPixelSize(12);
+    painter->setFont(font);
+    painter->drawText(label.adjusted(24, 0, 0, 0), Qt::AlignVCenter, color.name().toUpper());
+    painter->restore();
 }
 
 // --- Crop (F-12) --------------------------------------------------------
@@ -420,10 +581,14 @@ void EditorView::startPan(const QPoint &pos)
 
 void EditorView::restoreCursor()
 {
-    if (m_spaceHeld)
+    if (m_pickingColor)
+        viewport()->setCursor(Qt::CrossCursor);
+    else if (m_spaceHeld)
         viewport()->setCursor(Qt::OpenHandCursor);
     else
-        viewport()->setCursor(isDrawingTool() || m_tool == ToolId::Crop ? Qt::CrossCursor : Qt::ArrowCursor);
+        viewport()->setCursor(m_tool == ToolId::Text           ? Qt::IBeamCursor
+                              : isDrawingTool() || m_tool == ToolId::Crop ? Qt::CrossCursor
+                                                                        : Qt::ArrowCursor);
 }
 
 void EditorView::resizeEvent(QResizeEvent *event)
@@ -450,6 +615,15 @@ bool EditorView::viewportEvent(QEvent *event)
 
 void EditorView::keyPressEvent(QKeyEvent *event)
 {
+    if (m_pickingColor && event->key() == Qt::Key_Escape) {
+        endColorPick(QColor());
+        return;
+    }
+    // While typing a text every key belongs to it, Space included.
+    if (m_editingText) {
+        QGraphicsView::keyPressEvent(event);
+        return;
+    }
     // Space + drag pans, for touchpads without a middle button.
     if (event->key() == Qt::Key_Space && !event->isAutoRepeat()) {
         m_spaceHeld = true;
@@ -468,7 +642,7 @@ void EditorView::keyPressEvent(QKeyEvent *event)
 
 void EditorView::keyReleaseEvent(QKeyEvent *event)
 {
-    if (event->key() == Qt::Key_Space && !event->isAutoRepeat()) {
+    if (event->key() == Qt::Key_Space && !event->isAutoRepeat() && m_spaceHeld) {
         m_spaceHeld = false;
         m_panning = false;
         restoreCursor();
@@ -506,6 +680,52 @@ void EditorView::mousePressEvent(QMouseEvent *event)
             }
         }
         return;
+    }
+
+    // Eyedropper: the click picks, the right button cancels; nothing else
+    // happens with it.
+    if (m_pickingColor) {
+        if (event->button() == Qt::LeftButton) {
+            if (const QColor color = colorAt(event->position().toPoint()); color.isValid())
+                endColorPick(color);
+        } else if (event->button() == Qt::RightButton) {
+            endColorPick(QColor());
+        }
+        return;
+    }
+
+    // While typing, a click into the text places the cursor; anywhere else
+    // it ends the edit first and then does what it would do anyway.
+    if (m_editingText) {
+        if (annotationAt(event->position().toPoint()) == m_editingText) {
+            QGraphicsView::mousePressEvent(event);
+            return;
+        }
+        finishTextEditing();
+    }
+
+    // Text tool (F-25): a click on a text edits it, elsewhere on the image
+    // it starts a new one there.
+    if (event->button() == Qt::LeftButton && m_tool == ToolId::Text && hasImage()) {
+        QGraphicsItem *hit = annotationAt(event->position().toPoint());
+        if (hit && hit->type() == TextItem::Type) {
+            startTextEditing(static_cast<TextItem *>(hit), false);
+            return;
+        }
+        const QPointF click = mapToScene(event->position().toPoint());
+        if (!hit && m_scene->sceneRect().contains(click)) {
+            TextStyle style = m_scene->textStyle();
+            style.text.clear();
+            auto *item = new TextItem(QPointF(), style, m_scene->imageScale());
+            // The text starts at the click, its (first and only) line
+            // centred on it.
+            const qreal p = 4 * m_scene->imageScale(); // TextItem's padding
+            item->setPos(click - QPointF(p, item->rect().height() / 2));
+            m_scene->addItem(item);
+            item->keepInsideScene();
+            startTextEditing(item, true);
+            return;
+        }
     }
 
     // Frame tool on empty space: start a new frame. On an existing frame the
@@ -555,6 +775,12 @@ void EditorView::mouseMoveEvent(QMouseEvent *event)
         return;
     }
 
+    if (m_pickingColor) {
+        m_pickPos = event->position().toPoint();
+        viewport()->update();
+        return;
+    }
+
     if (m_tool == ToolId::Crop && hasImage()) {
         if (m_cropDrag != CropDrag::None)
             updateCropDrag(mapToScene(event->position().toPoint()));
@@ -587,6 +813,8 @@ void EditorView::mouseMoveEvent(QMouseEvent *event)
 
 void EditorView::mouseReleaseEvent(QMouseEvent *event)
 {
+    if (m_pickingColor)
+        return;
     if (m_panning && (event->button() == Qt::MiddleButton || event->button() == Qt::LeftButton)) {
         m_panning = false;
         restoreCursor();
@@ -645,6 +873,14 @@ void EditorView::mouseReleaseEvent(QMouseEvent *event)
 
 void EditorView::mouseDoubleClickEvent(QMouseEvent *event)
 {
+    // A double click on a free text edits it, with every tool (F-25).
+    if (m_tool != ToolId::Crop && event->button() == Qt::LeftButton && !m_editingText) {
+        QGraphicsItem *hit = annotationAt(event->position().toPoint());
+        if (hit && hit->type() == TextItem::Type) {
+            startTextEditing(static_cast<TextItem *>(hit), false);
+            return;
+        }
+    }
     // A double click inside the crop confirms it, like Enter.
     if (m_tool == ToolId::Crop && hasImage()) {
         if (event->button() == Qt::LeftButton
@@ -684,9 +920,7 @@ void EditorView::drawForeground(QPainter *painter, const QRectF &rect)
     QGraphicsView::drawForeground(painter, rect);
     if (hasImage() && m_tool == ToolId::Crop) {
         drawCropOverlay(painter);
-        return;
-    }
-    if (hasImage()) {
+    } else if (hasImage()) {
         // The base image and annotations reach beyond a crop; cover them
         // with the canvas, so the view shows what the export contains.
         if (m_scene->isCropped()) {
@@ -699,16 +933,17 @@ void EditorView::drawForeground(QPainter *painter, const QRectF &rect)
             painter->fillPath(outside.subtracted(crop), palette().color(QPalette::Dark));
             painter->restore();
         }
-        return;
+    } else {
+        // Empty state hint, drawn in viewport coordinates.
+        painter->save();
+        painter->resetTransform();
+        painter->setPen(palette().color(QPalette::PlaceholderText));
+        painter->drawText(viewport()->rect(), Qt::AlignCenter,
+                          tr("Fenster aufnehmen oder ein Bild hierher ziehen"));
+        painter->restore();
     }
-
-    // Empty state hint, drawn in viewport coordinates.
-    painter->save();
-    painter->resetTransform();
-    painter->setPen(palette().color(QPalette::PlaceholderText));
-    painter->drawText(viewport()->rect(), Qt::AlignCenter,
-                      tr("Fenster aufnehmen oder ein Bild hierher ziehen"));
-    painter->restore();
+    if (m_pickingColor)
+        drawColorPickLoupe(painter); // on top of everything
 }
 
 void EditorView::wheelEvent(QWheelEvent *event)

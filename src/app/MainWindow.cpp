@@ -11,6 +11,7 @@
 #include "editor/FrameItem.h"
 #include "editor/RedactItem.h"
 #include "editor/ReplaceItem.h"
+#include "editor/TextItem.h"
 #include "imaging/WindowImage.h"
 #include "ui/Icons.h"
 #include "ui/Theme.h"
@@ -156,6 +157,17 @@ MainWindow::MainWindow(QWidget *parent)
     connect(m_properties, &PropertiesPanel::frameStyleChanged, this, &MainWindow::onFrameStyleChanged);
     connect(m_properties, &PropertiesPanel::redactStyleChanged, this, &MainWindow::onRedactStyleChanged);
     connect(m_properties, &PropertiesPanel::replaceStyleChanged, this, &MainWindow::onReplaceStyleChanged);
+    connect(m_properties, &PropertiesPanel::textStyleChanged, this, &MainWindow::onTextStyleChanged);
+    // Eyedropper of the colour popup: one click into the image.
+    connect(m_properties, &PropertiesPanel::eyedropperRequested, this, [this] {
+        m_view->startColorPick();
+        if (m_view->isPickingColor())
+            m_toolHint->setText(tr("Klicken, um die Farbe zu übernehmen · Esc bricht ab"));
+    });
+    connect(m_view, &EditorView::colorPicked, this, [this](const QColor &color) {
+        m_toolHint->setText(toolInfo(m_toolRail->currentTool()).hint);
+        m_properties->finishEyedropper(color);
+    });
     connect(m_properties, &PropertiesPanel::rematchRequested, this, [this] {
         if (ReplaceItem *item = selectedReplace()) {
             // Recognise on a copy, then push the result as one undo step.
@@ -324,8 +336,9 @@ QWidget *MainWindow::createTopBar()
     // Undo / redo (F-11).
     m_undoButton = iconButton(tr("Rückgängig (Ctrl+Z)"), bar);
     m_redoButton = iconButton(tr("Wiederholen (Ctrl+Y)"), bar);
-    connect(m_undoButton, &QToolButton::clicked, m_undoStack, &QUndoStack::undo);
-    connect(m_redoButton, &QToolButton::clicked, m_undoStack, &QUndoStack::redo);
+    // A text being typed becomes its own step first (F-25).
+    connect(m_undoButton, &QToolButton::clicked, this, [this] { m_view->finishTextEditing(); m_undoStack->undo(); });
+    connect(m_redoButton, &QToolButton::clicked, this, [this] { m_view->finishTextEditing(); m_undoStack->redo(); });
     connect(m_undoStack, &QUndoStack::canUndoChanged, m_undoButton, &QWidget::setEnabled);
     connect(m_undoStack, &QUndoStack::canRedoChanged, m_redoButton, &QWidget::setEnabled);
     m_undoButton->setEnabled(false);
@@ -511,8 +524,14 @@ void MainWindow::onSelectionChanged()
     ReplaceItem *replace = selectedReplace();
     if (replace)
         m_properties->setReplaceStyle(replace->style());
+    const QList<TextItem *> texts = selectedTexts();
+    if (!texts.isEmpty())
+        m_properties->setTextStyle(texts.first()->style());
 
-    if (selected.isEmpty() && redactions.isEmpty() && replace) {
+    if (selected.isEmpty() && redactions.isEmpty() && !replace && !texts.isEmpty()) {
+        m_properties->showTextSelection(int(texts.size()));
+        m_properties->showSections(false, false, false, false, true);
+    } else if (selected.isEmpty() && redactions.isEmpty() && replace) {
         m_properties->showReplaceSelection();
         m_properties->showSections(false, false, true);
     } else if (selected.isEmpty() && !redactions.isEmpty()) {
@@ -530,8 +549,11 @@ void MainWindow::onSelectionChanged()
         ReplaceStyle replaceDefaults;
         replaceDefaults.text = scene->replaceText();
         m_properties->setReplaceStyle(replaceDefaults);
-        m_properties->showSections(tool != ToolId::Pixelate && tool != ToolId::ReplaceText && tool != ToolId::Crop,
-                                   tool == ToolId::Pixelate, tool == ToolId::ReplaceText, tool == ToolId::Crop);
+        m_properties->setTextStyle(scene->textStyle());
+        m_properties->showSections(tool != ToolId::Pixelate && tool != ToolId::ReplaceText && tool != ToolId::Crop
+                                       && tool != ToolId::Text,
+                                   tool == ToolId::Pixelate, tool == ToolId::ReplaceText, tool == ToolId::Crop,
+                                   tool == ToolId::Text);
         m_properties->setBadgeOptions({BadgePosition::TopRight, BadgePosition::TopLeft,
                                        BadgePosition::BottomRight, BadgePosition::BottomLeft});
     } else {
@@ -585,6 +607,27 @@ ReplaceItem *MainWindow::selectedReplace() const
     if (selected.size() == 1 && selected.first()->type() == ReplaceItem::Type)
         return static_cast<ReplaceItem *>(selected.first());
     return nullptr;
+}
+
+QList<TextItem *> MainWindow::selectedTexts() const
+{
+    QList<TextItem *> result;
+    for (RectItem *item : m_view->editorScene()->selectedAnnotations()) {
+        if (item->type() == TextItem::Type)
+            result << static_cast<TextItem *>(item);
+    }
+    return result;
+}
+
+void MainWindow::onTextStyleChanged(const TextStyle &style)
+{
+    // Default for new texts, and applied to the selected ones (F-25).
+    EditorScene *scene = m_view->editorScene();
+    scene->setTextStyle(style);
+    QList<TextItem *> texts = selectedTexts();
+    texts.removeIf([&style](const TextItem *item) { return item->style().sameLook(style); });
+    if (!texts.isEmpty())
+        m_undoStack->push(new SetTextStyleCommand(texts, style));
 }
 
 void MainWindow::onReplaceStyleChanged(const ReplaceStyle &style)

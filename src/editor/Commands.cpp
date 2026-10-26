@@ -5,6 +5,7 @@
 #include "editor/RectItem.h"
 #include "editor/RedactItem.h"
 #include "editor/ReplaceItem.h"
+#include "editor/TextItem.h"
 
 #include <QCoreApplication>
 
@@ -273,6 +274,67 @@ bool SetReplaceStyleCommand::mergeWith(const QUndoCommand *other)
         return false;
     m_after = next->m_after;
     return true;
+}
+
+// --- Free text ---------------------------------------------------------
+
+SetTextStyleCommand::SetTextStyleCommand(const QList<TextItem *> &items, const TextStyle &look)
+    : QUndoCommand(tr("Text formatieren"))
+    , m_items(items)
+    , m_look(look)
+{
+    for (const TextItem *item : items)
+        m_before << item->style();
+}
+
+void SetTextStyleCommand::redo()
+{
+    for (qsizetype i = 0; i < m_items.size(); ++i) {
+        TextStyle style = m_look;
+        style.text = m_before[i].text;
+        m_items[i]->setStyle(style);
+    }
+}
+
+void SetTextStyleCommand::undo()
+{
+    for (qsizetype i = 0; i < m_items.size(); ++i)
+        m_items[i]->setStyle(m_before[i]);
+}
+
+bool SetTextStyleCommand::mergeWith(const QUndoCommand *other)
+{
+    const auto *next = static_cast<const SetTextStyleCommand *>(other);
+    if (next->m_items != m_items)
+        return false;
+    m_look = next->m_look;
+    return true;
+}
+
+EditTextCommand::EditTextCommand(TextItem *item, const QString &fromText, const QPointF &fromPos)
+    : QUndoCommand(tr("Text ändern"))
+    , m_item(item)
+    , m_fromText(fromText)
+    , m_toText(item->style().text)
+    , m_fromPos(fromPos)
+    , m_toPos(item->pos())
+{
+}
+
+void EditTextCommand::redo()
+{
+    TextStyle style = m_item->style();
+    style.text = m_toText;
+    m_item->setStyle(style);
+    m_item->setPos(m_toPos);
+}
+
+void EditTextCommand::undo()
+{
+    TextStyle style = m_item->style();
+    style.text = m_fromText;
+    m_item->setStyle(style);
+    m_item->setPos(m_fromPos);
 }
 
 // --- Crop --------------------------------------------------------------
