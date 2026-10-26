@@ -71,7 +71,7 @@ A minimal Qt program built with this setup reported:
 
 ## Windows 11 (x64 and ARM64)
 
-There is no Windows capture backend yet: "Fenster" and "Bereich" say that capturing is not supported on this platform. The editor works: paste a capture with Ctrl+V (e.g. from Win + Shift + S), drag an image onto the window, or open it with Ctrl+O. The same steps run in CI on both architectures.
+There is no Windows capture backend yet: "Fenster" and "Bereich" say that capturing is not supported on this platform. The editor works: paste a capture with Ctrl+V (e.g. from Win + Shift + S), drag an image onto the window, or open it with Ctrl+O. The same steps run in CI on both architectures (green since 2026-10-26).
 
 ### 1. Visual Studio 2022 Build Tools
 
@@ -105,5 +105,5 @@ ctest --test-dir build --output-on-failure
 build\nsl-snap.exe
 ```
 
-The `PATH` line lets the app and the tests find the Qt DLLs. Alternatively `windeployqt build\nsl-snap.exe` copies them next to the executable, so it also starts with a double click.
+The `PATH` line lets the app and the tests find the Qt DLLs. The tests draw offscreen; on Windows that platform looks for fonts in Qt's own `lib\fonts` folder, which Qt does not ship, so `ctest` points `QT_QPA_FONTDIR` to `C:\Windows\Fonts` (`tests/CMakeLists.txt`). Set it yourself when starting a test program directly. Alternatively `windeployqt build\nsl-snap.exe` copies them next to the executable, so it also starts with a double click.
 
