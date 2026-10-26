@@ -26,7 +26,9 @@ public:
     virtual void captureWindow() = 0;
     // Lets the user drag a rectangle on the frozen screen (F-03).
     virtual void captureRegion() = 0;
-    // False where region capture is not written yet.
+    // Lets the user pick a monitor, or all, on the frozen screen (F-01).
+    virtual void captureScreen() = 0;
+    // False where region and screen capture are not written yet.
     virtual bool supportsRegion() const { return true; }
 
     // How a region is selected (D-023): two clicks, or dragging.

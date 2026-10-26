@@ -265,3 +265,14 @@ Each entry: context, decision, rationale, consequences. Entries marked **(assump
 - Replaces the confirmation step of D-021 (click into the region or Enter): the second click captures.
 - Tested in the headless GNOME Shell 46 with injected input, also at scale 2 (`scale-monitor-framebuffer`): two clicks (200 × 150 px exactly), arrow keys across a colour boundary (3 red and 3 blue pixels), drag mode (a click starts nothing), Backspace, and 4 × 2 physical pixels at scale 2 that the mouse alone cannot reach.
 - On Windows the region may span several monitors; it is put together from the frozen monitors in physical pixels, with the scale of the monitor that holds its middle.
+
+## D-024 Screen capture: click a monitor, Enter for all
+
+**Context:** F-01, the third mode of the capture overlay of D-011, on GNOME and Windows.
+**Decision:**
+- **Screen mode** in the same overlay as window and region (start with "Bildschirm" or Ctrl+1; S switches to it, W and R away). The monitor under the pointer gets a square blue frame; **a click** captures that monitor, **Enter or Space all monitors** together. With a single monitor both do the same, and the hint says so.
+- All monitors: the rectangle around them; **gaps** between monitors of different sizes **stay transparent**. The scale is that of the monitor holding the middle (else the primary one's).
+- GNOME: `mode: "screen"` in the extension's `Capture` (API version 4); the result is cut from the frozen stage picture in physical pixels like a region. The app (Windows, later macOS): `CaptureOverlay::Mode::Screen`; `CaptureOverlay::compose` puts the frozen monitors together, also for regions across monitors.
+- Ctrl+N repeats the last mode, also screen.
+**Rationale:** One overlay for all three modes keeps the keys and the look the same; capturing all monitors with Enter needs no extra button.
+**Consequences:** Tested in the headless GNOME Shell 46 with two monitors (1280 × 800 and 800 × 600) at scale 2: one monitor (800 × 600 px), all (2080 × 800 px, transparent gap), switching from window mode with S; on every platform with `tst_overlay` (click, Enter, composing two monitors with a gap).

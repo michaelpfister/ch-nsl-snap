@@ -11,7 +11,7 @@ Most of the work is in the **editor**, which is platform-independent. Only captu
 
 | ID | Feature | Windows | GNOME | Effort | Notes |
 |---|---|---|---|---|---|
-| F-01 | **Screen capture**: one monitor or all monitors | ✓ | ✓ Ext. | S | The screen is frozen first; on GNOME one click on the monitor (or Enter for all) confirms (D-011). |
+| F-01 | **Screen capture**: one monitor or all monitors | ✓ | ✓ Ext. | S | The screen is frozen first; one click on the monitor (or Enter for all) confirms (D-011). **Done** on GNOME and Windows (2026-10-26, D-024): "Bildschirm", Ctrl+1, or S in the overlay. |
 | F-02 | **Window capture** with clean edges and rounded corners | ✓ | ✓ Ext. | done | D-003, D-005, D-009, D-010. Shows the window as it was at the freeze (D-011). **Done on GNOME** (2026-10-25): picked in the capture overlay on the frozen screen, Ctrl+3. **Done on Windows** (2026-10-26, D-022): every window frozen with Windows.Graphics.Capture, picked in the app's own overlay. Popup menus and tooltips are separate surfaces and are not part of a window capture (Q-07); use F-03 for those. |
 | F-03 | **Region capture**: drag a rectangle on the frozen screen | ✓ | ✓ Ext. | M | Open menus, tooltips and hover states are kept, because the freeze happens before the selection. **Done** on GNOME (2026-10-25, D-021) and Windows (2026-10-26). Since 2026-10-26 (D-023): two clicks (or a drag, setting), magnifier and crosshair lines, arrow keys by one physical pixel. |
 | F-04 | **Delayed capture** in seconds, with a countdown shown on screen | ✓ | ✓ Ext. | S | The countdown is drawn by the extension (GNOME) or a topmost window (Windows). When it reaches zero it disappears, the screen is frozen, and the normal selection of F-01 to F-03 follows on the frozen picture (D-011). Esc cancels. |
@@ -129,7 +129,7 @@ Delete differs from WinSnap on purpose: in an editor with movable objects it mus
 
 Not adopted from WinSnap: print (Ctrl + P, Ctrl + Shift + P), thumbnail copy (Ctrl + Shift + C), custom commands (Alt + 1–9).
 
-**Done** on GNOME and Windows (2026-10-26, D-023): Enter, Space and left click, arrow keys (by one physical pixel, Ctrl: 10), Backspace and Delete, Escape (also right click), F1, W and R. Still open: S (with screen capture, F-01).
+**Done** on GNOME and Windows (2026-10-26, D-023): Enter, Space and left click, arrow keys (by one physical pixel, Ctrl: 10), Backspace and Delete, Escape (also right click), F1, W and R. S since 2026-10-26 (F-01).
 
 ## Not planned
 

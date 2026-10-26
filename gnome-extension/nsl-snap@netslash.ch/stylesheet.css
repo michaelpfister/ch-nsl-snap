@@ -4,6 +4,12 @@
   border-radius: 12px;
 }
 
+/* Screen mode: the monitor under the pointer, square like the screen. */
+.nsl-snap-monitor {
+  border: 4px solid rgba(53, 132, 228, 0.95);
+  background-color: rgba(53, 132, 228, 0.12);
+}
+
 /* Region mode: darkens what is not captured. */
 .nsl-snap-shade {
   background-color: rgba(0, 0, 0, 0.45);

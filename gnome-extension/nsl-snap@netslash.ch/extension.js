@@ -21,7 +21,8 @@ const OBJECT_PATH = '/ch/netslash/Snap';
 const ERROR_PREFIX = 'ch.netslash.Snap1.Error';
 // 2: Capture with window and region mode, both on a frozen screen.
 // 3: region by two clicks or a drag (region-select), with a magnifier.
-const API_VERSION = 3;
+// 4: screen mode (F-01).
+const API_VERSION = 4;
 
 const IFACE_XML = `
 <node>
@@ -30,14 +31,15 @@ const IFACE_XML = `
       Freezes the screen, shows the capture overlay and returns what the
       user selected. W and R switch between window and region in it.
       options:
-        mode (s): "window" (default) or "region": the mode the overlay
-                  starts in.
+        mode (s): "window" (default), "region" or "screen": the mode the
+                  overlay starts in (W, R, S switch in it).
         crop (s): window captures only. "frame" (default) crops to the
                   visible window, "buffer" keeps client-side shadow margins.
         region-select (s): "clicks" (default): two clicks set the corners;
                   "drag": press, drag, release (D-023).
       png:  the capture as PNG with alpha channel.
-      info: mode ("window" or "region"), scale, width, height (image px);
+      info: mode ("window", "region" or "screen"), scale, width, height
+            (image px); screen: one monitor or all (rect, pixels as region);
             window: title, app-id, wm-class, frame-rect, buffer-rect, crop;
             region: rect (logical px), pixels (physical px).
     -->
@@ -126,7 +128,7 @@ async function encodeWindow(entry, crop) {
  * @param {object} region - {x, y, width, height} in physical px (texture px)
  * @returns {Promise<[GLib.Bytes, object]>} PNG bytes and info dictionary
  */
-async function encodeRegion(frozen, region) {
+async function encodeRegion(frozen, region, mode = Mode.REGION) {
     const texture = frozen.content.get_texture();
     const scale = frozen.scale;
     // Inside the texture.
@@ -141,7 +143,7 @@ async function encodeRegion(frozen, region) {
         width: Math.round(width / scale), height: Math.round(height / scale),
     };
     const info = {
-        'mode': GLib.Variant.new_string(Mode.REGION),
+        'mode': GLib.Variant.new_string(mode),
         'rect': rectVariant(logical),
         'pixels': rectVariant({x, y, width, height}),
         'scale': GLib.Variant.new_double(scale),
@@ -198,7 +200,7 @@ class SnapService {
         const mode = options.mode ?? Mode.WINDOW;
         const crop = options.crop ?? 'frame';
         const how = options['region-select'] ?? RegionSelect.CLICKS;
-        if (mode !== Mode.WINDOW && mode !== Mode.REGION)
+        if (!Object.values(Mode).includes(mode))
             throw new CaptureError('InvalidArgs', `Unknown mode "${mode}"`);
         if (crop !== 'frame' && crop !== 'buffer')
             throw new CaptureError('InvalidArgs', `Unknown crop "${crop}"`);
@@ -216,7 +218,7 @@ class SnapService {
                 throw new CaptureError('Cancelled', 'Cancelled by the user');
             if (result.mode === Mode.WINDOW)
                 return await encodeWindow(result.window, crop);
-            return await encodeRegion(frozen, result.region);
+            return await encodeRegion(frozen, result.region, result.mode);
         } finally {
             this._selection = null;
             this._busy = false;

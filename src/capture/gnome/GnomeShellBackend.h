@@ -17,13 +17,14 @@ public:
     QString unavailableReason() const override;
     void captureWindow() override;
     void captureRegion() override;
+    void captureScreen() override;
 
     // Turns the extension's reply (PNG bytes and info dictionary) into a
     // result; public for the tests.
     static CaptureResult resultFromReply(const QByteArray &png, const QVariantMap &info);
 
 private:
-    // `mode` is "window" or "region".
+    // `mode` is "window", "region" or "screen".
     void capture(const QString &mode);
     // API version of the running extension, 0 if unknown.
     uint extensionVersion() const;
