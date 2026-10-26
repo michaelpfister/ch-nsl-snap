@@ -27,9 +27,13 @@ add_library(nsl_snap_core STATIC
     src/app/ToolRail.h
     src/capture/CaptureBackend.cpp
     src/capture/CaptureBackend.h
+    src/capture/CaptureOverlay.cpp
+    src/capture/CaptureOverlay.h
     src/capture/CaptureResult.h
     src/capture/PickGeometry.cpp
     src/capture/PickGeometry.h
+    src/capture/RegionSelector.cpp
+    src/capture/RegionSelector.h
     src/editor/Commands.cpp
     src/editor/Commands.h
     src/editor/DimItem.cpp
@@ -94,8 +98,6 @@ if(WIN32)
     target_sources(nsl_snap_core PRIVATE
         src/capture/windows/WgcCapture.cpp
         src/capture/windows/WgcCapture.h
-        src/capture/windows/WindowPicker.cpp
-        src/capture/windows/WindowPicker.h
         src/capture/windows/WindowsBackend.cpp
         src/capture/windows/WindowsBackend.h
     )

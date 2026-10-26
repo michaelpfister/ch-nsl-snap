@@ -2,6 +2,7 @@
 // (D-011) and the picking geometry of the Windows overlay (D-022).
 
 #include "capture/PickGeometry.h"
+#include "capture/RegionSelector.h"
 #ifdef NSL_HAVE_GNOME_BACKEND
 #include "capture/gnome/GnomeShellBackend.h"
 #endif
@@ -59,6 +60,71 @@ private slots:
         QCOMPARE(PickGeometry::frameInCapture(frame.size(), windowRect, frame), QRect(0, 0, 800, 500));
         // Never outside the image.
         QCOMPARE(PickGeometry::frameInCapture(QSize(700, 400), windowRect, frame), QRect(0, 0, 700, 400));
+    }
+
+    void twoClicksSelectARegion()
+    {
+        RegionSelector selector;
+        selector.press(QPoint(100, 50));
+        selector.release(QPoint(100, 50));
+        QCOMPARE(selector.state(), RegionSelector::State::Started);
+        // The region follows the pointer, both corner pixels included.
+        selector.move(QPoint(40, 80));
+        QCOMPARE(selector.region(), QRect(QPoint(40, 50), QPoint(100, 80)));
+        selector.press(QPoint(299, 149));
+        QCOMPARE(selector.state(), RegionSelector::State::Done);
+        QCOMPARE(selector.region(), QRect(100, 50, 200, 100));
+    }
+
+    void accidentalDoubleClickIsIgnored()
+    {
+        RegionSelector selector;
+        selector.press(QPoint(10, 10));
+        selector.release(QPoint(10, 10));
+        selector.press(QPoint(11, 10)); // 2 × 1 px: too small
+        QCOMPARE(selector.state(), RegionSelector::State::Started);
+        selector.release(QPoint(11, 10));
+        selector.press(QPoint(20, 30));
+        QCOMPARE(selector.state(), RegionSelector::State::Done);
+    }
+
+    void dragWorksInBothModes()
+    {
+        for (const auto mode : {RegionSelector::Mode::Clicks, RegionSelector::Mode::Drag}) {
+            RegionSelector selector(mode);
+            selector.press(QPoint(10, 10));
+            selector.move(QPoint(12, 12)); // within the threshold: still a click
+            QCOMPARE(selector.state(), RegionSelector::State::Pressed);
+            selector.move(QPoint(60, 40));
+            QCOMPARE(selector.state(), RegionSelector::State::Dragging);
+            selector.release(QPoint(60, 40));
+            QCOMPARE(selector.state(), RegionSelector::State::Done);
+            QCOMPARE(selector.region(), QRect(QPoint(10, 10), QPoint(60, 40)));
+        }
+    }
+
+    void dragModeIgnoresPlainClicks()
+    {
+        RegionSelector selector(RegionSelector::Mode::Drag);
+        selector.press(QPoint(10, 10));
+        selector.release(QPoint(10, 10));
+        QCOMPARE(selector.state(), RegionSelector::State::Idle);
+        QVERIFY(selector.region().isEmpty());
+    }
+
+    void keyboardClicksAndDiscard()
+    {
+        // Enter or Space at the (arrow-key) position, in both modes.
+        RegionSelector selector(RegionSelector::Mode::Drag);
+        selector.click(QPoint(5, 5));
+        QCOMPARE(selector.state(), RegionSelector::State::Started);
+        selector.discard(); // Backspace
+        QCOMPARE(selector.state(), RegionSelector::State::Idle);
+        selector.click(QPoint(5, 5));
+        selector.move(QPoint(9, 7));
+        selector.click(QPoint(9, 7));
+        QCOMPARE(selector.region(), QRect(5, 5, 5, 3));
+        QCOMPARE(selector.state(), RegionSelector::State::Done);
     }
 
 #ifdef NSL_HAVE_GNOME_BACKEND

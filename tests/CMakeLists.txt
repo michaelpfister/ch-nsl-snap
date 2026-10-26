@@ -29,6 +29,11 @@ qt_add_executable(tst_capture tst_capture.cpp)
 target_link_libraries(tst_capture PRIVATE nsl_snap_core Qt6::Test)
 add_test(NAME tst_capture COMMAND tst_capture)
 
+qt_add_executable(tst_overlay tst_overlay.cpp)
+target_link_libraries(tst_overlay PRIVATE nsl_snap_core Qt6::Test)
+add_test(NAME tst_overlay COMMAND tst_overlay)
+set_tests_properties(tst_overlay PROPERTIES ENVIRONMENT "${NSL_OFFSCREEN_ENV}")
+
 # Captures real windows with Windows.Graphics.Capture: needs a desktop
 # session, so it uses the normal "windows" platform, not offscreen.
 if(WIN32)
@@ -41,7 +46,7 @@ endif()
 # to the debugger instead of the console; tests must be console programs,
 # so ctest --output-on-failure shows what failed.
 if(WIN32)
-    foreach(test_target tst_windowimage tst_editor tst_blur tst_view tst_capture tst_wincapture)
+    foreach(test_target tst_windowimage tst_editor tst_blur tst_view tst_capture tst_overlay tst_wincapture)
         set_target_properties(${test_target} PROPERTIES WIN32_EXECUTABLE FALSE)
     endforeach()
 endif()

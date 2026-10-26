@@ -1,15 +1,16 @@
 #pragma once
 
 #include "capture/CaptureBackend.h"
+#include "capture/CaptureOverlay.h"
 
 #include <memory>
 
-class WindowPicker;
 namespace WgcCapture { class Freeze; struct Window; }
 
-// Window capture on Windows (D-022): freezes every window with
-// Windows.Graphics.Capture, lets the user pick one on the frozen screen in
-// the app's own overlay, and returns that window as it was at the freeze.
+// Capture on Windows (D-022, D-023): freezes every window with
+// Windows.Graphics.Capture and the monitors with GDI, lets the user pick a
+// window or select a region on the frozen screen in the app's own overlay,
+// and returns it as it was at the freeze.
 class WindowsBackend : public CaptureBackend
 {
     Q_OBJECT
@@ -22,7 +23,6 @@ public:
     QString unavailableReason() const override;
     void captureWindow() override;
     void captureRegion() override;
-    bool supportsRegion() const override { return false; }
 
     // The radius Windows 11 gives the window's corners on the screen, in
     // logical px; the capture itself is square (D-022). 0 before Windows 11,
@@ -30,9 +30,12 @@ public:
     static double cornerRadius(const WgcCapture::Window &window);
 
 private:
-    void onPicked(int index);
+    void start(CaptureOverlay::Mode mode);
+    void onWindowPicked(int index);
+    void onRegionSelected(const QRect &native);
     void finish();
 
     std::unique_ptr<WgcCapture::Freeze> m_freeze;
-    WindowPicker *m_picker = nullptr;
+    QList<CaptureOverlay::Screen> m_screens;
+    CaptureOverlay *m_overlay = nullptr;
 };

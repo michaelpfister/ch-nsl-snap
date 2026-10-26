@@ -6,6 +6,7 @@ namespace Settings {
 
 namespace {
 const char *const kAdvancedMode = "editor/advancedMode";
+const char *const kRegionByDragging = "capture/regionByDragging";
 }
 
 bool advancedMode()
@@ -16,6 +17,16 @@ bool advancedMode()
 void setAdvancedMode(bool enabled)
 {
     QSettings().setValue(kAdvancedMode, enabled);
+}
+
+bool regionByDragging()
+{
+    return QSettings().value(kRegionByDragging, false).toBool();
+}
+
+void setRegionByDragging(bool enabled)
+{
+    QSettings().setValue(kRegionByDragging, enabled);
 }
 
 } // namespace Settings

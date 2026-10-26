@@ -26,13 +26,20 @@ public:
     virtual void captureWindow() = 0;
     // Lets the user drag a rectangle on the frozen screen (F-03).
     virtual void captureRegion() = 0;
-    // False where region capture is not written yet (Windows).
+    // False where region capture is not written yet.
     virtual bool supportsRegion() const { return true; }
+
+    // How a region is selected (D-023): two clicks, or dragging.
+    void setRegionByDragging(bool enabled) { m_regionByDragging = enabled; }
+    bool regionByDragging() const { return m_regionByDragging; }
 
 signals:
     void captured(const CaptureResult &result);
     void cancelled();
     void failed(const QString &message);
+
+private:
+    bool m_regionByDragging = false;
 };
 
 // Returns the backend for the platform the app runs on.

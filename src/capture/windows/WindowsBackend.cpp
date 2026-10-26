@@ -2,9 +2,9 @@
 
 #include "capture/PickGeometry.h"
 #include "capture/windows/WgcCapture.h"
-#include "capture/windows/WindowPicker.h"
 
 #include <QGuiApplication>
+#include <QPainter>
 #include <QOperatingSystemVersion>
 #include <QScreen>
 // The monitors' native (physical) geometry is only available from Qt's
@@ -16,6 +16,7 @@
 #endif
 #include <windows.h>
 
+#include <algorithm>
 #include <cmath>
 
 namespace {
@@ -86,47 +87,54 @@ QString WindowsBackend::unavailableReason() const
     return tr("Die Fensteraufnahme braucht Windows 10 ab Version 1903 oder Windows 11.");
 }
 
-void WindowsBackend::captureRegion()
-{
-    emit failed(tr("Die Bereichsaufnahme folgt unter Windows."));
-}
-
 void WindowsBackend::captureWindow()
 {
-    if (m_picker)
+    start(CaptureOverlay::Mode::Window);
+}
+
+void WindowsBackend::captureRegion()
+{
+    start(CaptureOverlay::Mode::Region);
+}
+
+void WindowsBackend::start(CaptureOverlay::Mode mode)
+{
+    if (m_overlay)
         return;
     if (!isAvailable()) {
         emit failed(unavailableReason());
         return;
     }
 
-    // Freeze first (D-011): every window on its own, and the monitors as
-    // the overlay's background.
+    // Freeze first (D-011): every window on its own, and the monitors for
+    // the overlay's background and for region captures.
     m_freeze = WgcCapture::Freeze::capture();
-    QList<WindowPicker::Screen> screens;
+    m_screens.clear();
     for (QScreen *screen : QGuiApplication::screens()) {
         const QRect native = screen->handle()->geometry();
-        screens.append({screen, native, grabMonitor(native)});
+        m_screens.append({screen, native, grabMonitor(native)});
     }
     QList<QRect> frames;
     for (const WgcCapture::Window &window : m_freeze->windows())
         frames << toQRect(window.frame);
-    if (frames.isEmpty()) {
-        m_freeze.reset();
+    if (frames.isEmpty() && mode == CaptureOverlay::Mode::Window) {
+        finish();
         emit failed(tr("Es wurde kein Fenster gefunden, das aufgenommen werden kann."));
         return;
     }
 
-    m_picker = new WindowPicker(screens, frames, this);
-    connect(m_picker, &WindowPicker::picked, this, &WindowsBackend::onPicked);
-    connect(m_picker, &WindowPicker::cancelled, this, [this] {
+    m_overlay = new CaptureOverlay(m_screens, frames, mode,
+                                   regionByDragging() ? RegionSelector::Mode::Drag : RegionSelector::Mode::Clicks, this);
+    connect(m_overlay, &CaptureOverlay::windowPicked, this, &WindowsBackend::onWindowPicked);
+    connect(m_overlay, &CaptureOverlay::regionSelected, this, &WindowsBackend::onRegionSelected);
+    connect(m_overlay, &CaptureOverlay::cancelled, this, [this] {
         finish();
         emit cancelled();
     });
-    m_picker->show();
+    m_overlay->show();
 }
 
-void WindowsBackend::onPicked(int index)
+void WindowsBackend::onWindowPicked(int index)
 {
     const WgcCapture::Window window = m_freeze->windows()[std::size_t(index)];
     WgcCapture::Pixels pixels;
@@ -159,12 +167,40 @@ void WindowsBackend::onPicked(int index)
     emit captured(result);
 }
 
+void WindowsBackend::onRegionSelected(const QRect &native)
+{
+    // The region from the frozen monitors, in physical pixels; it may span
+    // several monitors.
+    QImage image(native.size(), QImage::Format_RGB32);
+    image.fill(Qt::black);
+    QPainter painter(&image);
+    double scale = 1.0;
+    for (const CaptureOverlay::Screen &screen : std::as_const(m_screens)) {
+        if (!screen.native.intersects(native))
+            continue;
+        painter.drawImage(screen.native.topLeft() - native.topLeft(), screen.picture);
+        // The scale of the monitor that holds the middle of the region.
+        if (screen.native.contains(native.center()))
+            scale = double(screen.native.width()) / std::max(1, screen.screen->geometry().width());
+    }
+    painter.end();
+    finish();
+
+    CaptureResult result;
+    result.kind = CaptureResult::Kind::Region;
+    result.image = image.convertToFormat(QImage::Format_ARGB32);
+    result.scale = scale;
+    result.regionRect = native;
+    emit captured(result);
+}
+
 void WindowsBackend::finish()
 {
     // The frozen frames hold GPU memory; free them right away.
     m_freeze.reset();
-    if (m_picker) {
-        m_picker->deleteLater();
-        m_picker = nullptr;
+    m_screens.clear();
+    if (m_overlay) {
+        m_overlay->deleteLater();
+        m_overlay = nullptr;
     }
 }

@@ -8,4 +8,8 @@ namespace Settings {
 bool advancedMode();
 void setAdvancedMode(bool enabled);
 
+// Region capture (F-03, D-023): false = two clicks (default), true = drag.
+bool regionByDragging();
+void setRegionByDragging(bool enabled);
+
 } // namespace Settings

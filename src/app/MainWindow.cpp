@@ -669,6 +669,8 @@ void MainWindow::startCapture(CaptureResult::Kind kind)
         return;
     }
     modeButton(kind)->setChecked(true);
+    // The overlay can switch to region mode, so it always gets the setting.
+    m_capture->setRegionByDragging(Settings::regionByDragging());
     m_windowButton->setEnabled(false);
     m_regionButton->setEnabled(false);
     // The app hides first, so it is not in the frozen screen (D-011).
