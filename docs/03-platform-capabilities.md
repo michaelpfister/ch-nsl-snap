@@ -24,7 +24,7 @@ macOS (ScreenCaptureKit, macOS 14+) supports everything in the Windows column ex
 
 | Capability | Windows | GNOME / Wayland | Hyprland |
 |---|---|---|---|
-| Global hotkey (e.g. Print), F-42 | `RegisterHotKey`; Windows 11 binds Print to the Snipping Tool by default (Q-15) | Extension keybinding; GNOME binds Print to its own screenshot UI (Q-14) | `bind` in hyprland.conf running the app (not built yet) |
+| Global hotkey (e.g. Print), F-42 | `RegisterHotKey`; Windows 11 binds Print to the Snipping Tool by default (Q-15) | Extension keybinding; GNOME binds Print to its own screenshot UI (Q-14) | `bind` in hyprland.conf running the command line (F-48, D-034), e.g. `nsl-snap --capture-region` |
 | Tray icon | yes | Only with the AppIndicator extension (installed on Zorin by default) | with a bar that has a tray (Waybar) |
 | Clipboard with PNG | yes | yes (Wayland clipboard, also from the extension via `St.Clipboard`) | yes (Wayland clipboard) |
 | Start with session | Autostart / registry | XDG autostart `.desktop` file | `exec-once` in hyprland.conf |
@@ -35,7 +35,7 @@ macOS (ScreenCaptureKit, macOS 14+) supports everything in the Windows column ex
 - Hyprland's permission system (`ecosystem:enforce_permissions`, off by default) asks before the first capture or needs a `permission = <binary>, screencopy, allow` rule; on NixOS the binary path is in the Nix store.
 - No stacking order in Hyprland's window list; the app approximates it (D-031).
 - Without LayerShellQt the overlay is a full-screen window; compositors may animate it.
-- Global keys: apps get none; the countdown is cancelled by clicking it, not with Escape.
+- Global keys: apps get none; captures are bound to keys in hyprland.conf through the command line (D-034). The countdown is cancelled by clicking it, not with Escape.
 
 ## Known limits on GNOME / Wayland
 

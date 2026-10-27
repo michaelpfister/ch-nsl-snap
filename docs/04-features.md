@@ -67,6 +67,7 @@ Not on the original list, added and confirmed on 2026-10-25 (Q-11).
 | F-41 | Save as PNG with a naming scheme and default folder; "save as" | ✓ | ✓ | **Done**: the "Speichern" button and Ctrl+Shift+S open the save dialog with folder and name filled in; Ctrl+S saves directly. Folder and pattern (`{Datum}_{Zeit}_{Titel}`) are settings since 2026-10-26 (D-030). |
 | F-44 | Arrows (WinSnap has them) | ✓ | ✓ | **Done** (2026-10-26, D-028): tool A, drag from start to tip, Shift for 45°; both ends draggable; colour and line width. |
 | F-45 | Tray icon | ✓ | ◐ needs the AppIndicator extension (installed on Zorin) | **Done** (2026-10-26, D-030): capture, open the editor, settings and quit from the tray menu; closing or Escape keeps the app in the tray (setting). |
+| F-48 | Command line: `--capture-window`, `--capture-region`, `--capture-screen`, `--open`, `--delay <s>` (issue #13) | ✓ | ✓ | **Done** (2026-10-27, D-034): for key bindings of the desktop (hyprland.conf `bind`, GNOME custom shortcuts, Windows shortcuts). Without `--open` the capture goes straight to the save folder and its path is printed; with `--open` it appears in the editor. A running app does the capture itself. |
 
 ## Keyboard shortcuts
 
@@ -85,6 +86,7 @@ Modelled on [WinSnap's shortcuts](https://www.ntwind.com/software/winsnap/shortc
 - **GNOME:** registered by the extension (D-011). GNOME itself uses Print, Shift + Print and Alt + Print for its screenshot UI; the extension takes them over while enabled (Q-14).
 - **Windows:** `RegisterHotKey`. Windows 11 opens the Snipping Tool on Print by default; that setting has to be switched off, or we use a keyboard hook (Q-15).
 - **macOS:** Macs have no Print key; the defaults there are still open (Q-16).
+- **Hyprland and other desktops without our extension:** the desktop's own key bindings run the command line (F-48), e.g. `bind = , Print, exec, nsl-snap --capture-region`.
 - Not adopted: Ctrl + Print (active application, all its windows) and Ctrl + Shift + Print (multi-object selection), because these capture modes are not in our scope.
 
 ### F-46 Shortcuts in the app
