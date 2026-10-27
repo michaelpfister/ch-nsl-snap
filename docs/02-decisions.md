@@ -346,3 +346,14 @@ Each entry: context, decision, rationale, consequences. Entries marked **(assump
 **Rationale:** Visible confirmation is what makes the two most used buttons trustworthy; the dialog is the expected behaviour of a "Speichern" button, while the shortcut stays fast for experienced users.
 **Consequences:** On GNOME the tray needs the AppIndicator extension; the settings say so when there is no tray.
 
+## D-031 Nix packaging: `flake.nix` only, nixpkgs' own Qt 6, no NixOS/home-manager module yet
+
+**Context:** A Nix user wanted to build and run the app from their Nix flake-based setup (2026-10-27). docs/07's manual apt + aqtinstall setup does not fit that workflow.
+**Decision:**
+- One `flake.nix` at the repository root, no `default.nix` (the user's own setup is flake-based, and `default.nix`/channels are legacy).
+- Build against **nixpkgs' own `qt6`** packages (currently 6.12), not a pinned 6.8.3: `CMakeLists.txt` only requires `find_package(Qt6 6.8 REQUIRED ...)`, so any nixpkgs Qt 6 ≥ 6.8 satisfies it, and tracking nixpkgs avoids maintaining a second Qt version pin.
+- The flake exposes `packages.nsl-snap` (= `default`, Linux only), `packages.nsl-snap-gnome-extension` (the extension in `gnome-extension/`, schema precompiled), `apps.default` (`nix run`), `devShells.default` (replaces docs/07's Linux setup steps) and `checks.default` (`ctest`, offscreen).
+- No NixOS or home-manager module to install/enable the extension automatically: out of scope for now, since GNOME Shell on Wayland only discovers a (new) extension after a logout/login regardless of how it is packaged (D-011/docs/07), and the user only asked to build and run the app.
+**Rejected:** Pinning Qt to exactly 6.8.3 to mirror CI/docs/07 — adds maintenance (a second place to bump Qt) for no benefit, since the project only needs "6.8 or newer".
+**Consequences:** `CMakeLists.txt` still has no `install()` rules (docs/07 only ever ran the binary from the build directory); the flake's package derivation installs `nsl-snap` into `$out/bin` itself. If a NixOS/home-manager module for the extension is wanted later, see Q-21 in 05-open-questions.md.
+

@@ -15,6 +15,7 @@
 | Q-17 | Bundle the Inter font (SIL Open Font License) with the app, so Windows and macOS look like the design? | yes, before the first Windows/macOS build | packaging |
 | Q-20 | A capture started while the activities overview is open shows the overview in the frozen picture, but window mode highlights the windows at their real places. Close the overview before freezing? | rare: the app hides itself first and the overview is usually closed; not handled yet | F-02 on GNOME |
 | Q-16 | Default global hotkeys on macOS (no Print key; Cmd + Shift + 3/4/5 belong to the system)? | Cmd + Shift + 6 (last mode), 7 (screen), 8 (window), 9 (region) | F-42 on macOS |
+| Q-21 | Should a NixOS/home-manager module install and enable the GNOME extension package automatically (`packages.nsl-snap-gnome-extension`, D-031)? | not yet; build the package by hand and enable it as today (`scripts/dev-install.sh` or manually) | packaging |
 
 ## Resolved
 
