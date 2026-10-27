@@ -15,6 +15,10 @@
 | Q-17 | Bundle the Inter font (SIL Open Font License) with the app, so Windows and macOS look like the design? | yes, before the first Windows/macOS build | packaging |
 | Q-20 | A capture started while the activities overview is open shows the overview in the frozen picture, but window mode highlights the windows at their real places. Close the overview before freezing? | rare: the app hides itself first and the overview is usually closed; not handled yet | F-02 on GNOME |
 | Q-16 | Default global hotkeys on macOS (no Print key; Cmd + Shift + 3/4/5 belong to the system)? | Cmd + Shift + 6 (last mode), 7 (screen), 8 (window), 9 (region) | F-42 on macOS |
+| Q-21 | Do window capture (toplevel export, the window list and its stacking order) and the layer-shell overlay work on a real Hyprland, including multi-monitor and the permission prompt? | yes, from the protocol documentation and unit tests; tested only in a headless Sway so far | D-031 on Hyprland |
+| Q-22 | Use ext-image-copy-capture (compositor-neutral, also windows) instead of wlr-screencopy and hyprland-toplevel-export once the compositors in use offer it? | later; would give window capture on more desktops | D-031 |
+| Q-23 | Rotated monitors (Wayland output transform) on Hyprland and Sway: is the frozen picture already upright? | not handled; untested | D-031 |
+| Q-24 | Hyprland rounds window corners only when composing (decoration:rounding); round the capture like on Windows 11 (D-022)? | no: square, as the window buffer is | D-031 |
 
 ## Resolved
 

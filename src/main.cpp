@@ -1,4 +1,5 @@
 #include "app/MainWindow.h"
+#include "app/PlatformTheme.h"
 #include "ui/Theme.h"
 
 #include <QApplication>
@@ -6,6 +7,8 @@
 
 int main(int argc, char *argv[])
 {
+    // Before Qt loads its platform theme (D-033).
+    PlatformTheme::avoidBrokenGtk();
     QApplication app(argc, argv);
     QApplication::setApplicationName(QStringLiteral("NSL Snap"));
     QApplication::setOrganizationDomain(QStringLiteral("netslash.ch"));

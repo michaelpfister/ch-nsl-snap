@@ -13,10 +13,10 @@ Each entry: context, decision, rationale, consequences. Entries marked **(assump
 - Flameshot/Ksnip: no real window capture on GNOME/Wayland (they only get the full screen through the portal).
 **Consequences:** If the feature list later turns out to be close to Flameshot or Ksnip, a fork remains an option for the editor part.
 
-## D-002 Target platforms: Windows, macOS and GNOME on Wayland
+## D-002 Target platforms: Windows, macOS, GNOME and Hyprland on Wayland
 
-**Decision:** Windows 10/11, macOS 14 or later, and GNOME (46 and later) on Wayland are first-class. Other Wayland desktops only get the portal fallback. X11 is not a goal.
-**Rationale:** Windows and GNOME are in daily use. macOS was added on 2026-10-25 so that screenshots look the same on all platforms the team uses. KDE would allow more (KWin ScreenShot2), but nobody uses it here.
+**Decision:** Windows 10/11, macOS 14 or later, GNOME (46 and later) on Wayland and, since 2026-10-27, **Hyprland** on Wayland (D-031) are first-class. Other wlroots-based Wayland desktops (Sway, river, Wayfire, ...) get region and screen capture through wlr-screencopy (D-031), all others the portal (D-032). X11 is not a goal.
+**Rationale:** Windows and GNOME are in daily use. macOS was added on 2026-10-25 so that screenshots look the same on all platforms the team uses. Hyprland was added on 2026-10-27 because a team member uses it on NixOS (issue #11); it offers window capture to normal apps, so it gets the full feature set without an extension. KDE would allow more (KWin ScreenShot2), but nobody uses it here.
 **Consequences (macOS):**
 - Capture via ScreenCaptureKit: windows can be listed and captured individually, also when covered, without system shadow and with transparent corners. No extension needed. macOS 14 is required for `SCScreenshotManager`.
 - The user grants the "Screen Recording" permission once; macOS 15 asks again periodically.
@@ -346,3 +346,35 @@ Each entry: context, decision, rationale, consequences. Entries marked **(assump
 **Rationale:** Visible confirmation is what makes the two most used buttons trustworthy; the dialog is the expected behaviour of a "Speichern" button, while the shortcut stays fast for experienced users.
 **Consequences:** On GNOME the tray needs the AppIndicator extension; the settings say so when there is no tray.
 
+## D-031 Wayland without GNOME: freeze with wlr-screencopy, windows from Hyprland, pick in the app's own overlay
+
+**Context:** A team member uses Hyprland on NixOS without GNOME (issue #11). The GNOME extension (D-003) does not exist there, and neither does the portal fallback D-002 promised. "Wayland does not allow capturing" is not quite right: Wayland itself forbids nothing; each compositor decides what it offers to apps. GNOME offers nothing, hence the extension. wlroots-based compositors offer **wlr-screencopy** (pictures of whole monitors) to every app; Hyprland additionally offers **hyprland-toplevel-export** (the contents of one window, also when covered) and its control socket (the `hyprctl` one), which lists every window with its position, size, monitor and workspace in logical pixels.
+**Decision:**
+- **Backend choice at start** (`createCaptureBackend`): GNOME (by `XDG_CURRENT_DESKTOP` or a running extension) keeps the extension. Otherwise, if the compositor offers wlr-screencopy, `WaylandBackend`; else the portal (D-032).
+- **Freeze** (`src/capture/wayland/WaylandFreeze`): one wlr-screencopy frame per monitor and, on Hyprland, one toplevel-export frame per visible window, all requested together, copied into shared memory (wl_shm, no dmabuf), without the pointer. The app talks Wayland itself through Qt's connection but on its own event queue (`WaylandConnection`), with the protocol files in `protocols/` and C code from `wayland-scanner`. Waits up to 20 s, because Hyprland may first ask the user (below).
+- **Windows** (`HyprlandIpc`): `j/clients` and `j/monitors` from the control socket, right before the freeze. Visible are the mapped, not hidden windows on each monitor's active workspace, its open special workspace, and pinned ones. Hyprland reports no stacking order; it is approximated: special workspace, pinned, full screen, floating, tiled, each group by how recently it had the focus. The handle for the export is the lower 32 bits of the window's address. Hyprland's border and rounding are drawn by the compositor and are not in the picture (D-004); a client's own shadow margins are cut off at the bounding box of the fully opaque pixels.
+- **Pick:** the same overlay as on Windows (`CaptureOverlay`, D-022, D-023, D-024), one window per monitor. Wayland lets no app position its windows or keep them on top, and a tiling compositor would tile the overlay: with KDE's **LayerShellQt** (optional at build time, in the Nix package) the overlay is a wlr-layer-shell surface on the overlay layer with the keyboard; without it, it is shown full screen. The countdown (F-04) is a centred layer surface, or a fixed-size window, which tiling compositors float.
+- **Coordinates:** Wayland has only logical coordinates. The app makes its own "native" ones (`PickGeometry::nativeLayout`): each monitor as large as its picture, placed per axis so that monitors never overlap and monitors side by side touch, also with mixed scales.
+- Every capture stays interactive (D-003): the user picks on the frozen picture in the app's overlay.
+**Rationale:** The same workflow and result as on GNOME and Windows, without an extension and without a system dialog per capture.
+**Rejected:**
+- An external tool (`grim`, `slurp`, `hyprshot`) with its output piped into the editor: no freeze before the selection (D-011), no window list, and one more dependency. It was the fallback considered first.
+- ext-image-copy-capture (the newer, compositor-neutral protocol): not yet offered by every Hyprland version in use; worth a look later (Q-22).
+- Window capture on other wlroots desktops: they offer no window list to apps.
+**Consequences:**
+- Hyprland with `ecosystem:enforce_permissions = true` asks once whether NSL Snap may capture (`screencopy`), or needs a `permission` rule for its binary; a refused permission gives a black picture with "permission denied".
+- Tested in a headless Sway (2026-10-27): freeze of two monitors with scales 1 and 2, region and screen capture through the overlay with keyboard input, the countdown, Escape. Hyprland's window list and window export are only covered by unit tests with recorded `hyprctl` output, not yet on a real Hyprland (Q-21).
+- Rotated monitors (output transform) are not handled yet (Q-23).
+
+## D-032 Other Wayland desktops: the Screenshot portal as the freeze
+
+**Context:** Wayland desktops that offer neither the GNOME extension nor wlr-screencopy, e.g. KDE Plasma. D-002 promised a portal fallback.
+**Decision:** `PortalBackend` calls `org.freedesktop.portal.Screenshot.Screenshot` with `interactive = false`: the portal returns one picture of the whole desktop without a dialog of its own (some desktops ask once for permission). The app cuts it into the monitors (`splitDesktop`) and lets the user select a region or a monitor in its own overlay, so the freeze comes first (D-011). A picture the portal left in a temporary folder is deleted; one it saved elsewhere stays. There is no window capture: the portal lists no windows, and the ScreenCast portal's window picker asks every time (D-003).
+**Consequences:** Tested in a headless Sway with xdg-desktop-portal-wlr (2026-10-27). The frontend only offers the Screenshot portal when an Access portal (e.g. xdg-desktop-portal-gtk) is installed.
+
+## D-033 No GTK platform theme where GTK would abort the app
+
+**Context:** Issue #11: on NixOS the app aborted when saving: `GLib-GIO-ERROR: No GSettings schemas are installed on the system`. Qt uses its GTK platform theme when `QT_QPA_PLATFORMTHEME=gtk3` (common on NixOS) or by default on GTK-based desktops. GTK reads its settings through GSettings; a binary that is not wrapped with the schema paths finds none, and GLib aborts instead of reporting an error. Reproduced in the headless Sway: Qt's own dialog (`DontUseNativeDialog`) aborts too, because the GTK theme also reads settings for icons.
+**Decision:** Before the `QApplication` is created, `PlatformTheme::avoidBrokenGtk()` checks whether Qt would load the GTK theme and none of GLib's schema folders holds GTK's file chooser schema. Then it sets `QT_QPA_PLATFORMTHEME=xdgdesktopportal`: file dialogs come from the desktop portal if one offers them, otherwise from Qt itself. The Nix package wraps the binary with the GTK schema paths (`wrapGAppsHook3`), so there the GTK theme works as configured.
+**Rationale:** A missing schema is a packaging fault outside the app, but it must not cost the user their screenshot.
+**Consequences:** A user who asked for the GTK theme gets the portal's theme in this case; a note on stderr says so.

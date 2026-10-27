@@ -34,6 +34,15 @@ target_link_libraries(tst_overlay PRIVATE nsl_snap_core Qt6::Test)
 add_test(NAME tst_overlay COMMAND tst_overlay)
 set_tests_properties(tst_overlay PROPERTIES ENVIRONMENT "${NSL_OFFSCREEN_ENV}")
 
+# Capture on Wayland without GNOME (D-031, D-032): the parts that need no
+# compositor.
+if(LINUX)
+    qt_add_executable(tst_wayland tst_wayland.cpp)
+    target_link_libraries(tst_wayland PRIVATE nsl_snap_core Qt6::Test)
+    add_test(NAME tst_wayland COMMAND tst_wayland)
+    set_tests_properties(tst_wayland PROPERTIES ENVIRONMENT "${NSL_OFFSCREEN_ENV}")
+endif()
+
 # Captures real windows with Windows.Graphics.Capture: needs a desktop
 # session, so it uses the normal "windows" platform, not offscreen.
 if(WIN32)
