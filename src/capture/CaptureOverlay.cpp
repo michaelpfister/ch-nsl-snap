@@ -1,6 +1,9 @@
 #include "capture/CaptureOverlay.h"
 
 #include "capture/PickGeometry.h"
+#ifdef NSL_HAVE_WAYLAND_BACKEND
+#include "capture/wayland/LayerShell.h"
+#endif
 
 #include <QCursor>
 #include <QGuiApplication>
@@ -54,6 +57,21 @@ public:
         }
         // Physical pixels per logical pixel of this monitor.
         m_dpr = double(m_native.width()) / std::max(1, width());
+#ifdef NSL_HAVE_WAYLAND_BACKEND
+        // Wayland ignores positions and "stay on top" (D-031): a layer
+        // surface above all windows where the compositor offers one.
+        m_layer = LayerShell::makeOverlay(this, screen.screen);
+#endif
+    }
+
+    // On Wayland without layer-shell, full screen is the only way to
+    // cover a monitor; the compositor picks the monitor from screen().
+    void present()
+    {
+        if (!m_layer && QGuiApplication::platformName() == QLatin1String("wayland"))
+            showFullScreen();
+        else
+            show();
     }
 
     const QRect &native() const { return m_native; }
@@ -269,6 +287,7 @@ private:
     QImage m_picture;
     double m_dpr = 1.0;
     bool m_primary = false;
+    bool m_layer = false;
     QPoint m_ignoreMoveAt = QPoint(-1000000, -1000000);
 };
 
@@ -301,7 +320,7 @@ QList<QWidget *> CaptureOverlay::windows() const
 void CaptureOverlay::show()
 {
     for (OverlayWindow *window : std::as_const(m_windows))
-        window->show();
+        window->present();
     // Keyboard input goes to the overlay under the pointer, or the first.
     OverlayWindow *active = m_windows.isEmpty() ? nullptr : m_windows.first();
     for (OverlayWindow *window : std::as_const(m_windows)) {

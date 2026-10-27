@@ -23,7 +23,7 @@ jobs:
       - name: Install system packages
         run: |
           sudo apt-get update
-          sudo apt-get install -y ninja-build libgl-dev libegl-dev libopengl-dev libxkbcommon-dev libvulkan-dev libxcb-cursor0
+          sudo apt-get install -y ninja-build libgl-dev libegl-dev libopengl-dev libxkbcommon-dev libvulkan-dev libxcb-cursor0 libwayland-dev
 
       # Qt 6.8.3 via aqtinstall, as on the development machines (D-013);
       # never the distribution's Qt 6.4.
