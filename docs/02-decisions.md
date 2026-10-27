@@ -363,7 +363,7 @@ Each entry: context, decision, rationale, consequences. Entries marked **(assump
 - Window capture on other wlroots desktops: they offer no window list to apps.
 **Consequences:**
 - Hyprland with `ecosystem:enforce_permissions = true` asks once whether NSL Snap may capture (`screencopy`), or needs a `permission` rule for its binary; a refused permission gives a black picture with "permission denied".
-- Tested in a headless Sway (2026-10-27): freeze of two monitors with scales 1 and 2, region and screen capture through the overlay with keyboard input, the countdown, Escape. Hyprland's window list and window export are only covered by unit tests with recorded `hyprctl` output, not yet on a real Hyprland (Q-21).
+- Tested in a headless Sway (2026-10-27): freeze of two monitors with scales 1 and 2, region and screen capture through the overlay with keyboard input, the countdown, Escape. Hyprland's window list and window export have unit tests with recorded `hyprctl` output; on a real Hyprland (NixOS, Nix package from the flake) a user reported that everything works, saving included (2026-10-27, issue #11, Q-21).
 - Rotated monitors (output transform) are not handled yet (Q-23).
 
 ## D-032 Other Wayland desktops: the Screenshot portal as the freeze
