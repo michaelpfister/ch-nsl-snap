@@ -1,6 +1,7 @@
 #include "app/SettingsDialog.h"
 
 #include "app/FileNames.h"
+#include "app/GlobalHotkeys.h"
 #include "app/Settings.h"
 
 #include <QButtonGroup>
@@ -9,8 +10,11 @@
 #include <QDateTime>
 #include <QDialogButtonBox>
 #include <QDir>
+#include <QApplication>
 #include <QFileDialog>
+#include <QGridLayout>
 #include <QHBoxLayout>
+#include <QKeySequenceEdit>
 #include <QLabel>
 #include <QLineEdit>
 #include <QMessageBox>
@@ -19,8 +23,9 @@
 #include <QTabWidget>
 #include <QVBoxLayout>
 
-SettingsDialog::SettingsDialog(QWidget *parent)
+SettingsDialog::SettingsDialog(GlobalHotkeys *hotkeys, QWidget *parent)
     : QDialog(parent)
+    , m_hotkeys(hotkeys)
 {
     setWindowTitle(tr("Einstellungen"));
     setMinimumWidth(540);
@@ -94,6 +99,10 @@ SettingsDialog::SettingsDialog(QWidget *parent)
     connect(tray, &QCheckBox::toggled, this, [](bool enabled) { Settings::setCloseToTray(enabled); });
 
     layout->addStretch(1);
+
+    // --- Tastenkürzel (F-42) ---
+    if (m_hotkeys)
+        createHotkeyPage(page(tr("Tastenkürzel")));
 
     // --- Speichern (F-41): folder and file name pattern ---
     layout = page(tr("Speichern"));
@@ -181,5 +190,112 @@ SettingsDialog::SettingsDialog(QWidget *parent)
     connect(m_advanced, &QCheckBox::toggled, this, [this](bool enabled) {
         Settings::setAdvancedMode(enabled);
         emit advancedModeChanged(enabled);
+    });
+}
+
+SettingsDialog::~SettingsDialog()
+{
+    if (m_hotkeys)
+        m_hotkeys->setSuspended(false);
+}
+
+void SettingsDialog::createHotkeyPage(QVBoxLayout *layout)
+{
+    auto *intro = new QLabel(tr("Diese Tasten nehmen auf, auch wenn NSL Snap im Infobereich läuft oder ein anderes "
+                                "Programm aktiv ist. Ein eingestellter Timer gilt auch hier."), this);
+    intro->setProperty("role", QStringLiteral("hint"));
+    intro->setWordWrap(true);
+    layout->addWidget(intro);
+    layout->addSpacing(10);
+
+    auto *grid = new QGridLayout;
+    grid->setHorizontalSpacing(10);
+    grid->setVerticalSpacing(4);
+    grid->setColumnStretch(1, 1);
+    layout->addLayout(grid);
+
+    QList<QKeySequenceEdit *> edits;
+    QList<QLabel *> states;
+    int row = 0;
+    for (GlobalHotkeys::Action action : GlobalHotkeys::actions()) {
+        auto *name = new QLabel(GlobalHotkeys::actionName(action), this);
+        auto *edit = new QKeySequenceEdit(m_hotkeys->key(action), this);
+        edit->setMaximumSequenceLength(1); // one key with modifiers
+        edit->setClearButtonEnabled(true); // no key: switched off
+        edit->setAccessibleName(GlobalHotkeys::actionName(action));
+        auto *standard = new QPushButton(tr("Standard"), this);
+        standard->setProperty("role", QStringLiteral("secondary"));
+        standard->setToolTip(GlobalHotkeys::defaultKey(action).toString(QKeySequence::NativeText));
+        auto *state = new QLabel(this);
+        state->setProperty("role", QStringLiteral("warning"));
+        state->setWordWrap(true);
+        grid->addWidget(name, row, 0);
+        grid->addWidget(edit, row, 1);
+        grid->addWidget(standard, row, 2);
+        grid->addWidget(state, row + 1, 1, 1, 2);
+        row += 2;
+        edits << edit;
+        states << state;
+
+        const auto assign = [this, action](const QKeySequence &key) {
+            Settings::setGlobalHotkey(action, key);
+            m_hotkeys->setKey(action, key);
+        };
+        connect(edit, &QKeySequenceEdit::keySequenceChanged, this, assign);
+        connect(standard, &QPushButton::clicked, this, [edit, action] {
+            edit->setKeySequence(GlobalHotkeys::defaultKey(action)); // calls assign
+        });
+    }
+
+    // Windows' own use of Print (D-031): a note with the way out.
+    layout->addSpacing(12);
+    auto *printNote = new QLabel(tr("Windows öffnet mit der Druck-Taste das Snipping Tool, deshalb erreicht die "
+                                    "Taste NSL Snap nicht. Abhilfe: in den Windows-Einstellungen unter "
+                                    "«Barrierefreiheit › Tastatur» den Schalter zur Druck-Taste ausschalten."), this);
+    printNote->setProperty("role", QStringLiteral("warning"));
+    printNote->setWordWrap(true);
+    layout->addWidget(printNote);
+    auto *openSetting = new QPushButton(tr("Windows-Einstellung öffnen"), this);
+    openSetting->setProperty("role", QStringLiteral("secondary"));
+    auto *settingRow = new QHBoxLayout;
+    settingRow->addWidget(openSetting);
+    settingRow->addStretch(1);
+    layout->addLayout(settingRow);
+    connect(openSetting, &QPushButton::clicked, this, [] { GlobalHotkeys::openPrintKeySetting(); });
+    layout->addStretch(1);
+
+    const auto showStates = [this, states, printNote, openSetting] {
+        bool usesPrint = false;
+        const QList<GlobalHotkeys::Action> actions = GlobalHotkeys::actions();
+        for (int i = 0; i < actions.size(); ++i) {
+            const QKeySequence key = m_hotkeys->key(actions[i]);
+            usesPrint = usesPrint || key == QKeySequence(Qt::Key_Print);
+            unsigned modifiers = 0;
+            unsigned virtualKey = 0;
+            QString text;
+            if (!key.isEmpty() && !GlobalHotkeys::toNative(key, modifiers, virtualKey))
+                text = tr("Diese Taste kann nicht global verwendet werden.");
+            else if (m_hotkeys->isTaken(actions[i]))
+                text = tr("Belegt durch ein anderes Programm oder durch Windows.");
+            states[i]->setText(text);
+            states[i]->setVisible(!text.isEmpty());
+        }
+        const bool blocked = usesPrint && GlobalHotkeys::printKeyOpensSnippingTool();
+        printNote->setVisible(blocked);
+        openSetting->setVisible(blocked);
+    };
+    showStates();
+    connect(m_hotkeys, &GlobalHotkeys::changed, this, showStates);
+    // The Windows setting may change while the dialog is open.
+    connect(qApp, &QApplication::applicationStateChanged, this, showStates);
+
+    // A registered key never reaches the app's own windows, so the hotkeys
+    // pause while a key field has the focus; leaving it registers again
+    // and shows whether the new key is free.
+    connect(qApp, &QApplication::focusChanged, this, [this, edits](QWidget *, QWidget *now) {
+        bool editing = false;
+        for (QKeySequenceEdit *edit : edits)
+            editing = editing || (now && (now == edit || edit->isAncestorOf(now)));
+        m_hotkeys->setSuspended(editing);
     });
 }

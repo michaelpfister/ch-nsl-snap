@@ -105,5 +105,5 @@ ctest --test-dir build --output-on-failure
 build\nsl-snap.exe
 ```
 
-The `PATH` line lets the app and the tests find the Qt DLLs. The tests draw offscreen; on Windows that platform looks for fonts in Qt's own `lib\fonts` folder, which Qt does not ship, so `ctest` points `QT_QPA_FONTDIR` to `C:\Windows\Fonts` (`tests/CMakeLists.txt`). Set it yourself when starting a test program directly. Alternatively `windeployqt build\nsl-snap.exe` copies them next to the executable, so it also starts with a double click.
+The `PATH` line lets the app and the tests find the Qt DLLs. The tests draw offscreen; on Windows that platform looks for fonts in Qt's own `lib\fonts` folder, which Qt does not ship, so `ctest` points `QT_QPA_FONTDIR` to `C:\Windows\Fonts` (`tests/CMakeLists.txt`). Set it yourself when starting a test program directly. Alternatively `windeployqt build\nsl-snap.exe` copies them next to the executable, so it also starts with a double click. The Qt DLLs in `build` then look for plugins there and find only `platforms\qwindows`, so the offscreen tests stop with a "no Qt platform plugin" dialog; set `QT_PLUGIN_PATH=C:\Qt\6.8.3\msvc2022_arm64\plugins` before `ctest`.
 

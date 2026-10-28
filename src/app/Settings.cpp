@@ -88,6 +88,45 @@ void setTrayHintShown(bool shown)
 
 namespace {
 
+QString hotkeySettingsKey(GlobalHotkeys::Action action)
+{
+    switch (action) {
+    case GlobalHotkeys::Action::LastMode: return QStringLiteral("hotkeys/lastMode");
+    case GlobalHotkeys::Action::Screen: return QStringLiteral("hotkeys/screen");
+    case GlobalHotkeys::Action::ActiveWindow: return QStringLiteral("hotkeys/activeWindow");
+    case GlobalHotkeys::Action::Region: return QStringLiteral("hotkeys/region");
+    }
+    return {};
+}
+
+} // namespace
+
+QKeySequence globalHotkey(GlobalHotkeys::Action action)
+{
+    // Stored as Qt's portable text ("Shift+Print"); "" means switched off.
+    const QVariant value = QSettings().value(hotkeySettingsKey(action));
+    if (!value.isValid())
+        return GlobalHotkeys::defaultKey(action);
+    return QKeySequence::fromString(value.toString(), QKeySequence::PortableText);
+}
+
+void setGlobalHotkey(GlobalHotkeys::Action action, const QKeySequence &key)
+{
+    QSettings().setValue(hotkeySettingsKey(action), key.toString(QKeySequence::PortableText));
+}
+
+bool printKeyHintShown()
+{
+    return QSettings().value("hotkeys/printKeyHintShown", false).toBool();
+}
+
+void setPrintKeyHintShown(bool shown)
+{
+    QSettings().setValue("hotkeys/printKeyHintShown", shown);
+}
+
+namespace {
+
 // Colours are stored as "#rrggbb"; an invalid stored value gives `fallback`.
 QColor colorValue(const QSettings &settings, const char *key, const QColor &fallback)
 {

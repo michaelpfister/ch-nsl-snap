@@ -72,7 +72,7 @@ The editor is object-based (D-012): the captured image stays unchanged, annotati
 |---|---|
 | `docs/` | This documentation |
 | `CMakeLists.txt`, `src/` | The app (C++20, Qt 6.8, D-013) |
-| `src/app/` | Main window, top bar, tool rail, properties panel, shortcuts, settings (`Settings`, `SettingsDialog`, stored with QSettings) |
+| `src/app/` | Main window, top bar, tool rail, properties panel, shortcuts, global hotkeys on Windows (`GlobalHotkeys`), settings (`Settings`, `SettingsDialog`, stored with QSettings) |
 | `src/capture/` | `CaptureBackend` interface, `PickGeometry`, and the platform backends (`gnome/`, `windows/`; `macos/` later) |
 | `src/editor/` | Editor view (`QGraphicsView`), later the annotation items (D-012) |
 | `src/ui/` | Theme (colour tokens, style sheet, light/dark) and SVG icons (D-014) |
