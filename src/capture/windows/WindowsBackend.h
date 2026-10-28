@@ -24,6 +24,7 @@ public:
     bool isAvailable() const override;
     QString unavailableReason() const override;
     void captureWindow() override;
+    void captureActiveWindow() override;
     void captureRegion() override;
     void captureScreen() override;
 
@@ -34,8 +35,9 @@ public:
 
 private:
     // After the countdown, if a delay is set (F-04), then freeze and pick.
-    void start(CaptureOverlay::Mode mode);
-    void freezeAndPick(CaptureOverlay::Mode mode);
+    // `activeWindow`: take the foreground window instead of picking.
+    void start(CaptureOverlay::Mode mode, bool activeWindow = false);
+    void freezeAndPick(CaptureOverlay::Mode mode, bool activeWindow);
     void onWindowPicked(int index);
     // A region or a whole monitor (or all), from the frozen monitors.
     void deliverPart(const QRect &native, CaptureResult::Kind kind);

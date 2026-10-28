@@ -2,7 +2,9 @@
 
 #include <QDialog>
 
+class GlobalHotkeys;
 class QCheckBox;
+class QVBoxLayout;
 
 // "Einstellungen" (F2, F-46). Changes apply immediately.
 class SettingsDialog : public QDialog
@@ -10,7 +12,9 @@ class SettingsDialog : public QDialog
     Q_OBJECT
 
 public:
-    explicit SettingsDialog(QWidget *parent = nullptr);
+    // `hotkeys` may be null where the app has no global hotkeys (F-42).
+    explicit SettingsDialog(GlobalHotkeys *hotkeys, QWidget *parent = nullptr);
+    ~SettingsDialog() override;
 
 signals:
     void advancedModeChanged(bool enabled);
@@ -18,5 +22,9 @@ signals:
     void stylesReset();
 
 private:
+    // "Tastenkürzel": the global hotkeys, and whether each one works.
+    void createHotkeyPage(QVBoxLayout *layout);
+
+    GlobalHotkeys *m_hotkeys = nullptr;
     QCheckBox *m_advanced = nullptr;
 };

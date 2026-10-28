@@ -93,6 +93,11 @@ void WindowsBackend::captureWindow()
     start(CaptureOverlay::Mode::Window);
 }
 
+void WindowsBackend::captureActiveWindow()
+{
+    start(CaptureOverlay::Mode::Window, true);
+}
+
 void WindowsBackend::captureRegion()
 {
     start(CaptureOverlay::Mode::Region);
@@ -103,7 +108,7 @@ void WindowsBackend::captureScreen()
     start(CaptureOverlay::Mode::Screen);
 }
 
-void WindowsBackend::start(CaptureOverlay::Mode mode)
+void WindowsBackend::start(CaptureOverlay::Mode mode, bool activeWindow)
 {
     if (m_overlay || m_countdown)
         return;
@@ -112,15 +117,15 @@ void WindowsBackend::start(CaptureOverlay::Mode mode)
         return;
     }
     if (delay() <= 0) {
-        freezeAndPick(mode);
+        freezeAndPick(mode, activeWindow);
         return;
     }
     // The countdown first (F-04); it is off the screen before the freeze.
     m_countdown = new Countdown;
-    connect(m_countdown, &Countdown::finished, this, [this, mode] {
+    connect(m_countdown, &Countdown::finished, this, [this, mode, activeWindow] {
         m_countdown->deleteLater();
         m_countdown = nullptr;
-        freezeAndPick(mode);
+        freezeAndPick(mode, activeWindow);
     });
     connect(m_countdown, &Countdown::cancelled, this, [this] {
         m_countdown->deleteLater();
@@ -130,11 +135,24 @@ void WindowsBackend::start(CaptureOverlay::Mode mode)
     m_countdown->start(delay());
 }
 
-void WindowsBackend::freezeAndPick(CaptureOverlay::Mode mode)
+void WindowsBackend::freezeAndPick(CaptureOverlay::Mode mode, bool activeWindow)
 {
     // Freeze first (D-011): every window on its own, and the monitors for
     // the overlay's background and for region captures.
     m_freeze = WgcCapture::Freeze::capture();
+    if (activeWindow) {
+        // The window that has the focus now: the app itself is hidden, so
+        // this is the one the user worked in. The desktop or the taskbar
+        // are not in the list; then the user picks.
+        const HWND foreground = GetAncestor(GetForegroundWindow(), GA_ROOT);
+        const std::vector<WgcCapture::Window> &windows = m_freeze->windows();
+        for (std::size_t i = 0; i < windows.size(); ++i) {
+            if (windows[i].hwnd == foreground) {
+                onWindowPicked(int(i));
+                return;
+            }
+        }
+    }
     m_screens.clear();
     for (QScreen *screen : QGuiApplication::screens()) {
         const QRect native = screen->handle()->geometry();

@@ -1,5 +1,6 @@
 #include "app/MainWindow.h"
 #include "app/FileNames.h"
+#include "app/GlobalHotkeys.h"
 
 #include "app/PropertiesPanel.h"
 #include "app/Settings.h"
@@ -260,6 +261,7 @@ MainWindow::MainWindow(QWidget *parent)
 
     createTrayIcon();
     createShortcuts();
+    createGlobalHotkeys();
     onToolChanged(m_toolRail->currentTool());
     updateActions();
     updateZoomLabel();
@@ -489,6 +491,53 @@ void MainWindow::createTrayIcon()
     m_tray->show();
     // The app keeps running while only the tray icon is left.
     QApplication::setQuitOnLastWindowClosed(false);
+}
+
+void MainWindow::createGlobalHotkeys()
+{
+    if (!GlobalHotkeys::isSupported())
+        return;
+    m_hotkeys = new GlobalHotkeys(this);
+    for (GlobalHotkeys::Action action : GlobalHotkeys::actions())
+        m_hotkeys->setKey(action, Settings::globalHotkey(action));
+    connect(m_hotkeys, &GlobalHotkeys::triggered, this, [this](GlobalHotkeys::Action action) {
+        // Not while a dialog of the app waits for an answer.
+        if (QApplication::activeModalWidget())
+            return;
+        switch (action) {
+        case GlobalHotkeys::Action::LastMode: captureLastMode(); break;
+        case GlobalHotkeys::Action::Screen: captureScreen(); break;
+        case GlobalHotkeys::Action::ActiveWindow: startCapture(CaptureResult::Kind::Window, -1, true); break;
+        case GlobalHotkeys::Action::Region: captureRegion(); break;
+        }
+    });
+    // After the window is on the screen.
+    QTimer::singleShot(0, this, &MainWindow::showPrintKeyHint);
+}
+
+void MainWindow::showPrintKeyHint()
+{
+    if (Settings::printKeyHintShown() || !GlobalHotkeys::printKeyOpensSnippingTool())
+        return;
+    bool usesPrint = false;
+    for (GlobalHotkeys::Action action : GlobalHotkeys::actions())
+        usesPrint = usesPrint || m_hotkeys->key(action) == QKeySequence(Qt::Key_Print);
+    if (!usesPrint)
+        return;
+    Settings::setPrintKeyHintShown(true);
+
+    QMessageBox box(QMessageBox::Information, tr("Druck-Taste"),
+                    tr("Windows öffnet mit der Druck-Taste das Snipping Tool, deshalb erreicht die Taste "
+                       "NSL Snap nicht."), QMessageBox::NoButton, this);
+    box.setInformativeText(tr("Damit die Druck-Taste mit NSL Snap aufnimmt, in den Windows-Einstellungen unter "
+                              "«Barrierefreiheit › Tastatur» den Schalter zur Druck-Taste ausschalten. "
+                              "Die Tastenkürzel lassen sich auch in den Einstellungen von NSL Snap ändern."));
+    QPushButton *open = box.addButton(tr("Windows-Einstellung öffnen"), QMessageBox::AcceptRole);
+    box.addButton(tr("Später"), QMessageBox::RejectRole);
+    box.setDefaultButton(open);
+    box.exec();
+    if (box.clickedButton() == open)
+        GlobalHotkeys::openPrintKeySetting();
 }
 
 void MainWindow::showEditor()
@@ -906,8 +955,11 @@ QToolButton *MainWindow::modeButton(CaptureResult::Kind kind) const
     return m_windowButton;
 }
 
-void MainWindow::startCapture(CaptureResult::Kind kind, int delay)
+void MainWindow::startCapture(CaptureResult::Kind kind, int delay, bool activeWindow)
 {
+    // A global hotkey can come while a capture runs (F-42).
+    if (m_capturing)
+        return;
     if (kind != CaptureResult::Kind::Window && !m_capture->supportsRegion()) {
         statusBar()->showMessage(tr("Diese Aufnahmeart folgt auf dieser Plattform."), 4000);
         finishRequest(CommandLine::Outcome::Failed, tr("Diese Aufnahmeart folgt auf dieser Plattform."));
@@ -925,12 +977,15 @@ void MainWindow::startCapture(CaptureResult::Kind kind, int delay)
     m_capture->setDelay(delay >= 0 ? delay : m_timer->currentData().toInt());
     for (QToolButton *button : {m_windowButton, m_regionButton, m_screenButton})
         button->setEnabled(false);
+    m_capturing = true;
     // The app hides first, so it is not in the frozen screen (D-011).
     // Started from the tray, a cancelled capture leaves it there.
     m_hiddenBeforeCapture = !isVisible();
     hide();
     void (CaptureBackend::*capture)() = &CaptureBackend::captureWindow;
-    if (kind == CaptureResult::Kind::Region)
+    if (activeWindow)
+        capture = &CaptureBackend::captureActiveWindow;
+    else if (kind == CaptureResult::Kind::Region)
         capture = &CaptureBackend::captureRegion;
     else if (kind == CaptureResult::Kind::Screen)
         capture = &CaptureBackend::captureScreen;
@@ -1029,6 +1084,7 @@ void MainWindow::finishRequest(CommandLine::Outcome outcome, const QString &deta
 
 void MainWindow::onCaptureEnded(bool showWindow)
 {
+    m_capturing = false;
     m_windowButton->setEnabled(true);
     m_regionButton->setEnabled(m_capture->supportsRegion());
     m_screenButton->setEnabled(m_capture->supportsRegion());
@@ -1239,7 +1295,7 @@ void MainWindow::copyFilePath()
 
 void MainWindow::showSettings()
 {
-    SettingsDialog dialog(this);
+    SettingsDialog dialog(m_hotkeys, this);
     connect(&dialog, &SettingsDialog::advancedModeChanged, m_properties, &PropertiesPanel::setAdvancedMode);
     connect(&dialog, &SettingsDialog::stylesReset, this, [this] {
         loadDefaultStyles();

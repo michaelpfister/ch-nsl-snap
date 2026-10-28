@@ -393,3 +393,22 @@ Each entry: context, decision, rationale, consequences. Entries marked **(assump
 **Consequences:**
 - Qt's own GUI options (`-platform` and the like) are not accepted on the command line; use the environment variables (`QT_QPA_PLATFORM`).
 - Tested in a headless Sway (2026-10-27): save without a running app (path printed, exit 0, process ends), hand-over to a running app with an image in the editor (image untouched), `--open` into the running editor and as first start, Escape (exit 1), a second capture while one runs (exit 2).
+
+## D-035 Global hotkeys on Windows: RegisterHotKey, a note about the Print key, taken keys shown in the settings
+
+**Context:** F-42 on Windows. Windows 11 opens the Snipping Tool on Print by default (setting "Use the Print screen key to open screen capture", registry `HKCU\Control Panel\Keyboard\PrintScreenKeyForSnippingEnabled`; without the value it is on since Windows 11 22H2), so Print never reaches other programs. Other programs (OneDrive, WinSnap, Greenshot) may hold the other keys. Resolves Q-15 (2026-10-27).
+**Decision:**
+- The app registers the hotkeys itself with `RegisterHotKey` (`GlobalHotkeys`, no window: `WM_HOTKEY` comes through a native event filter), with `MOD_NOREPEAT`. **No low-level keyboard hook.**
+- Keys after WinSnap: Print (last mode), Shift + Print (screen), Alt + Print (active window), Ctrl + Alt + Print (region). Each can be changed or switched off in the new settings tab "Tastenkürzel"; "Standard" restores it.
+- **Print key:** if a key is plain Print and the Windows setting is on, the app says so **once** at start, with a button that opens the Windows settings page (`ms-settings:easeofaccess-keyboard`). The app never changes the system setting itself. The settings tab shows the same note as long as the setting is on.
+- **Taken keys:** if `RegisterHotKey` fails, the key stays assigned and the settings tab shows "Belegt durch ein anderes Programm oder durch Windows" under it. Keys that cannot be global (e.g. two keys in a row) are marked too.
+- While a key field in the settings has the focus, all hotkeys are unregistered, so the new key reaches the field; leaving it registers again and shows whether the key is free.
+- **Alt + Print** captures the window that has the focus at the freeze (after the countdown, if set), without the overlay (D-011: a key press is user interaction). If it is not a capturable window (desktop, taskbar), the user picks as usual. `CaptureBackend::captureActiveWindow`; other backends fall back to picking.
+- Hotkeys are ignored while a capture runs or a dialog of the app is open.
+**Rationale:** `RegisterHotKey` is the documented way and needs no rights; a keyboard hook would see every key press in the system, is removed silently by Windows after one slow answer (`LowLevelHooksTimeout`) and makes virus scanners suspicious. Changing the user's system setting without asking is not acceptable.
+**Rejected:** a low-level keyboard hook (`WH_KEYBOARD_LL`) to take Print from the Snipping Tool; writing the registry value ourselves.
+**Consequences:**
+- With the Windows setting on, plain Print does not work until the user switches it off; `RegisterHotKey` for Print still succeeds, so the app can only tell from the setting, not from the registration.
+- On the development machine (2026-10-27) Alt + Print was already taken by another process (OneDrive or the Snipping Tool were running); the settings show it.
+- Hotkeys work only while the app runs (tray, F-45); starting with Windows is a separate step (packaging).
+- Tested: key conversion, registration, a taken key, suspending (`tests/tst_hotkeys.cpp`). The key presses themselves, the note and Alt + Print by hand.

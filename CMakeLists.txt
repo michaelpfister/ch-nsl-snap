@@ -22,6 +22,8 @@ add_library(nsl_snap_core STATIC
     src/app/CommandLine.h
     src/app/FileNames.cpp
     src/app/FileNames.h
+    src/app/GlobalHotkeys.cpp
+    src/app/GlobalHotkeys.h
     src/app/MainWindow.cpp
     src/app/MainWindow.h
     src/app/PlatformTheme.cpp

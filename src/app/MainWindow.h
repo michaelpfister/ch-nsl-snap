@@ -12,6 +12,7 @@
 #include <optional>
 
 class CaptureBackend;
+class GlobalHotkeys;
 class EditorView;
 class PropertiesPanel;
 class QComboBox;
@@ -75,7 +76,12 @@ private:
     // Ctrl+N: the mode of the last capture (F-46).
     void captureLastMode();
     // `delay` in seconds; -1: the timer in the top bar (F-04).
-    void startCapture(CaptureResult::Kind kind, int delay = -1);
+    // `activeWindow`: the window with the focus, without picking (F-42).
+    void startCapture(CaptureResult::Kind kind, int delay = -1, bool activeWindow = false);
+    // Global hotkeys (F-42): registers the keys from the settings.
+    void createGlobalHotkeys();
+    // Once on Windows: Print opens the Snipping Tool (D-035).
+    void showPrintKeyHint();
     QToolButton *modeButton(CaptureResult::Kind kind) const;
     void onCaptured(const CaptureResult &result);
     void onCaptureEnded(bool showWindow = true);
@@ -138,6 +144,8 @@ private:
     ToolRail *m_toolRail = nullptr;
     PropertiesPanel *m_properties = nullptr;
     std::unique_ptr<CaptureBackend> m_capture;
+    GlobalHotkeys *m_hotkeys = nullptr;
+    bool m_capturing = false; // from the start until captured/cancelled/failed
     // The mode of the last capture; the overlay can switch it (W, R).
     CaptureResult::Kind m_lastMode = CaptureResult::Kind::Window;
 

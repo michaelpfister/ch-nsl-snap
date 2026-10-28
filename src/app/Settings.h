@@ -1,5 +1,6 @@
 #pragma once
 
+#include "app/GlobalHotkeys.h"
 #include "editor/ArrowStyle.h"
 #include "editor/FrameStyle.h"
 #include "editor/MarkerStyle.h"
@@ -7,6 +8,7 @@
 #include "editor/TextStyle.h"
 
 #include <QColor>
+#include <QKeySequence>
 #include <QList>
 #include <QString>
 
@@ -39,6 +41,14 @@ void setCloseToTray(bool enabled);
 // Whether the "still running in the tray" message was shown once.
 bool trayHintShown();
 void setTrayHintShown(bool shown);
+
+// Global hotkeys (F-42): the key of each action; GlobalHotkeys::defaultKey
+// until changed, an empty sequence when switched off.
+QKeySequence globalHotkey(GlobalHotkeys::Action action);
+void setGlobalHotkey(GlobalHotkeys::Action action, const QKeySequence &key);
+// Whether the note about Windows' Print key setting was shown once (D-035).
+bool printKeyHintShown();
+void setPrintKeyHintShown(bool shown);
 
 // Styles for new objects (F-22): the last ones chosen in the panel, so a
 // restart keeps the colours, widths and sizes the user works with.

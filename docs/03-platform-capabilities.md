@@ -24,7 +24,7 @@ macOS (ScreenCaptureKit, macOS 14+) supports everything in the Windows column ex
 
 | Capability | Windows | GNOME / Wayland | Hyprland |
 |---|---|---|---|
-| Global hotkey (e.g. Print), F-42 | `RegisterHotKey`; Windows 11 binds Print to the Snipping Tool by default (Q-15) | Extension keybinding; GNOME binds Print to its own screenshot UI (Q-14) | `bind` in hyprland.conf running the command line (F-48, D-034), e.g. `nsl-snap --capture-region` |
+| Global hotkey (e.g. Print), F-42 | `RegisterHotKey`; Windows 11 binds Print to the Snipping Tool by default; the user switches that off (D-035) | Extension keybinding; GNOME binds Print to its own screenshot UI (Q-14) | `bind` in hyprland.conf running the command line (F-48, D-034), e.g. `nsl-snap --capture-region` |
 | Tray icon | yes | Only with the AppIndicator extension (installed on Zorin by default) | with a bar that has a tray (Waybar) |
 | Clipboard with PNG | yes | yes (Wayland clipboard, also from the extension via `St.Clipboard`) | yes (Wayland clipboard) |
 | Start with session | Autostart / registry | XDG autostart `.desktop` file | `exec-once` in hyprland.conf |

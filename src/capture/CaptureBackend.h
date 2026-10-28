@@ -24,6 +24,10 @@ public:
 
     // Lets the user pick a window and captures it (F-02).
     virtual void captureWindow() = 0;
+    // Captures the window that is active at the freeze, without picking
+    // (F-42, Alt + Print): a global hotkey is genuine user interaction
+    // (D-011). Falls back to picking where there is no active window.
+    virtual void captureActiveWindow() { captureWindow(); }
     // Lets the user drag a rectangle on the frozen screen (F-03).
     virtual void captureRegion() = 0;
     // Lets the user pick a monitor, or all, on the frozen screen (F-01).
