@@ -237,10 +237,15 @@ MainWindow::MainWindow(QWidget *parent)
     connect(m_capture.get(), &CaptureBackend::cancelled, this, [this] {
         onCaptureEnded(!m_hiddenBeforeCapture);
         statusBar()->showMessage(tr("Aufnahme abgebrochen."), 3000);
+        finishRequest(CommandLine::Outcome::Cancelled);
     });
     connect(m_capture.get(), &CaptureBackend::failed, this, [this](const QString &message) {
-        onCaptureEnded();
-        QMessageBox::warning(this, tr("Aufnahme fehlgeschlagen"), message);
+        // A capture from the command line that only saves leaves a hidden
+        // window hidden; the message comes on its own.
+        const bool onlySave = m_request && !m_request->request.open;
+        onCaptureEnded(!(onlySave && m_hiddenBeforeCapture));
+        QMessageBox::warning(isVisible() ? this : nullptr, tr("Aufnahme fehlgeschlagen"), message);
+        finishRequest(CommandLine::Outcome::Failed, message);
     });
 
     // Feedback on Kopieren / Speichern lasts a moment (showDone).
@@ -901,21 +906,23 @@ QToolButton *MainWindow::modeButton(CaptureResult::Kind kind) const
     return m_windowButton;
 }
 
-void MainWindow::startCapture(CaptureResult::Kind kind)
+void MainWindow::startCapture(CaptureResult::Kind kind, int delay)
 {
     if (kind != CaptureResult::Kind::Window && !m_capture->supportsRegion()) {
         statusBar()->showMessage(tr("Diese Aufnahmeart folgt auf dieser Plattform."), 4000);
+        finishRequest(CommandLine::Outcome::Failed, tr("Diese Aufnahmeart folgt auf dieser Plattform."));
         return;
     }
     if (!m_capture->isAvailable()) {
-        QMessageBox::warning(this, tr("Aufnahme nicht möglich"), m_capture->unavailableReason());
+        QMessageBox::warning(isVisible() ? this : nullptr, tr("Aufnahme nicht möglich"), m_capture->unavailableReason());
         modeButton(m_lastMode)->setChecked(true);
+        finishRequest(CommandLine::Outcome::Failed, m_capture->unavailableReason());
         return;
     }
     modeButton(kind)->setChecked(true);
     // The overlay can switch to region mode, so it always gets the setting.
     m_capture->setRegionByDragging(Settings::regionByDragging());
-    m_capture->setDelay(m_timer->currentData().toInt());
+    m_capture->setDelay(delay >= 0 ? delay : m_timer->currentData().toInt());
     for (QToolButton *button : {m_windowButton, m_regionButton, m_screenButton})
         button->setEnabled(false);
     // The app hides first, so it is not in the frozen screen (D-011).
@@ -932,21 +939,92 @@ void MainWindow::startCapture(CaptureResult::Kind kind)
 
 void MainWindow::onCaptured(const CaptureResult &result)
 {
-    onCaptureEnded();
     // The user may have switched the mode in the overlay; that one counts.
     m_lastMode = result.kind;
+
+    if (m_request && !m_request->request.open) {
+        // From the command line, without --open (F-48): into the save
+        // folder; the window and its image stay as they were.
+        onCaptureEnded(!m_hiddenBeforeCapture);
+        QString error;
+        const QString path = saveCapture(result, &error);
+        if (path.isEmpty()) {
+            QMessageBox::warning(isVisible() ? this : nullptr, tr("Bild speichern"), error);
+            finishRequest(CommandLine::Outcome::Failed, error);
+            return;
+        }
+        statusBar()->showMessage(tr("Gespeichert: %1").arg(path), 6000);
+        if (m_tray && !isVisible())
+            m_tray->showMessage(tr("Aufnahme gespeichert"), path);
+        finishRequest(CommandLine::Outcome::Saved, path);
+        return;
+    }
+
+    onCaptureEnded();
     modeButton(m_lastMode)->setChecked(true);
     if (result.kind == CaptureResult::Kind::Region) {
         // A region is used as it is: no window edges to clean (F-03).
         setImage(result.image, result.scale, tr("Bereich"), tr("Bereich"));
-        return;
-    }
-    if (result.kind == CaptureResult::Kind::Screen) {
+    } else if (result.kind == CaptureResult::Kind::Screen) {
         setImage(result.image, result.scale, tr("Bildschirm"), tr("Bildschirm"));
+    } else {
+        const QImage image = WindowImage::prepare(result);
+        setImage(image, result.scale, result.title, tr("Fenster «%1»").arg(result.title));
+    }
+    finishRequest(CommandLine::Outcome::Opened);
+}
+
+QString MainWindow::saveCapture(const CaptureResult &result, QString *error)
+{
+    // The same image and name the editor would get, without annotations.
+    QImage image = result.image;
+    QString name;
+    switch (result.kind) {
+    case CaptureResult::Kind::Region: name = tr("Bereich"); break;
+    case CaptureResult::Kind::Screen: name = tr("Bildschirm"); break;
+    case CaptureResult::Kind::Window:
+        image = WindowImage::prepare(result);
+        name = result.title;
+        break;
+    }
+    image = image.convertToFormat(QImage::Format_ARGB32);
+    EditorScene::setScaleMetadata(image, result.scale); // D-015
+    const QString folder = Settings::saveFolder();
+    QDir().mkpath(folder);
+    const QString path = QDir(folder).filePath(
+        FileNames::fromPattern(Settings::fileNamePattern(), name, QDateTime::currentDateTime()));
+    if (!image.save(path, "PNG")) {
+        *error = tr("«%1» konnte nicht gespeichert werden.").arg(path);
+        return {};
+    }
+    return path;
+}
+
+void MainWindow::runRequest(const CommandLine::Request &request, const SingleInstance::Reply &reply)
+{
+    if (!request.capture) {
+        showEditor();
+        reply({CommandLine::Outcome::Opened, {}});
         return;
     }
-    const QImage image = WindowImage::prepare(result);
-    setImage(image, result.scale, result.title, tr("Fenster «%1»").arg(result.title));
+    // One capture at a time; the buttons are off while one runs.
+    if (m_request || !m_windowButton->isEnabled()) {
+        reply({CommandLine::Outcome::Failed, tr("Es läuft bereits eine Aufnahme.")});
+        return;
+    }
+    m_request = PendingRequest{request, reply};
+    startCapture(*request.capture, request.delay);
+}
+
+void MainWindow::finishRequest(CommandLine::Outcome outcome, const QString &detail)
+{
+    if (!m_request)
+        return;
+    // Reset first: the reply may quit the app.
+    const SingleInstance::Reply reply = m_request->reply;
+    m_request.reset();
+    if (reply)
+        reply({outcome, detail});
 }
 
 void MainWindow::onCaptureEnded(bool showWindow)

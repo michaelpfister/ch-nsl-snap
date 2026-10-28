@@ -105,7 +105,14 @@ In a NixOS configuration: add the flake as an input and `inputs.nsl-snap.package
 Hyprland settings that matter (hyprland.conf):
 
 - With `ecosystem { enforce_permissions = true }` (off by default) Hyprland asks at the first capture, or a rule allows it: `permission = .*nsl-snap.*, screencopy, allow` (a regular expression on the binary's path; on NixOS the binary is `/nix/store/…-nsl-snap-…/bin/.nsl-snap-wrapped`). Newer Hyprland versions with the Lua configuration write `hl.permission({ binary = ".*nsl-snap.*", type = "screencopy", mode = "allow" })`. Rules are read at Hyprland's start only.
-- A key for capturing (F-42 is not built yet): `bind = , Print, exec, nsl-snap`.
+- Keys for capturing, through the command line (F-48, D-034; `nsl-snap --help` lists the options):
+
+  ```
+  exec-once = nsl-snap                                  # optional: keep it in the tray
+  bind = , Print, exec, nsl-snap --capture-region       # region, saved to the save folder
+  bind = SHIFT, Print, exec, nsl-snap --capture-screen
+  bind = ALT, Print, exec, nsl-snap --capture-window --open   # window, into the editor
+  ```
 
 ## Windows 11 (x64 and ARM64)
 

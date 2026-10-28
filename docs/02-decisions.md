@@ -378,3 +378,18 @@ Each entry: context, decision, rationale, consequences. Entries marked **(assump
 **Decision:** Before the `QApplication` is created, `PlatformTheme::avoidBrokenGtk()` checks whether Qt would load the GTK theme and none of GLib's schema folders holds GTK's file chooser schema. Then it sets `QT_QPA_PLATFORMTHEME=xdgdesktopportal`: file dialogs come from the desktop portal if one offers them, otherwise from Qt itself. The Nix package wraps the binary with the GTK schema paths (`wrapGAppsHook3`), so there the GTK theme works as configured.
 **Rationale:** A missing schema is a packaging fault outside the app, but it must not cost the user their screenshot.
 **Consequences:** A user who asked for the GTK theme gets the portal's theme in this case; a note on stderr says so.
+
+## D-034 Command line for captures; one app per user
+
+**Context:** Issue #13: on Hyprland the global keys (F-42) belong to the compositor; the user wants `bind` lines in hyprland.conf that start a capture, and to choose between "just save" and "open in the editor".
+**Decision:**
+- **Options** (`CommandLine`, F-48): `--capture-window`, `--capture-region`, `--capture-screen` (at most one), `--open`, `--delay <seconds>` (0-60, default 0: the timer in the top bar is not used, the command line says what it wants), `--help`, `--version`. Help and errors work without a display. Exit code 0 saved or opened, 1 cancelled, 2 failed; the saved path goes to stdout, errors to stderr.
+- **Without `--open`:** the capture goes straight into the save folder with the naming pattern (F-41), as Ctrl+S would save it, with the window crop and corner cleanup (D-009, D-010) and the scale in the PNG (D-015). The editor's image stays untouched and a hidden window stays hidden; the tray shows a message where there is one. Errors still show a message box, since a key binding has no terminal.
+- **With `--open`:** the capture appears in the editor, as from the capture buttons.
+- **One app per user** (`SingleInstance`): the first start listens on a local socket (`$XDG_RUNTIME_DIR/ch.netslash.Snap.sock`, a named pipe on Windows), which only the same user may open. A later start sends its arguments there and waits for the answer, so a key binding never opens a second editor or tray icon, and the app's tray setting and window state stay as they are. Started for one capture without `--open`, the app quits after it; with `--open` it stays as the editor. A second capture while one runs is refused (exit 2). A socket left by a crashed app is replaced.
+- Every capture stays interactive (D-003, D-011): the command line only starts the overlay; the user picks on the frozen screen.
+**Rationale:** The desktop's key bindings are the only global keys there are on Hyprland and Sway, and the usual way users wire up screenshot tools (grim, hyprshot) there. Handing requests to the running app keeps its settings, tray icon and the editor's unsaved work in one place.
+**Rejected:** D-Bus activation and a D-Bus interface for the app: not on Windows and macOS, and a socket gives the same with less code. A second process per capture: two tray icons, two editors.
+**Consequences:**
+- Qt's own GUI options (`-platform` and the like) are not accepted on the command line; use the environment variables (`QT_QPA_PLATFORM`).
+- Tested in a headless Sway (2026-10-27): save without a running app (path printed, exit 0, process ends), hand-over to a running app with an image in the editor (image untouched), `--open` into the running editor and as first start, Escape (exit 1), a second capture while one runs (exit 2).

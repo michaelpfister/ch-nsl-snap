@@ -6,7 +6,8 @@ set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
 # Qt 6.8 LTS, installed separately (docs/07-development-setup.md).
-set(NSL_QT_COMPONENTS Widgets Svg)
+# Network: QLocalSocket for the single instance and Hyprland's socket.
+set(NSL_QT_COMPONENTS Widgets Svg Network)
 if(LINUX)
     list(APPEND NSL_QT_COMPONENTS DBus)
 endif()
@@ -17,6 +18,8 @@ qt_standard_project_setup()
 add_library(nsl_snap_core STATIC
     src/app/ColorRow.cpp
     src/app/ColorRow.h
+    src/app/CommandLine.cpp
+    src/app/CommandLine.h
     src/app/FileNames.cpp
     src/app/FileNames.h
     src/app/MainWindow.cpp
@@ -29,6 +32,8 @@ add_library(nsl_snap_core STATIC
     src/app/Settings.h
     src/app/SettingsDialog.cpp
     src/app/SettingsDialog.h
+    src/app/SingleInstance.cpp
+    src/app/SingleInstance.h
     src/app/ToolRail.cpp
     src/app/ToolRail.h
     src/capture/CaptureBackend.cpp
@@ -89,7 +94,8 @@ add_library(nsl_snap_core STATIC
     src/ui/Theme.h
 )
 target_include_directories(nsl_snap_core PUBLIC src)
-target_link_libraries(nsl_snap_core PUBLIC Qt6::Widgets Qt6::Svg)
+target_compile_definitions(nsl_snap_core PUBLIC NSL_VERSION="${PROJECT_VERSION}")
+target_link_libraries(nsl_snap_core PUBLIC Qt6::Widgets Qt6::Svg Qt6::Network)
 
 # Image processing runs over millions of pixels; keep it fast in debug
 # builds too, otherwise the blur takes half a second (F-27).
@@ -153,9 +159,7 @@ if(LINUX)
         src/capture/wayland/WaylandFreeze.cpp
         src/capture/wayland/WaylandFreeze.h
     )
-    # Network: QLocalSocket for Hyprland's control socket.
-    find_package(Qt6 6.8 REQUIRED COMPONENTS Network)
-    target_link_libraries(nsl_snap_core PUBLIC Qt6::Network PkgConfig::WAYLAND_CLIENT)
+    target_link_libraries(nsl_snap_core PUBLIC PkgConfig::WAYLAND_CLIENT)
     target_compile_definitions(nsl_snap_core PUBLIC NSL_HAVE_WAYLAND_BACKEND)
 
     # Optional: KDE's LayerShellQt puts the overlay above all windows on
