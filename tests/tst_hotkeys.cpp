@@ -1,4 +1,4 @@
-// Tests for the global hotkeys (F-42, D-031): key conversion, registration
+// Tests for the global hotkeys (F-42, D-035): key conversion, registration
 // with Windows, keys taken by another program, and the stored settings.
 
 #include "app/GlobalHotkeys.h"

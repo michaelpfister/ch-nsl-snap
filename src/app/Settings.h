@@ -46,7 +46,7 @@ void setTrayHintShown(bool shown);
 // until changed, an empty sequence when switched off.
 QKeySequence globalHotkey(GlobalHotkeys::Action action);
 void setGlobalHotkey(GlobalHotkeys::Action action, const QKeySequence &key);
-// Whether the note about Windows' Print key setting was shown once (D-031).
+// Whether the note about Windows' Print key setting was shown once (D-035).
 bool printKeyHintShown();
 void setPrintKeyHintShown(bool shown);
 

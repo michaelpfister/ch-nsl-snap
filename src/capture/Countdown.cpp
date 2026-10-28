@@ -1,5 +1,9 @@
 #include "capture/Countdown.h"
 
+#ifdef NSL_HAVE_WAYLAND_BACKEND
+#include "capture/wayland/LayerShell.h"
+#endif
+
 #include <QGuiApplication>
 #include <QKeyEvent>
 #include <QPainter>
@@ -32,7 +36,9 @@ Countdown::Countdown(QWidget *parent)
     setAttribute(Qt::WA_ShowWithoutActivating);
     setCursor(Qt::PointingHandCursor);
     setToolTip(tr("Klicken zum Abbrechen"));
-    resize(220, 140);
+    // Fixed: tiling Wayland compositors (Sway, Hyprland) float windows
+    // that cannot be resized, instead of tiling them across the monitor.
+    setFixedSize(220, 140);
     m_tick.setInterval(1000);
     connect(&m_tick, &QTimer::timeout, this, &Countdown::tick);
 }
@@ -49,8 +55,16 @@ void Countdown::start(int seconds)
     if (QScreen *screen = QGuiApplication::primaryScreen()) {
         const QRect area = screen->geometry();
         move(area.center() - rect().center());
+#ifdef NSL_HAVE_WAYLAND_BACKEND
+        // Wayland ignores the position: a layer surface in the middle of
+        // the monitor where the compositor offers one (D-031). Only before
+        // the first show; the widget keeps its role afterwards.
+        if (!m_shown)
+            LayerShell::makeNotification(this, screen);
+#endif
     }
     show();
+    m_shown = true;
 #ifdef Q_OS_WIN
     // Escape from anywhere: the key goes to the window with the focus.
     RegisterHotKey(reinterpret_cast<HWND>(winId()), kEscapeHotkey, MOD_NOREPEAT, VK_ESCAPE);

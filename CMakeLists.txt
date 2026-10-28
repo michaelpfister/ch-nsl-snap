@@ -6,7 +6,8 @@ set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
 # Qt 6.8 LTS, installed separately (docs/07-development-setup.md).
-set(NSL_QT_COMPONENTS Widgets Svg)
+# Network: QLocalSocket for the single instance and Hyprland's socket.
+set(NSL_QT_COMPONENTS Widgets Svg Network)
 if(LINUX)
     list(APPEND NSL_QT_COMPONENTS DBus)
 endif()
@@ -17,18 +18,24 @@ qt_standard_project_setup()
 add_library(nsl_snap_core STATIC
     src/app/ColorRow.cpp
     src/app/ColorRow.h
+    src/app/CommandLine.cpp
+    src/app/CommandLine.h
     src/app/FileNames.cpp
     src/app/FileNames.h
     src/app/GlobalHotkeys.cpp
     src/app/GlobalHotkeys.h
     src/app/MainWindow.cpp
     src/app/MainWindow.h
+    src/app/PlatformTheme.cpp
+    src/app/PlatformTheme.h
     src/app/PropertiesPanel.cpp
     src/app/PropertiesPanel.h
     src/app/Settings.cpp
     src/app/Settings.h
     src/app/SettingsDialog.cpp
     src/app/SettingsDialog.h
+    src/app/SingleInstance.cpp
+    src/app/SingleInstance.h
     src/app/ToolRail.cpp
     src/app/ToolRail.h
     src/capture/CaptureBackend.cpp
@@ -89,7 +96,8 @@ add_library(nsl_snap_core STATIC
     src/ui/Theme.h
 )
 target_include_directories(nsl_snap_core PUBLIC src)
-target_link_libraries(nsl_snap_core PUBLIC Qt6::Widgets Qt6::Svg)
+target_compile_definitions(nsl_snap_core PUBLIC NSL_VERSION="${PROJECT_VERSION}")
+target_link_libraries(nsl_snap_core PUBLIC Qt6::Widgets Qt6::Svg Qt6::Network)
 
 # Image processing runs over millions of pixels; keep it fast in debug
 # builds too, otherwise the blur takes half a second (F-27).
@@ -113,6 +121,63 @@ if(LINUX)
     )
     target_link_libraries(nsl_snap_core PUBLIC Qt6::DBus)
     target_compile_definitions(nsl_snap_core PUBLIC NSL_HAVE_GNOME_BACKEND)
+
+    # Wayland without GNOME (D-031, D-032): our own Wayland client code for
+    # wlr-screencopy and hyprland-toplevel-export, and the desktop portal.
+    # wayland-scanner turns the protocol files into C code.
+    enable_language(C)
+    find_package(PkgConfig REQUIRED)
+    pkg_check_modules(WAYLAND_CLIENT REQUIRED IMPORTED_TARGET wayland-client)
+    find_program(WAYLAND_SCANNER wayland-scanner REQUIRED)
+    set(NSL_PROTOCOL_DIR ${CMAKE_CURRENT_BINARY_DIR}/protocols)
+    file(MAKE_DIRECTORY ${NSL_PROTOCOL_DIR})
+    foreach(protocol
+            wlr-screencopy-unstable-v1
+            wlr-foreign-toplevel-management-unstable-v1
+            hyprland-toplevel-export-v1)
+        set(xml ${CMAKE_CURRENT_SOURCE_DIR}/protocols/${protocol}.xml)
+        add_custom_command(
+            OUTPUT ${NSL_PROTOCOL_DIR}/${protocol}-client-protocol.h ${NSL_PROTOCOL_DIR}/${protocol}-protocol.c
+            COMMAND ${WAYLAND_SCANNER} client-header ${xml} ${NSL_PROTOCOL_DIR}/${protocol}-client-protocol.h
+            COMMAND ${WAYLAND_SCANNER} private-code ${xml} ${NSL_PROTOCOL_DIR}/${protocol}-protocol.c
+            DEPENDS ${xml}
+            VERBATIM)
+        target_sources(nsl_snap_core PRIVATE
+            ${NSL_PROTOCOL_DIR}/${protocol}-client-protocol.h
+            ${NSL_PROTOCOL_DIR}/${protocol}-protocol.c)
+    endforeach()
+    target_include_directories(nsl_snap_core PRIVATE ${NSL_PROTOCOL_DIR})
+    target_sources(nsl_snap_core PRIVATE
+        src/capture/portal/PortalBackend.cpp
+        src/capture/portal/PortalBackend.h
+        src/capture/wayland/HyprlandIpc.cpp
+        src/capture/wayland/HyprlandIpc.h
+        src/capture/wayland/LayerShell.cpp
+        src/capture/wayland/LayerShell.h
+        src/capture/wayland/WaylandBackend.cpp
+        src/capture/wayland/WaylandBackend.h
+        src/capture/wayland/WaylandConnection.cpp
+        src/capture/wayland/WaylandConnection.h
+        src/capture/wayland/WaylandFreeze.cpp
+        src/capture/wayland/WaylandFreeze.h
+    )
+    target_link_libraries(nsl_snap_core PUBLIC PkgConfig::WAYLAND_CLIENT)
+    target_compile_definitions(nsl_snap_core PUBLIC NSL_HAVE_WAYLAND_BACKEND)
+
+    # Optional: KDE's LayerShellQt puts the overlay above all windows on
+    # Hyprland, Sway & co. Without it the overlay is shown full screen.
+    find_package(LayerShellQt 6 CONFIG QUIET)
+    if(LayerShellQt_FOUND)
+        target_link_libraries(nsl_snap_core PRIVATE LayerShellQt::Interface)
+        target_compile_definitions(nsl_snap_core PRIVATE NSL_HAVE_LAYER_SHELL_QT)
+        # 6.6 replaced setScreenConfiguration() with setScreen().
+        if(LayerShellQt_VERSION VERSION_GREATER_EQUAL 6.6)
+            target_compile_definitions(nsl_snap_core PRIVATE NSL_LAYER_SHELL_QT_SET_SCREEN)
+        endif()
+        message(STATUS "LayerShellQt found: overlay as layer surface on wlroots compositors")
+    else()
+        message(STATUS "LayerShellQt not found: overlay full screen on wlroots compositors")
+    endif()
 endif()
 if(WIN32)
     # Windows.Graphics.Capture through C++/WinRT, Direct3D 11 and DWM (D-022).
@@ -129,6 +194,10 @@ endif()
 
 qt_add_executable(nsl-snap src/main.cpp)
 target_link_libraries(nsl-snap PRIVATE nsl_snap_core)
+
+# `cmake --install`, used by packages (e.g. the Nix package in nix/).
+include(GNUInstallDirs)
+install(TARGETS nsl-snap RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR})
 
 enable_testing()
 add_subdirectory(tests)

@@ -13,8 +13,8 @@ class QScreen;
 class QWidget;
 
 // The capture overlay the app draws itself, where there is no shell
-// extension (Windows, D-022; later macOS): one frameless full-screen window
-// per monitor showing the frozen screen. Three modes, switched with W, R
+// extension (Windows, D-022; Wayland without GNOME, D-031; later macOS):
+// one frameless full-screen window per monitor showing the frozen screen. Three modes, switched with W, R
 // and S (F-47):
 // - Window: the window under the pointer is highlighted; a click, Enter or
 //   Space picks it.

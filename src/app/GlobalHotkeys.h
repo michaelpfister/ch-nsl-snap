@@ -6,7 +6,7 @@
 #include <QMap>
 #include <QObject>
 
-// Global hotkeys (F-42, D-031): keys that start a capture while the app is
+// Global hotkeys (F-42, D-035): keys that start a capture while the app is
 // hidden or another program has the focus. On Windows they are registered
 // with RegisterHotKey; elsewhere isSupported() is false (on GNOME the Shell
 // extension will own them, D-011).
@@ -41,7 +41,7 @@ public:
     void setSuspended(bool suspended);
 
     // Windows 11 opens the Snipping Tool on Print by default. While that
-    // setting is on, Print never reaches the app (D-031).
+    // setting is on, Print never reaches the app (D-035).
     static bool printKeyOpensSnippingTool();
     // Opens the page of the Windows settings that has that switch.
     static void openPrintKeySetting();

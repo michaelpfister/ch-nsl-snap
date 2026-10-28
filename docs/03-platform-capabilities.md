@@ -6,27 +6,36 @@ What each platform lets an application do, and the way we use. "Extension" means
 
 macOS (ScreenCaptureKit, macOS 14+) supports everything in the Windows column except scrolling capture, after the user has granted the "Screen Recording" permission (D-002).
 
-| Capability | Windows | GNOME / Wayland | KDE / Wayland (not a target) |
-|---|---|---|---|
-| Full screen, one monitor | Windows API | Extension or Screenshot portal | KWin ScreenShot2 or portal |
-| Free area | Freeze full screen, select in overlay | Same, via extension or portal image | Same |
-| Single window, clean edges | DWM extended frame bounds + Windows.Graphics.Capture (D-022) | **Extension** (offscreen render of the window actor) | KWin ScreenShot2 |
-| Single window, fallback | — | ScreenCast portal, window source (extra dialog every time) | Same |
-| Window under mouse (hover highlight) | yes | **Extension only** | KWin only |
-| Transparent rounded corners | Windows 11: yes (DWM) | yes, the client draws them with alpha | yes |
-| Hidden or overlapped window | yes (capture API) | yes, offscreen render ignores overlaps | yes |
-| Menus / tooltips of a window | yes | not in the PoC (they are separate surfaces) | partly |
-| Scrolling capture | possible (input injection) | practically impossible (no input injection) | practically impossible |
-| Mouse cursor in the image | yes | yes (extension can composite it) | yes |
+| Capability | Windows | GNOME / Wayland | Hyprland (D-031) | Other wlroots (Sway, ...) | Other Wayland (KDE, ...) |
+|---|---|---|---|---|---|
+| Full screen, one monitor | Windows API | Extension or Screenshot portal | wlr-screencopy | wlr-screencopy | Screenshot portal (D-032) |
+| Free area | Freeze full screen, select in overlay | Same, via extension or portal image | Same, app's own overlay | Same, app's own overlay | Same, from the portal picture |
+| Single window, clean edges | DWM extended frame bounds + Windows.Graphics.Capture (D-022) | **Extension** (offscreen render of the window actor) | **hyprland-toplevel-export** + window list from the control socket | not possible (no window list for apps) | not possible (KWin ScreenShot2 only for KDE's own tools) |
+| Single window, fallback | — | ScreenCast portal, window source (extra dialog every time) | — | ScreenCast portal (dialog every time, not used) | Same |
+| Window under mouse (hover highlight) | yes | **Extension only** | yes, from the window list | no | no |
+| Transparent rounded corners | Windows 11: yes (DWM) | yes, the client draws them with alpha | client-drawn corners yes; Hyprland's own rounding is expected not to be in the buffer (Q-21, Q-24) | client-drawn only | — |
+| Hidden or overlapped window | yes (capture API) | yes, offscreen render ignores overlaps | yes, the export renders the window alone | — | — |
+| Menus / tooltips of a window | yes | not in the PoC (they are separate surfaces) | no (separate surfaces) | — | — |
+| Scrolling capture | possible (input injection) | practically impossible (no input injection) | practically impossible | practically impossible | practically impossible |
+| Mouse cursor in the image | yes | yes (extension can composite it) | yes (protocol option, not used) | yes | portal option |
+| Overlay above all windows | top-most window | extension draws it | wlr-layer-shell via LayerShellQt, else full screen | same | full screen |
 
 ## System integration
 
-| Capability | Windows | GNOME / Wayland |
-|---|---|---|
-| Global hotkey (e.g. Print), F-42 | `RegisterHotKey`; Windows 11 binds Print to the Snipping Tool by default; the user switches that off (D-031) | Extension keybinding; GNOME binds Print to its own screenshot UI (Q-14) |
-| Tray icon | yes | Only with the AppIndicator extension (installed on Zorin by default) |
-| Clipboard with PNG | yes | yes (Wayland clipboard, also from the extension via `St.Clipboard`) |
-| Start with session | Autostart / registry | XDG autostart `.desktop` file |
+| Capability | Windows | GNOME / Wayland | Hyprland |
+|---|---|---|---|
+| Global hotkey (e.g. Print), F-42 | `RegisterHotKey`; Windows 11 binds Print to the Snipping Tool by default; the user switches that off (D-035) | Extension keybinding; GNOME binds Print to its own screenshot UI (Q-14) | `bind` in hyprland.conf running the command line (F-48, D-034), e.g. `nsl-snap --capture-region` |
+| Tray icon | yes | Only with the AppIndicator extension (installed on Zorin by default) | with a bar that has a tray (Waybar) |
+| Clipboard with PNG | yes | yes (Wayland clipboard, also from the extension via `St.Clipboard`) | yes (Wayland clipboard) |
+| Start with session | Autostart / registry | XDG autostart `.desktop` file | `exec-once` in hyprland.conf |
+
+## Known limits on Hyprland and other wlroots desktops
+
+- Wayland itself forbids nothing; each compositor decides what it offers apps. Hyprland offers more than GNOME (window contents and a window list), Sway only monitor pictures.
+- Hyprland's permission system (`ecosystem:enforce_permissions`, off by default) asks before the first capture or needs a `permission = <binary>, screencopy, allow` rule; on NixOS the binary path is in the Nix store.
+- No stacking order in Hyprland's window list; the app approximates it (D-031).
+- Without LayerShellQt the overlay is a full-screen window; compositors may animate it.
+- Global keys: apps get none; captures are bound to keys in hyprland.conf through the command line (D-034). The countdown is cancelled by clicking it, not with Escape.
 
 ## Known limits on GNOME / Wayland
 

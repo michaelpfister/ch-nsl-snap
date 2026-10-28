@@ -1,7 +1,11 @@
-// Tests for the file names of saved images (F-41).
+// Tests for the file names of saved images (F-41) and the platform theme
+// check that keeps the file dialogs from aborting the app (D-033).
 
+#include "app/PlatformTheme.h"
 #include "app/FileNames.h"
 
+#include <QFile>
+#include <QTemporaryDir>
 #include <QTest>
 
 class TestFileNames : public QObject
@@ -40,6 +44,31 @@ private slots:
         QCOMPARE(FileNames::fromPattern(QString(), QStringLiteral("Home"), time),
                  QStringLiteral("2026-01-02_03-04-05_Home.png")); // empty pattern: the default
         QCOMPARE(FileNames::fromPattern(QStringLiteral("Bild.png"), QString(), time), QStringLiteral("Bild.png"));
+    }
+
+    void gtkThemeNeedsItsSchema()
+    {
+        QTemporaryDir empty;
+        QTemporaryDir withSchema;
+        QVERIFY(empty.isValid() && withSchema.isValid());
+        QFile compiled(withSchema.filePath(QStringLiteral("gschemas.compiled")));
+        QVERIFY(compiled.open(QIODevice::WriteOnly));
+        compiled.write(QByteArrayLiteral("GVariant\0\0org.gtk.Settings.FileChooser\0\0"));
+        compiled.close();
+        const QString none;
+
+        // GTK asked for, no schema anywhere (NixOS without a wrapped binary).
+        QVERIFY(PlatformTheme::gtkWithoutSchemas(QStringLiteral("gtk3"), QStringLiteral("Hyprland"),
+                                                 {empty.path(), QStringLiteral("/nonexistent")}));
+        // Qt picks GTK by itself on GTK-based desktops.
+        QVERIFY(PlatformTheme::gtkWithoutSchemas(none, QStringLiteral("ubuntu:GNOME"), {empty.path()}));
+        // The schema in any of the folders: GTK is fine.
+        QVERIFY(!PlatformTheme::gtkWithoutSchemas(QStringLiteral("gtk3"), none, {empty.path(), withSchema.path()}));
+        // No GTK at all: nothing to check.
+        QVERIFY(!PlatformTheme::gtkWithoutSchemas(none, QStringLiteral("Hyprland"), {empty.path()}));
+        QVERIFY(!PlatformTheme::gtkWithoutSchemas(QStringLiteral("xdgdesktopportal"), QStringLiteral("GNOME"),
+                                                  {empty.path()}));
+        QVERIFY(!PlatformTheme::gtkWithoutSchemas(QStringLiteral("kde:gtk3"), none, {empty.path()}));
     }
 };
 

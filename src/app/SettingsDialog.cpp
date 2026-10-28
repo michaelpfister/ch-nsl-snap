@@ -247,7 +247,7 @@ void SettingsDialog::createHotkeyPage(QVBoxLayout *layout)
         });
     }
 
-    // Windows' own use of Print (D-031): a note with the way out.
+    // Windows' own use of Print (D-035): a note with the way out.
     layout->addSpacing(12);
     auto *printNote = new QLabel(tr("Windows öffnet mit der Druck-Taste das Snipping Tool, deshalb erreicht die "
                                     "Taste NSL Snap nicht. Abhilfe: in den Windows-Einstellungen unter "

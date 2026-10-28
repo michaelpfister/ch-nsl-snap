@@ -40,6 +40,15 @@ target_link_libraries(tst_hotkeys PRIVATE nsl_snap_core Qt6::Test)
 add_test(NAME tst_hotkeys COMMAND tst_hotkeys)
 set_tests_properties(tst_hotkeys PROPERTIES ENVIRONMENT "${NSL_OFFSCREEN_ENV}")
 
+# Capture on Wayland without GNOME (D-031, D-032): the parts that need no
+# compositor.
+if(LINUX)
+    qt_add_executable(tst_wayland tst_wayland.cpp)
+    target_link_libraries(tst_wayland PRIVATE nsl_snap_core Qt6::Test)
+    add_test(NAME tst_wayland COMMAND tst_wayland)
+    set_tests_properties(tst_wayland PROPERTIES ENVIRONMENT "${NSL_OFFSCREEN_ENV}")
+endif()
+
 # Captures real windows with Windows.Graphics.Capture: needs a desktop
 # session, so it uses the normal "windows" platform, not offscreen.
 if(WIN32)
@@ -61,6 +70,13 @@ qt_add_executable(tst_colors tst_colors.cpp)
 target_link_libraries(tst_colors PRIVATE nsl_snap_core Qt6::Test)
 add_test(NAME tst_colors COMMAND tst_colors)
 set_tests_properties(tst_colors PROPERTIES ENVIRONMENT "${NSL_OFFSCREEN_ENV}")
+
+qt_add_executable(tst_commandline tst_commandline.cpp)
+target_link_libraries(tst_commandline PRIVATE nsl_snap_core Qt6::Test)
+add_test(NAME tst_commandline COMMAND tst_commandline)
+if(WIN32)
+    set_target_properties(tst_commandline PROPERTIES WIN32_EXECUTABLE FALSE)
+endif()
 
 qt_add_executable(tst_filenames tst_filenames.cpp)
 target_link_libraries(tst_filenames PRIVATE nsl_snap_core Qt6::Test)

@@ -1,5 +1,7 @@
 #pragma once
 
+#include "app/CommandLine.h"
+#include "app/SingleInstance.h"
 #include "capture/CaptureResult.h"
 #include "editor/Tool.h"
 
@@ -7,6 +9,7 @@
 #include <QMainWindow>
 
 #include <memory>
+#include <optional>
 
 class CaptureBackend;
 class GlobalHotkeys;
@@ -45,6 +48,13 @@ public:
     // set on the application (Theme::apply).
     void applyTheme(const Theme &theme);
 
+    // A request from the command line (F-48), from this start or handed
+    // over by a later one (SingleInstance). Without a capture it shows the
+    // editor; with one it captures, then saves to the save folder or, with
+    // `open`, shows the capture in the editor. `reply` is called once with
+    // the outcome and the saved path or the error.
+    void runRequest(const CommandLine::Request &request, const SingleInstance::Reply &reply);
+
 protected:
     void keyPressEvent(QKeyEvent *event) override;
     void closeEvent(QCloseEvent *event) override;
@@ -65,15 +75,22 @@ private:
     void captureScreen();
     // Ctrl+N: the mode of the last capture (F-46).
     void captureLastMode();
+    // `delay` in seconds; -1: the timer in the top bar (F-04).
     // `activeWindow`: the window with the focus, without picking (F-42).
-    void startCapture(CaptureResult::Kind kind, bool activeWindow = false);
+    void startCapture(CaptureResult::Kind kind, int delay = -1, bool activeWindow = false);
     // Global hotkeys (F-42): registers the keys from the settings.
     void createGlobalHotkeys();
-    // Once on Windows: Print opens the Snipping Tool (D-031).
+    // Once on Windows: Print opens the Snipping Tool (D-035).
     void showPrintKeyHint();
     QToolButton *modeButton(CaptureResult::Kind kind) const;
     void onCaptured(const CaptureResult &result);
     void onCaptureEnded(bool showWindow = true);
+    // A capture from the command line without --open: straight into the
+    // save folder, the editor's image stays as it is. Returns the path, or
+    // an empty string and the error in `error`.
+    QString saveCapture(const CaptureResult &result, QString *error);
+    // Ends the command-line request, if one is running.
+    void finishRequest(CommandLine::Outcome outcome, const QString &detail = QString());
 
     void openImage();
     void pasteImage();
@@ -140,6 +157,13 @@ private:
     QSystemTrayIcon *m_tray = nullptr;
     bool m_quitting = false;
     bool m_hiddenBeforeCapture = false;
+    // The command-line request whose capture is running (F-48).
+    struct PendingRequest
+    {
+        CommandLine::Request request;
+        SingleInstance::Reply reply;
+    };
+    std::optional<PendingRequest> m_request;
 
     // Top bar.
     QLabel *m_logo = nullptr;
