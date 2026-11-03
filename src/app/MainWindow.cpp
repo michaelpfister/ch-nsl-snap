@@ -105,7 +105,7 @@ MainWindow::MainWindow(QWidget *parent)
     , m_properties(new PropertiesPanel(this))
     , m_capture(createCaptureBackend())
 {
-    setWindowTitle(QStringLiteral("NSL Snap"));
+    setWindowTitle(QStringLiteral("Snapslash"));
     resize(1280, 800);
 
     // Layout: top bar above [tool rail | editor | properties].
@@ -287,7 +287,7 @@ QWidget *MainWindow::createTopBar()
 
     // Logo and name.
     m_logo = new QLabel(bar);
-    auto *name = new QLabel(QStringLiteral("NSL Snap"), bar);
+    auto *name = new QLabel(QStringLiteral("Snapslash"), bar);
     name->setObjectName(QStringLiteral("AppName"));
     layout->addWidget(m_logo);
     layout->addWidget(name);
@@ -469,7 +469,7 @@ void MainWindow::createTrayIcon()
     if (!QSystemTrayIcon::isSystemTrayAvailable())
         return;
     m_tray = new QSystemTrayIcon(QIcon(QStringLiteral(":/icons/logo.svg")), this);
-    m_tray->setToolTip(tr("NSL Snap"));
+    m_tray->setToolTip(tr("Snapslash"));
     auto *menu = new QMenu(this);
     menu->addAction(tr("Fenster aufnehmen"), this, &MainWindow::captureWindow);
     menu->addAction(tr("Bereich aufnehmen"), this, &MainWindow::captureRegion);
@@ -528,10 +528,10 @@ void MainWindow::showPrintKeyHint()
 
     QMessageBox box(QMessageBox::Information, tr("Druck-Taste"),
                     tr("Windows öffnet mit der Druck-Taste das Snipping Tool, deshalb erreicht die Taste "
-                       "NSL Snap nicht."), QMessageBox::NoButton, this);
-    box.setInformativeText(tr("Damit die Druck-Taste mit NSL Snap aufnimmt, in den Windows-Einstellungen unter "
+                       "Snapslash nicht."), QMessageBox::NoButton, this);
+    box.setInformativeText(tr("Damit die Druck-Taste mit Snapslash aufnimmt, in den Windows-Einstellungen unter "
                               "«Barrierefreiheit › Tastatur» den Schalter zur Druck-Taste ausschalten. "
-                              "Die Tastenkürzel lassen sich auch in den Einstellungen von NSL Snap ändern."));
+                              "Die Tastenkürzel lassen sich auch in den Einstellungen von Snapslash ändern."));
     QPushButton *open = box.addButton(tr("Windows-Einstellung öffnen"), QMessageBox::AcceptRole);
     box.addButton(tr("Später"), QMessageBox::RejectRole);
     box.setDefaultButton(open);
@@ -554,7 +554,7 @@ bool MainWindow::hideToTray()
     hide();
     // Once, so nobody wonders where the app went.
     if (!Settings::trayHintShown()) {
-        m_tray->showMessage(tr("NSL Snap läuft weiter"),
+        m_tray->showMessage(tr("Snapslash läuft weiter"),
                             tr("Aufnehmen und Öffnen über das Symbol im Infobereich. "
                                "Beenden ebenfalls dort; das Verhalten lässt sich in den Einstellungen ändern."));
         Settings::setTrayHintShown(true);
@@ -567,7 +567,7 @@ void MainWindow::quit()
     // Unsaved work is not lost without a question.
     if (hasUnsavedChanges()) {
         showEditor();
-        if (!confirmDiscard(tr("NSL Snap beenden"), tr("Trotzdem beenden?")))
+        if (!confirmDiscard(tr("Snapslash beenden"), tr("Trotzdem beenden?")))
             return;
     }
     m_quitting = true;
@@ -581,7 +581,7 @@ void MainWindow::closeEvent(QCloseEvent *event)
         event->ignore();
         return;
     }
-    if (!m_quitting && hasUnsavedChanges() && !confirmDiscard(tr("NSL Snap beenden"), tr("Trotzdem beenden?"))) {
+    if (!m_quitting && hasUnsavedChanges() && !confirmDiscard(tr("Snapslash beenden"), tr("Trotzdem beenden?"))) {
         event->ignore();
         return;
     }

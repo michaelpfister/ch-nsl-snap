@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""PoC client for the NSL Snap GNOME Shell extension.
+"""PoC client for the Snapslash GNOME Shell extension.
 
 Asks the extension to let the user pick a window, then saves the capture as
 PNG. See docs/06-poc-gnome-window-capture.md.
@@ -163,7 +163,7 @@ def process(png: bytes, info: dict, edges: str, clean: bool) -> bytes:
 
 def default_output(title: str) -> pathlib.Path:
     pictures = GLib.get_user_special_dir(GLib.UserDirectory.DIRECTORY_PICTURES)
-    base = pathlib.Path(pictures or pathlib.Path.home()) / "NSL Snap"
+    base = pathlib.Path(pictures or pathlib.Path.home()) / "Snapslash"
     stamp = datetime.datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
     slug = re.sub(r"[^\w.-]+", "_", title).strip("_")[:60] or "window"
     return base / f"{stamp}_{slug}.png"
@@ -210,7 +210,7 @@ def main() -> int:
             print("Cancelled.", file=sys.stderr)
             return 1
         if remote == "org.freedesktop.DBus.Error.ServiceUnknown":
-            print("NSL Snap extension is not running (see docs/06-poc-gnome-window-capture.md).", file=sys.stderr)
+            print("Snapslash extension is not running (see docs/06-poc-gnome-window-capture.md).", file=sys.stderr)
             return 2
         print(f"Error: {Gio.DBusError.strip_remote_error(e) or e.message}", file=sys.stderr)
         return 2

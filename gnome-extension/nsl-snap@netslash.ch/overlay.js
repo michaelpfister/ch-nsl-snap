@@ -74,7 +74,7 @@ export async function freeze() {
                 content: actor.paint_to_content(null),
             });
         } catch (e) {
-            logError(e, `NSL Snap: could not render window "${window.get_title()}"`);
+            logError(e, `Snapslash: could not render window "${window.get_title()}"`);
         }
     }
 

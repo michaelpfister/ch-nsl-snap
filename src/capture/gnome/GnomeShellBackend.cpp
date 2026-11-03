@@ -51,7 +51,7 @@ bool GnomeShellBackend::isAvailable() const
 
 QString GnomeShellBackend::unavailableReason() const
 {
-    return tr("Die GNOME-Erweiterung «NSL Snap» läuft nicht. "
+    return tr("Die GNOME-Erweiterung «Snapslash» läuft nicht. "
               "Bitte installieren und aktivieren (docs/06-poc-gnome-window-capture.md) "
               "und danach ab- und wieder anmelden.");
 }
@@ -96,17 +96,17 @@ void GnomeShellBackend::capture(const QString &mode)
     const uint version = extensionVersion();
     const bool hasCapture = version >= kCaptureVersion;
     if (mode == QLatin1String("screen") && version < kScreenVersion) {
-        emit failed(tr("Die GNOME-Erweiterung «NSL Snap» ist veraltet und kennt die Bildschirmaufnahme noch nicht. "
+        emit failed(tr("Die GNOME-Erweiterung «Snapslash» ist veraltet und kennt die Bildschirmaufnahme noch nicht. "
                        "Bitte ab- und wieder anmelden, damit die neue Version geladen wird."));
         return;
     }
     if (delay() > 0 && version < kDelayVersion) {
-        emit failed(tr("Die GNOME-Erweiterung «NSL Snap» ist veraltet und kennt die verzögerte Aufnahme noch nicht. "
+        emit failed(tr("Die GNOME-Erweiterung «Snapslash» ist veraltet und kennt die verzögerte Aufnahme noch nicht. "
                        "Bitte ab- und wieder anmelden, damit die neue Version geladen wird."));
         return;
     }
     if (!hasCapture && mode != QLatin1String("window")) {
-        emit failed(tr("Die GNOME-Erweiterung «NSL Snap» ist veraltet und kennt die Bereichsaufnahme noch nicht. "
+        emit failed(tr("Die GNOME-Erweiterung «Snapslash» ist veraltet und kennt die Bereichsaufnahme noch nicht. "
                        "Bitte ab- und wieder anmelden, damit die neue Version geladen wird."));
         return;
     }

@@ -11,7 +11,7 @@
 class QLocalServer;
 class QLocalSocket;
 
-// One NSL Snap per user (D-034). The first start listens on a local
+// One Snapslash per user (D-034). The first start listens on a local
 // socket (a Unix socket in XDG_RUNTIME_DIR, a named pipe on Windows) that
 // only the same user may open. A later start, e.g. from a key binding,
 // sends its command line there, waits until the running app has done the

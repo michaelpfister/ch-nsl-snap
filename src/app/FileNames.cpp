@@ -44,7 +44,7 @@ QString fromPattern(const QString &pattern, const QString &title, const QDateTim
 QString defaultFolder()
 {
     const QString pictures = QStandardPaths::writableLocation(QStandardPaths::PicturesLocation);
-    return QDir(pictures.isEmpty() ? QDir::homePath() : pictures).filePath(QStringLiteral("NSL Snap"));
+    return QDir(pictures.isEmpty() ? QDir::homePath() : pictures).filePath(QStringLiteral("Snapslash"));
 }
 
 } // namespace FileNames

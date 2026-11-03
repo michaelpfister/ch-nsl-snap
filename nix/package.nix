@@ -1,4 +1,4 @@
-# NSL Snap as a Nix package (docs/07-development-setup.md, "NixOS").
+# Snapslash as a Nix package (docs/07-development-setup.md, "NixOS").
 # Built with nixpkgs' current Qt 6; the app needs 6.8 or later.
 {
   lib,
@@ -16,7 +16,7 @@
 }:
 
 stdenv.mkDerivation {
-  pname = "nsl-snap";
+  pname = "snapslash";
   version = "0.1.0";
 
   src = lib.cleanSource ../.;
@@ -54,6 +54,6 @@ stdenv.mkDerivation {
     description = "Screenshot tool for clean window captures, with an annotation editor";
     homepage = "https://github.com/michaelpfister/ch-nsl-snap";
     platforms = lib.platforms.linux;
-    mainProgram = "nsl-snap";
+    mainProgram = "snapslash";
   };
 }

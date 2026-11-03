@@ -1,4 +1,4 @@
-# Working on NSL Snap
+# Working on Snapslash
 
 Read [docs/README.md](docs/README.md) before changing behaviour. Decisions live in `docs/02-decisions.md`; when a change contradicts one, update the decision (or ask) instead of silently diverging. New open points go into `docs/05-open-questions.md`. Platform limits are in `docs/03-platform-capabilities.md`; check there before promising a feature on GNOME.
 

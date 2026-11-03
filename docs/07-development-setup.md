@@ -1,6 +1,6 @@
 # Development setup
 
-How to set up a machine to build NSL Snap (D-013: C++20, Qt 6.8 LTS, CMake). Linux (Ubuntu/Zorin and NixOS) and Windows are described; macOS follows when its backend is built.
+How to set up a machine to build Snapslash (D-013: C++20, Qt 6.8 LTS, CMake). Linux (Ubuntu/Zorin and NixOS) and Windows are described; macOS follows when its backend is built.
 
 ## Linux (Zorin OS 18 / Ubuntu 24.04, GNOME 46)
 
@@ -38,7 +38,7 @@ python3 -m venv ~/Qt/aqt-venv
 cmake -S . -B build -G Ninja -DCMAKE_PREFIX_PATH=$HOME/Qt/6.8.3/gcc_64 -DCMAKE_BUILD_TYPE=Debug
 cmake --build build
 ctest --test-dir build --output-on-failure
-./build/nsl-snap
+./build/snapslash
 ```
 
 ### Continuous integration
@@ -67,7 +67,7 @@ See [06-poc-gnome-window-capture.md](06-poc-gnome-window-capture.md): `scripts/d
 A minimal Qt program built with this setup reported:
 
 - Qt 6.8.3, platform plugin `wayland`
-- NSL Snap extension reachable over D-Bus, `Version` = 1
+- Snapslash extension reachable over D-Bus, `Version` = 1
 - WebP supported
 - No missing libraries for the Wayland and X11 platform plugins
 
@@ -80,7 +80,7 @@ sudo apt install sway grim wtype
 export XDG_RUNTIME_DIR=$(mktemp -d) && chmod 700 $XDG_RUNTIME_DIR
 WLR_BACKENDS=headless WLR_HEADLESS_OUTPUTS=2 WLR_LIBINPUT_NO_DEVICES=1 WLR_RENDERER=pixman dbus-run-session -- sway &
 export WAYLAND_DISPLAY=wayland-1 QT_QPA_PLATFORM=wayland
-./build/nsl-snap &
+./build/snapslash &
 wtype -k Shift_L -M ctrl -k 5 -m ctrl   # region capture; arrow keys and Enter select
 grim screen.png                          # what the compositor shows
 ```
@@ -96,22 +96,22 @@ The repository is a Nix flake (`flake.nix`, `nix/package.nix`). It builds with n
 
 ```bash
 nix run github:michaelpfister/ch-nsl-snap        # or, in a checkout:
-nix build && ./result/bin/nsl-snap
+nix build && ./result/bin/snapslash
 nix develop                                      # shell with all build tools, then cmake as above
 ```
 
-In a NixOS configuration: add the flake as an input and `inputs.nsl-snap.packages.${pkgs.system}.default` to `environment.systemPackages`.
+In a NixOS configuration: add the flake as an input and `inputs.snapslash.packages.${pkgs.system}.default` to `environment.systemPackages`.
 
 Hyprland settings that matter (hyprland.conf):
 
-- With `ecosystem { enforce_permissions = true }` (off by default) Hyprland asks at the first capture, or a rule allows it: `permission = .*nsl-snap.*, screencopy, allow` (a regular expression on the binary's path; on NixOS the binary is `/nix/store/…-nsl-snap-…/bin/.nsl-snap-wrapped`). Newer Hyprland versions with the Lua configuration write `hl.permission({ binary = ".*nsl-snap.*", type = "screencopy", mode = "allow" })`. Rules are read at Hyprland's start only.
-- Keys for capturing, through the command line (F-48, D-034; `nsl-snap --help` lists the options):
+- With `ecosystem { enforce_permissions = true }` (off by default) Hyprland asks at the first capture, or a rule allows it: `permission = .*snapslash.*, screencopy, allow` (a regular expression on the binary's path; on NixOS the binary is `/nix/store/…-snapslash-…/bin/.snapslash-wrapped`). Newer Hyprland versions with the Lua configuration write `hl.permission({ binary = ".*snapslash.*", type = "screencopy", mode = "allow" })`. Rules are read at Hyprland's start only.
+- Keys for capturing, through the command line (F-48, D-034; `snapslash --help` lists the options):
 
   ```
-  exec-once = nsl-snap                                  # optional: keep it in the tray
-  bind = , Print, exec, nsl-snap --capture-region       # region, saved to the save folder
-  bind = SHIFT, Print, exec, nsl-snap --capture-screen
-  bind = ALT, Print, exec, nsl-snap --capture-window --open   # window, into the editor
+  exec-once = snapslash                                  # optional: keep it in the tray
+  bind = , Print, exec, snapslash --capture-region       # region, saved to the save folder
+  bind = SHIFT, Print, exec, snapslash --capture-screen
+  bind = ALT, Print, exec, snapslash --capture-window --open   # window, into the editor
   ```
 
 ## Windows 11 (x64 and ARM64)
@@ -147,8 +147,8 @@ cmake -S . -B build -G Ninja -DCMAKE_PREFIX_PATH=C:\Qt\6.8.3\msvc2022_arm64 -DCM
 cmake --build build
 set PATH=C:\Qt\6.8.3\msvc2022_arm64\bin;%PATH%
 ctest --test-dir build --output-on-failure
-build\nsl-snap.exe
+build\snapslash.exe
 ```
 
-The `PATH` line lets the app and the tests find the Qt DLLs. The tests draw offscreen; on Windows that platform looks for fonts in Qt's own `lib\fonts` folder, which Qt does not ship, so `ctest` points `QT_QPA_FONTDIR` to `C:\Windows\Fonts` (`tests/CMakeLists.txt`). Set it yourself when starting a test program directly. Alternatively `windeployqt build\nsl-snap.exe` copies them next to the executable, so it also starts with a double click. The Qt DLLs in `build` then look for plugins there and find only `platforms\qwindows`, so the offscreen tests stop with a "no Qt platform plugin" dialog; set `QT_PLUGIN_PATH=C:\Qt\6.8.3\msvc2022_arm64\plugins` before `ctest`.
+The `PATH` line lets the app and the tests find the Qt DLLs. The tests draw offscreen; on Windows that platform looks for fonts in Qt's own `lib\fonts` folder, which Qt does not ship, so `ctest` points `QT_QPA_FONTDIR` to `C:\Windows\Fonts` (`tests/CMakeLists.txt`). Set it yourself when starting a test program directly. Alternatively `windeployqt build\snapslash.exe` copies them next to the executable, so it also starts with a double click. The Qt DLLs in `build` then look for plugins there and find only `platforms\qwindows`, so the offscreen tests stop with a "no Qt platform plugin" dialog; set `QT_PLUGIN_PATH=C:\Qt\6.8.3\msvc2022_arm64\plugins` before `ctest`.
 

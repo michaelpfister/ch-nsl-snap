@@ -201,7 +201,7 @@ SettingsDialog::~SettingsDialog()
 
 void SettingsDialog::createHotkeyPage(QVBoxLayout *layout)
 {
-    auto *intro = new QLabel(tr("Diese Tasten nehmen auf, auch wenn NSL Snap im Infobereich läuft oder ein anderes "
+    auto *intro = new QLabel(tr("Diese Tasten nehmen auf, auch wenn Snapslash im Infobereich läuft oder ein anderes "
                                 "Programm aktiv ist. Ein eingestellter Timer gilt auch hier."), this);
     intro->setProperty("role", QStringLiteral("hint"));
     intro->setWordWrap(true);
@@ -250,7 +250,7 @@ void SettingsDialog::createHotkeyPage(QVBoxLayout *layout)
     // Windows' own use of Print (D-035): a note with the way out.
     layout->addSpacing(12);
     auto *printNote = new QLabel(tr("Windows öffnet mit der Druck-Taste das Snipping Tool, deshalb erreicht die "
-                                    "Taste NSL Snap nicht. Abhilfe: in den Windows-Einstellungen unter "
+                                    "Taste Snapslash nicht. Abhilfe: in den Windows-Einstellungen unter "
                                     "«Barrierefreiheit › Tastatur» den Schalter zur Druck-Taste ausschalten."), this);
     printNote->setProperty("role", QStringLiteral("warning"));
     printNote->setWordWrap(true);

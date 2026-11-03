@@ -80,7 +80,7 @@ private slots:
     void capturesAWindowWithItsFrame()
     {
         Pattern window;
-        window.setWindowTitle(QStringLiteral("NSL Snap Testfenster"));
+        window.setWindowTitle(QStringLiteral("Snapslash Testfenster"));
         window.resize(400, 300);
         window.show();
         QVERIFY(QTest::qWaitForWindowExposed(&window));
@@ -112,7 +112,7 @@ private slots:
         if (QOperatingSystemVersion::current() < QOperatingSystemVersion::Windows11)
             QSKIP("square window corners before Windows 11");
         Pattern window;
-        window.setWindowTitle(QStringLiteral("NSL Snap Testfenster"));
+        window.setWindowTitle(QStringLiteral("Snapslash Testfenster"));
         window.resize(400, 300);
         window.show();
         QVERIFY(QTest::qWaitForWindowExposed(&window));
@@ -146,13 +146,13 @@ private slots:
     void coveredWindowIsCapturedWhole()
     {
         Pattern window;
-        window.setWindowTitle(QStringLiteral("NSL Snap Testfenster"));
+        window.setWindowTitle(QStringLiteral("Snapslash Testfenster"));
         window.setGeometry(200, 200, 400, 300);
         window.show();
         QVERIFY(QTest::qWaitForWindowExposed(&window));
         // A grey window right on top of it.
         QWidget cover;
-        cover.setWindowTitle(QStringLiteral("NSL Snap Abdeckung"));
+        cover.setWindowTitle(QStringLiteral("Snapslash Abdeckung"));
         cover.setStyleSheet(QStringLiteral("background: #808080"));
         cover.setGeometry(window.geometry());
         cover.show();
@@ -171,12 +171,12 @@ private slots:
     void windowListIsTopmostFirst()
     {
         Pattern below;
-        below.setWindowTitle(QStringLiteral("NSL Snap unten"));
+        below.setWindowTitle(QStringLiteral("Snapslash unten"));
         below.setGeometry(100, 100, 300, 200);
         below.show();
         QVERIFY(QTest::qWaitForWindowExposed(&below));
         Pattern above;
-        above.setWindowTitle(QStringLiteral("NSL Snap oben"));
+        above.setWindowTitle(QStringLiteral("Snapslash oben"));
         above.setGeometry(150, 150, 300, 200);
         above.show();
         QVERIFY(QTest::qWaitForWindowExposed(&above));

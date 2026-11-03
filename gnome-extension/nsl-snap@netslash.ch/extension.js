@@ -1,4 +1,4 @@
-// NSL Snap capture backend for GNOME Shell (docs/01-architecture.md).
+// Snapslash capture backend for GNOME Shell (docs/01-architecture.md).
 //
 // Exports ch.netslash.Snap1 on the session bus. Every capture freezes the
 // screen and then requires the user to select on the frozen picture, so no
@@ -195,7 +195,7 @@ class SnapService {
             if (e instanceof CaptureError) {
                 invocation.return_dbus_error(e.dbusName, e.message);
             } else {
-                logError(e, 'NSL Snap: capture failed');
+                logError(e, 'Snapslash: capture failed');
                 invocation.return_dbus_error(`${ERROR_PREFIX}.Failed`, e.message);
             }
         }

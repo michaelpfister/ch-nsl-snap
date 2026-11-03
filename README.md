@@ -1,4 +1,4 @@
-# NSL Snap
+# Snapslash
 
 A screenshot tool for Windows, macOS and Linux (GNOME on Wayland), inspired by WinSnap. Its key feature is capturing a single window with clean edges and transparent rounded corners.
 
