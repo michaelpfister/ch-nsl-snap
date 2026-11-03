@@ -99,6 +99,46 @@ void setTrayHintShown(bool shown)
     QSettings().setValue("tray/hintShown", shown);
 }
 
+bool checkForUpdates()
+{
+    return QSettings().value("updates/check", true).toBool();
+}
+
+void setCheckForUpdates(bool enabled)
+{
+    QSettings().setValue("updates/check", enabled);
+}
+
+bool offerPrereleases()
+{
+    return QSettings().value("updates/prereleases", false).toBool();
+}
+
+void setOfferPrereleases(bool enabled)
+{
+    QSettings().setValue("updates/prereleases", enabled);
+}
+
+QDateTime lastUpdateCheck()
+{
+    return QSettings().value("updates/lastCheck").toDateTime();
+}
+
+void setLastUpdateCheck(const QDateTime &time)
+{
+    QSettings().setValue("updates/lastCheck", time);
+}
+
+QString availableUpdate()
+{
+    return QSettings().value("updates/available").toString();
+}
+
+void setAvailableUpdate(const QString &version)
+{
+    QSettings().setValue("updates/available", version);
+}
+
 namespace {
 
 QString hotkeySettingsKey(GlobalHotkeys::Action action)

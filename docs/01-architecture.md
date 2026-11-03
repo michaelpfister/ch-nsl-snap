@@ -86,10 +86,12 @@ The editor is object-based (D-012): the captured image stays unchanged, annotati
 | `src/capture/` | `CaptureBackend` interface, `PickGeometry`, and the platform backends (`gnome/`, `windows/`, `wayland/`, `portal/`; `macos/` later) |
 | `protocols/` | Wayland protocol files for the Wayland backend |
 | `flake.nix`, `nix/` | Nix package and development shell (NixOS) |
+| `.github/workflows/` | CI (`ci.yml`) and the release on a version tag (`release.yml`, D-037) |
 | `src/editor/` | Editor view (`QGraphicsView`), later the annotation items (D-012) |
 | `src/ui/` | Theme (colour tokens, style sheet, light/dark) and SVG icons (D-014) |
 | `resources/icons/` | Line icons, drawn with `currentColor`, and the logo (D-036) |
 | `resources/ch.netslash.Snapslash.desktop` | Desktop entry for Linux, installed with the logo as icon (D-036) |
+| `src/update/` | Updates and downgrades (D-037): `Version`, the GitHub releases (`Releases`), the check (`UpdateChecker`) and the self-replacement of the portable Windows version (`UpdateInstaller`, with `resources/update/swap-folder.ps1`); the dialog is `src/app/UpdateDialog` |
 | `src/imaging/` | Image processing without UI: crop to the opaque core (D-010), corner cleanup (D-009) |
 | `tests/` | Qt Test unit tests, run with `ctest` |
 | `gnome-extension/nsl-snap@netslash.ch/` | GNOME Shell extension (capture backend for GNOME) |

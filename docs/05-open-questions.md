@@ -16,6 +16,8 @@
 | Q-22 | Use ext-image-copy-capture (compositor-neutral, also windows) instead of wlr-screencopy and hyprland-toplevel-export once the compositors in use offer it? | later; would give window capture on more desktops | D-031 |
 | Q-23 | Rotated monitors (Wayland output transform) on Hyprland and Sway: is the frozen picture already upright? | not handled; untested | D-031 |
 | Q-24 | Hyprland rounds window corners only when composing (decoration:rounding); round the capture like on Windows 11 (D-022)? | no: square, as the window buffer is | D-031 |
+| Q-25 | Sign releases (minisign signature checked by the app, Windows code signing against SmartScreen)? | not yet: SHA-256 from the same release (D-037) | trust in updates |
+| Q-26 | Ship the GNOME extension with the releases, so a downgrade on GNOME takes the matching extension along? | not yet; installed from the repository (Q-06) | D-037 on GNOME |
 
 ## Resolved
 

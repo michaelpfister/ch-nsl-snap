@@ -429,3 +429,24 @@ Each entry: context, decision, rationale, consequences. Entries marked **(assump
 - Hyprland configurations change `nsl-snap` to `snapslash` in their `bind` and `permission` lines (docs/07-development-setup.md).
 - "Snap" is also a mark of Snap Inc. (Snapchat); this matters only for a trademark application of our own.
 - The Windows executable has no icon of its own yet (needs an `.ico` and a resource file, with the packaging).
+
+## D-037 Updates and downgrades from the GitHub releases
+
+**Context:** The repository is public. Users should learn about new versions, and be able to go back to an earlier one when a new version breaks something. Until now there were no releases and no packages.
+**Decision:**
+- **Releases:** pushing a tag `v1.2.3` (or `v1.2.3-beta.1`, a pre-release) runs `.github/workflows/release.yml`: it checks the tag against `project(... VERSION)` and `nix/package.nix`, builds a portable ZIP per Windows architecture (`snapslash-<version>-windows-<x64|arm64>.zip`: a folder `Snapslash` with `snapslash.exe`, the Qt files from windeployqt, the C++ runtime DLLs and the marker `snapslash-portable.txt`), writes `SHA256SUMS.txt` and creates the GitHub release with generated notes. The pre-release part reaches the app through `NSL_VERSION_SUFFIX`.
+- **Check** (`src/update/UpdateChecker`): one unauthenticated request to `api.github.com/repos/michaelpfister/ch-nsl-snap/releases`, five seconds after start, at most once a day; setting "Beim Start automatisch suchen" (on by default). Versions compare after Semantic Versioning (`Version`); drafts and tags that are no version are ignored. Pre-releases only with the setting "Auch Vorabversionen anbieten" (off by default). A newer version shows the button "Update x.y.z" in the top bar, and once a message in the tray while the window is hidden. A failed automatic check stays silent.
+- **What an update does depends on the installation** (`Releases::installation`):
+  - *Portable Windows* (the marker file next to the program): the app downloads the ZIP for the CPU it was built for, checks its SHA-256 (GitHub's asset digest, else `SHA256SUMS.txt`; without a checksum nothing is installed), unpacks it with Windows' `tar.exe` next to its folder, asks about unsaved work and quits. A hidden PowerShell script (`resources/update/swap-folder.ps1`) waits for the app to end, moves the folder to `Snapslash.old`, moves the new one in, starts it and deletes the old one; if a step fails it puts the old folder back and starts it. A log goes to `%TEMP%\snapslash-update.log`.
+  - *Nix* (`/nix/store`): the dialog shows the commands that pin the flake to the release's tag; Nix itself replaces the package.
+  - *Built from source, or a copy without the marker*: the dialog shows the steps (`git checkout <tag>` and build; on GNOME install the extension again and log in anew), or the download on Windows.
+- **Downgrade:** the settings tab "Updates" lists every offered release, newest first, with the version below the installed one preselected. Installing an older version is the same path as an update. Settings stay: an older version ignores keys it does not know, and they apply again after the next update.
+**Rationale:** GitHub's releases are where the code already is, need no server of our own, and answer without an account. A portable folder can replace itself without administrator rights; an installer would need them for `Program Files` and a second program to maintain. Swapping whole folders keeps no files of the old version behind (Qt plugins of another version would break the app). Nix and source builds have their own update mechanism, which the app must not get in the way of.
+**Rejected:** an installer (Inno Setup, MSIX) for now; replacing files one by one inside the running folder; checking on every start; telling the user about pre-releases by default; a self-update for Linux (AppImage), as long as the Linux users install through Nix or from source.
+**Consequences:**
+- The checksum comes from the same release as the ZIP: it protects against broken downloads, not against a compromised GitHub account. A signature of our own (minisign) or code signing would close that (Q-25).
+- Without code signing, Windows SmartScreen warns when the downloaded ZIP's program is started the first time.
+- The portable folder must be writable by the user (not `Program Files`); otherwise the update says so and the ZIP from the release page is the way.
+- The GNOME extension is not part of any release yet; a downgrade of the app on GNOME may need the extension of the same version (the app checks the extension's API version, D-021).
+- Tested: versions, the release list, checksums, the installation kinds, a rejected checksum (`tests/tst_update.cpp`); on Windows CI the whole path from ZIP to swapped folder with the real `tar.exe` and PowerShell. The download from GitHub and the restart by hand after the first release.
+

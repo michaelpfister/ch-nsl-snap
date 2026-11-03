@@ -6,6 +6,7 @@
 #include "app/Settings.h"
 #include "app/SettingsDialog.h"
 #include "app/ToolRail.h"
+#include "app/UpdateDialog.h"
 #include "capture/CaptureBackend.h"
 #include "editor/ArrowItem.h"
 #include "editor/Commands.h"
@@ -19,6 +20,8 @@
 #include "imaging/WindowImage.h"
 #include "ui/Icons.h"
 #include "ui/Theme.h"
+#include "update/UpdateChecker.h"
+#include "update/UpdateInstaller.h"
 
 #include <QAction>
 #include <QCloseEvent>
@@ -51,6 +54,7 @@
 #include <QUrl>
 
 #include <algorithm>
+#include <utility>
 
 #ifdef NSL_HAVE_GNOME_BACKEND
 #include <QDBusConnection>
@@ -262,6 +266,16 @@ MainWindow::MainWindow(QWidget *parent)
     createTrayIcon();
     createShortcuts();
     createGlobalHotkeys();
+
+    m_updates = new UpdateChecker(this);
+    connect(m_updates, &UpdateChecker::finished, this, &MainWindow::onReleasesLoaded);
+    connect(m_updates, &UpdateChecker::failed, this, [this](const QString &message) {
+        // At start a failed check stays silent; after a click it is said.
+        if (std::exchange(m_openUpdateWhenLoaded, false))
+            QMessageBox::warning(this, tr("Update"), message);
+    });
+    // A few seconds after start, so it never slows down the first capture.
+    QTimer::singleShot(5000, this, &MainWindow::checkForUpdatesAtStart);
     onToolChanged(m_toolRail->currentTool());
     updateActions();
     updateZoomLabel();
@@ -394,6 +408,12 @@ QWidget *MainWindow::createTopBar()
     });
     zoomLayout->addWidget(m_fitButton);
     layout->addWidget(zoom);
+
+    // Shown once a check found a newer version (F-49).
+    m_updateButton = textButton(QString(), QStringLiteral("secondary"), bar);
+    m_updateButton->setVisible(false);
+    connect(m_updateButton, &QPushButton::clicked, this, &MainWindow::openAvailableUpdate);
+    layout->addWidget(m_updateButton);
 
     m_settingsButton = iconButton(tr("Einstellungen (F2)"), bar);
     connect(m_settingsButton, &QToolButton::clicked, this, &MainWindow::showSettings);
@@ -1296,12 +1316,89 @@ void MainWindow::copyFilePath()
 void MainWindow::showSettings()
 {
     SettingsDialog dialog(m_hotkeys, this);
+    connect(&dialog, &SettingsDialog::releasesLoaded, this, &MainWindow::onReleasesLoaded);
+    connect(&dialog, &SettingsDialog::installRequested, this,
+            [this, &dialog](const Releases::Release &release) { showUpdate(release, &dialog); });
     connect(&dialog, &SettingsDialog::advancedModeChanged, m_properties, &PropertiesPanel::setAdvancedMode);
     connect(&dialog, &SettingsDialog::stylesReset, this, [this] {
         loadDefaultStyles();
         onSelectionChanged(); // the panel shows the defaults again
     });
     dialog.exec();
+}
+
+void MainWindow::checkForUpdatesAtStart()
+{
+    if (!Settings::checkForUpdates())
+        return;
+    // Known from an earlier check: show it now, without asking GitHub again.
+    showUpdateButton(Settings::availableUpdate());
+    if (UpdateChecker::isDue(Settings::lastUpdateCheck(), QDateTime::currentDateTimeUtc()))
+        m_updates->check();
+}
+
+void MainWindow::onReleasesLoaded(const QList<Releases::Release> &releases)
+{
+    Settings::setLastUpdateCheck(QDateTime::currentDateTimeUtc());
+    m_availableUpdate = Releases::newerThan(releases, Version::current(), Settings::offerPrereleases());
+    const QString version = m_availableUpdate ? m_availableUpdate->version.toString() : QString();
+    const bool isNew = !version.isEmpty() && version != Settings::availableUpdate();
+    Settings::setAvailableUpdate(version);
+    showUpdateButton(version);
+    // While the app waits in the tray, the tray says it, once per version.
+    if (isNew && m_tray && !isVisible())
+        m_tray->showMessage(tr("Update verfügbar"), tr("Snapslash %1 ist verfügbar.").arg(version));
+    if (std::exchange(m_openUpdateWhenLoaded, false)) {
+        if (m_availableUpdate)
+            showUpdate(*m_availableUpdate, this);
+        else
+            QMessageBox::information(this, tr("Update"), tr("Snapslash ist auf dem neusten Stand."));
+    }
+}
+
+void MainWindow::showUpdateButton(const QString &version)
+{
+    // A stored version that is no longer newer (installed in the meantime)
+    // shows nothing.
+    const std::optional<Version> parsed = Version::parse(version);
+    const bool show = parsed && *parsed > Version::current();
+    m_updateButton->setVisible(show);
+    if (show) {
+        m_updateButton->setText(tr("Update %1").arg(parsed->toString()));
+        m_updateButton->setToolTip(tr("Snapslash %1 ist verfügbar: anzeigen und installieren").arg(parsed->toString()));
+    }
+}
+
+void MainWindow::openAvailableUpdate()
+{
+    if (m_availableUpdate) {
+        showUpdate(*m_availableUpdate, this);
+        return;
+    }
+    // Only the version number is known from an earlier start: fetch the rest.
+    m_openUpdateWhenLoaded = true;
+    m_updates->check();
+}
+
+void MainWindow::showUpdate(const Releases::Release &release, QWidget *parent)
+{
+    UpdateDialog dialog(release, parent);
+    if (dialog.exec() != QDialog::Accepted || !dialog.readyToSwap())
+        return;
+    // The new version is unpacked; the swap needs the app to quit.
+    if (hasUnsavedChanges()) {
+        showEditor();
+        if (!confirmDiscard(tr("Neu starten"), tr("Trotzdem neu starten?"))) {
+            dialog.installer()->discard();
+            return;
+        }
+    }
+    if (!dialog.installer()->startSwap(QCoreApplication::applicationPid())) {
+        QMessageBox::warning(this, tr("Update"), tr("Das Update liess sich nicht starten (PowerShell fehlt)."));
+        return;
+    }
+    m_quitting = true;
+    QApplication::quit();
 }
 
 void MainWindow::clearEditor()

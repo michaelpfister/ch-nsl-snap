@@ -4,6 +4,7 @@
 #include "app/SingleInstance.h"
 #include "capture/CaptureResult.h"
 #include "editor/Tool.h"
+#include "update/Releases.h"
 
 #include <QColor>
 #include <QMainWindow>
@@ -23,6 +24,7 @@ class QTimer;
 class QToolButton;
 class QUndoStack;
 class ToolRail;
+class UpdateChecker;
 struct FrameStyle;
 struct RedactStyle;
 struct ReplaceStyle;
@@ -114,6 +116,14 @@ private:
     void clearEditor();
     void showSettings();
 
+    // Updates (F-49, D-037): the check at start, the button in the top bar
+    // and the dialog for one release (newer or older).
+    void checkForUpdatesAtStart();
+    void onReleasesLoaded(const QList<Releases::Release> &releases);
+    void showUpdateButton(const QString &version);
+    void openAvailableUpdate();
+    void showUpdate(const Releases::Release &release, QWidget *parent);
+
     void setImage(const QImage &image, double scale, const QString &name, const QString &source);
     void onToolChanged(ToolId id);
     void onSelectionChanged();
@@ -165,6 +175,10 @@ private:
     };
     std::optional<PendingRequest> m_request;
 
+    UpdateChecker *m_updates = nullptr;
+    std::optional<Releases::Release> m_availableUpdate;
+    bool m_openUpdateWhenLoaded = false; // the button was clicked before the check
+
     // Top bar.
     QLabel *m_logo = nullptr;
     QToolButton *m_windowButton = nullptr;
@@ -181,6 +195,7 @@ private:
     QToolButton *m_fitButton = nullptr;
     QAction *m_fitAction = nullptr;
     QToolButton *m_settingsButton = nullptr;
+    QPushButton *m_updateButton = nullptr; // hidden until an update is known
     QPushButton *m_copyButton = nullptr;
     QPushButton *m_saveButton = nullptr;
     QToolButton *m_clearButton = nullptr;
