@@ -102,7 +102,7 @@ struct Frame
         size = size_t(stride) * height;
         if (size == 0)
             return false;
-        const int fd = memfd_create("nsl-snap-capture", MFD_CLOEXEC);
+        const int fd = memfd_create("snapslash-capture", MFD_CLOEXEC);
         if (fd < 0)
             return false;
         if (ftruncate(fd, off_t(size)) < 0) {

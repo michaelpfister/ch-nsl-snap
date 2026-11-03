@@ -3,7 +3,6 @@
 | # | Question | Current assumption | Blocks |
 |---|---|---|---|
 | Q-02 | Language of the user interface? | German (Switzerland), no "ß" | UI strings |
-| Q-03 | Name of the product? | "NSL Snap" as working title | identifiers (D-007), packaging |
 | Q-05 | Which GNOME versions does the extension support? | 46 (tested), newer versions as they come | metadata.json |
 | Q-06 | Distribute the extension via extensions.gnome.org, or only together with the app? | together with the app | packaging |
 | Q-07 | Should menus and tooltips of the picked window be included? | not in the PoC | window capture |
@@ -22,6 +21,7 @@
 
 | # | Question | Resolution | Recorded in |
 |---|---|---|---|
+| Q-03 | Name of the product? | "Snapslash", with the logo of two frame corners and a slash (2026-11-03, issue #16) | D-036, D-007 |
 | Q-15 | Windows 11 opens the Snipping Tool on Print. Ask users to switch that off, or use a low-level keyboard hook? | `RegisterHotKey`, no hook; a note once at start and in the settings, with a button to the Windows setting (2026-10-27) | D-035 |
 | Q-21 | Do window capture and the layer-shell overlay work on a real Hyprland? | Yes: a user on NixOS with Hyprland reported "everything works now, even screen capture", saving included (2026-10-27, issue #11) | D-031 |
 | Q-18 | How does the user change the order of numbered frames? | Drag entries in the object list (2026-10-25) | 04-features.md F-24 |

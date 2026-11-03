@@ -57,10 +57,11 @@ Each entry: context, decision, rationale, consequences. Entries marked **(assump
 **Decision:** `Capture` (formerly `PickWindow`, D-021) returns the PNG as a byte array over D-Bus. Saving, naming and copying to the clipboard is the app's job.
 **Rationale:** Keeps the extension small and free of settings. Even a 4K window as PNG stays far below D-Bus message limits.
 
-## D-007 Identifiers (assumption)
+## D-007 Identifiers
 
-**Decision:** Extension UUID `nsl-snap@netslash.ch`, D-Bus name `ch.netslash.Snap.Shell`, interface `ch.netslash.Snap1`, object path `/ch/netslash/Snap`.
-**Consequences:** Renaming the product later (Q-03) does not require changing these, but it is cheaper before the first public release.
+**Decision:** App id `ch.netslash.Snapslash` (desktop entry, icon name, `QGuiApplication::desktopFileName`) and command `snapslash` (D-036). The internal identifiers keep the working title: extension UUID `nsl-snap@netslash.ch`, its settings schema `org.gnome.shell.extensions.nsl-snap`, D-Bus name `ch.netslash.Snap.Shell`, interface `ch.netslash.Snap1`, object path `/ch/netslash/Snap`, and the app's local socket `ch.netslash.Snap.sock` (D-034).
+**Rationale:** Users never see the internal ones. A new extension UUID means installing the extension again, logging out and in, and losing its settings.
+**Consequences:** Renaming them stays possible until the extension is published (Q-06); the app and the extension then change together.
 
 ## D-008 PoC client in Python
 
@@ -340,7 +341,7 @@ Each entry: context, decision, rationale, consequences. Entries marked **(assump
 **Decision:**
 - **Feedback:** buttons get darker while pressed; after copying or saving, the button shows a check mark and "Kopiert" / "Gespeichert" in green for 1.6 s, with the same width, plus the message in the status bar.
 - **Saving:** the "Speichern" button (and Ctrl+Shift+S) opens the save dialog with the folder and a name from the pattern filled in; it starts in the folder of the last save of the session, else in the folder from the settings. **Ctrl+S** keeps saving directly into the folder from the settings, like WinSnap (F-46).
-- **Settings** (now in tabs: Allgemein, Speichern, Farben und Stile): save folder (default `~/Pictures/NSL Snap`) and file name pattern with `{Datum}`, `{Zeit}` and `{Titel}` (default `{Datum}_{Zeit}_{Titel}`, as before) with a live example. Characters that are not allowed in file names on any platform become `_` (`FileNames`).
+- **Settings** (now in tabs: Allgemein, Speichern, Farben und Stile): save folder (default `~/Pictures/Snapslash`) and file name pattern with `{Datum}`, `{Zeit}` and `{Titel}` (default `{Datum}_{Zeit}_{Titel}`, as before) with a live example. Characters that are not allowed in file names on any platform become `_` (`FileNames`).
 - **Clearing:** a bin button in the top bar next to undo/redo (Ctrl+Delete as before). It asks only if the image was neither saved nor copied since the last change (undo stack clean state); opened files count as saved. Quitting asks the same way.
 - **Tray icon** (F-45): menu with the three capture modes, "Editor öffnen", "Einstellungen" and "Beenden"; a click opens the editor. Closing the window or Escape (with nothing left to cancel) hides it to the tray, once with a notice; a setting turns this off. A capture started from the tray and cancelled leaves the window hidden. Without a tray (GNOME without the AppIndicator extension) the app behaves as before.
 **Rationale:** Visible confirmation is what makes the two most used buttons trustworthy; the dialog is the expected behaviour of a "Speichern" button, while the shortcut stays fast for experienced users.
@@ -362,7 +363,7 @@ Each entry: context, decision, rationale, consequences. Entries marked **(assump
 - ext-image-copy-capture (the newer, compositor-neutral protocol): not yet offered by every Hyprland version in use; worth a look later (Q-22).
 - Window capture on other wlroots desktops: they offer no window list to apps.
 **Consequences:**
-- Hyprland with `ecosystem:enforce_permissions = true` asks once whether NSL Snap may capture (`screencopy`), or needs a `permission` rule for its binary; a refused permission gives a black picture with "permission denied".
+- Hyprland with `ecosystem:enforce_permissions = true` asks once whether Snapslash may capture (`screencopy`), or needs a `permission` rule for its binary; a refused permission gives a black picture with "permission denied".
 - Tested in a headless Sway (2026-10-27): freeze of two monitors with scales 1 and 2, region and screen capture through the overlay with keyboard input, the countdown, Escape. Hyprland's window list and window export have unit tests with recorded `hyprctl` output; on a real Hyprland (NixOS, Nix package from the flake) a user reported that everything works, saving included (2026-10-27, issue #11, Q-21).
 - Rotated monitors (output transform) are not handled yet (Q-23).
 
@@ -412,3 +413,19 @@ Each entry: context, decision, rationale, consequences. Entries marked **(assump
 - On the development machine (2026-10-27) Alt + Print was already taken by another process (OneDrive or the Snipping Tool were running); the settings show it.
 - Hotkeys work only while the app runs (tray, F-45); starting with Windows is a separate step (packaging).
 - Tested: key conversion, registration, a taken key, suspending (`tests/tst_hotkeys.cpp`). The key presses themselves, the note and Alt + Print by hand.
+
+## D-036 Name Snapslash, logo and desktop entry
+
+**Context:** "NSL Snap" was a working title (Q-03). Issue #16: the Nix package has neither a desktop entry nor an icon, so the app is missing from the application launcher.
+**Decision:**
+- Name **Snapslash**: the snap of the capture and the slash of netslash. Command `snapslash`, Nix package `snapslash`, app id `ch.netslash.Snapslash` (D-007). The repository keeps its name.
+- **Logo:** two frame corners joined by a slash, white on coral (`#F2614E`) in a rounded square (`resources/icons/logo.svg`). It is the top bar logo, the tray icon, the window icon and the desktop icon.
+- **Desktop entry** `resources/ch.netslash.Snapslash.desktop`, with actions for window, region and screen capture (each with `--open`, so the capture appears in the editor). On Linux `cmake --install` puts it into `share/applications` and the logo into `share/icons/hicolor/scalable/apps/ch.netslash.Snapslash.svg`, so every package built with CMake has both, the Nix package included.
+- QSettings stores the settings under the app name; settings stored under "NSL Snap" are copied once at the first start with the new name (`Settings::migrateFromFormerName`).
+**Rationale:** Checked on 2026-11-03: no trademark "Snapslash" in Swissreg, EUIPO or the WIPO Global Brand Database; on GitHub only two small, inactive projects of that name; snapslash.ch, .app and .io were free, snapslash.com is taken.
+**Rejected:** "Slashframe" (an active open-source project uses the name; its logo is the one adopted here), "Slashot" (hard to pronounce), "Netshot" (an existing network tool), "Slashcut", "Slashpane".
+**Consequences:**
+- The default save folder becomes `~/Pictures/Snapslash`; a folder chosen in the settings stays.
+- Hyprland configurations change `nsl-snap` to `snapslash` in their `bind` and `permission` lines (docs/07-development-setup.md).
+- "Snap" is also a mark of Snap Inc. (Snapchat); this matters only for a trademark application of our own.
+- The Windows executable has no icon of its own yet (needs an `.ico` and a resource file, with the packaging).

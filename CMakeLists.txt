@@ -1,6 +1,6 @@
 cmake_minimum_required(VERSION 3.21)
 
-project(NslSnap VERSION 0.1.0 LANGUAGES CXX)
+project(Snapslash VERSION 0.1.0 LANGUAGES CXX)
 
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
@@ -192,12 +192,21 @@ if(WIN32)
     target_compile_definitions(nsl_snap_core PUBLIC NSL_HAVE_WINDOWS_BACKEND)
 endif()
 
-qt_add_executable(nsl-snap src/main.cpp)
-target_link_libraries(nsl-snap PRIVATE nsl_snap_core)
+qt_add_executable(snapslash src/main.cpp)
+target_link_libraries(snapslash PRIVATE nsl_snap_core)
 
 # `cmake --install`, used by packages (e.g. the Nix package in nix/).
 include(GNUInstallDirs)
-install(TARGETS nsl-snap RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR})
+install(TARGETS snapslash RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR})
+if(LINUX)
+    # Desktop entry and icon, so launchers list the app (D-036). The icon
+    # name matches the app id (QGuiApplication::desktopFileName in main.cpp).
+    install(FILES resources/ch.netslash.Snapslash.desktop
+        DESTINATION ${CMAKE_INSTALL_DATADIR}/applications)
+    install(FILES resources/icons/logo.svg
+        DESTINATION ${CMAKE_INSTALL_DATADIR}/icons/hicolor/scalable/apps
+        RENAME ch.netslash.Snapslash.svg)
+endif()
 
 enable_testing()
 add_subdirectory(tests)

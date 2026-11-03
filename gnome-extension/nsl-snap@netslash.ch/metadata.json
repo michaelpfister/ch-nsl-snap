@@ -1,7 +1,7 @@
 {
   "uuid": "nsl-snap@netslash.ch",
-  "name": "NSL Snap",
-  "description": "Capture backend for NSL Snap: freezes the screen, then lets you pick a window, a region or a monitor on the frozen picture; optionally after a countdown.",
+  "name": "Snapslash",
+  "description": "Capture backend for Snapslash: freezes the screen, then lets you pick a window, a region or a monitor on the frozen picture; optionally after a countdown.",
   "shell-version": ["46"],
   "version": 4,
   "settings-schema": "org.gnome.shell.extensions.nsl-snap"

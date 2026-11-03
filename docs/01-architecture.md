@@ -12,7 +12,7 @@ Capturing is the only part that differs fundamentally between platforms. Wayland
 
 | Concern | Windows | macOS | GNOME (Wayland) | Hyprland and other wlroots (D-031) | Fallback (any Wayland desktop, D-032) |
 |---|---|---|---|---|---|
-| Window capture | Windows API (DWM/Graphics Capture) | ScreenCaptureKit | NSL Snap Shell extension (D-Bus) | hyprland-toplevel-export (Hyprland only) | not available |
+| Window capture | Windows API (DWM/Graphics Capture) | ScreenCaptureKit | Snapslash Shell extension (D-Bus) | hyprland-toplevel-export (Hyprland only) | not available |
 | Full screen / area | Windows API | ScreenCaptureKit | Shell extension, or Screenshot portal | wlr-screencopy | Screenshot portal |
 | Window list / geometry | Windows API | ScreenCaptureKit (`SCShareableContent`) | Shell extension | Hyprland's control socket (`hyprctl`) | not available |
 | Overlay | the app's own | the app's own | the extension's | the app's own, as a layer surface | the app's own |
@@ -24,7 +24,7 @@ The app is C++20 with Qt 6.8 Widgets (D-013).
 ## Components
 
 ```
-                ┌──────────────────────── NSL Snap app (shared core) ───────────────────────┐
+                ┌──────────────────────── Snapslash app (shared core) ──────────────────────┐
  user ─button─▶ │ Capture service ──▶ Crop & clean (D-009, D-010) ──────────▶ Editor ──▶ Export│
                 │       │                                                    (annotate)  (file, clipboard)
                 │       ▼                                                                    │
@@ -88,7 +88,8 @@ The editor is object-based (D-012): the captured image stays unchanged, annotati
 | `flake.nix`, `nix/` | Nix package and development shell (NixOS) |
 | `src/editor/` | Editor view (`QGraphicsView`), later the annotation items (D-012) |
 | `src/ui/` | Theme (colour tokens, style sheet, light/dark) and SVG icons (D-014) |
-| `resources/icons/` | Line icons, drawn with `currentColor` |
+| `resources/icons/` | Line icons, drawn with `currentColor`, and the logo (D-036) |
+| `resources/ch.netslash.Snapslash.desktop` | Desktop entry for Linux, installed with the logo as icon (D-036) |
 | `src/imaging/` | Image processing without UI: crop to the opaque core (D-010), corner cleanup (D-009) |
 | `tests/` | Qt Test unit tests, run with `ctest` |
 | `gnome-extension/nsl-snap@netslash.ch/` | GNOME Shell extension (capture backend for GNOME) |

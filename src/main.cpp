@@ -1,10 +1,12 @@
 #include "app/CommandLine.h"
 #include "app/MainWindow.h"
 #include "app/PlatformTheme.h"
+#include "app/Settings.h"
 #include "app/SingleInstance.h"
 #include "ui/Theme.h"
 
 #include <QApplication>
+#include <QIcon>
 #include <QStyleHints>
 #include <QTextStream>
 #include <QTimer>
@@ -18,7 +20,7 @@ void print(const SingleInstance::Answer &answer)
     if (answer.outcome == CommandLine::Outcome::Saved)
         QTextStream(stdout) << answer.detail << Qt::endl;
     else if (answer.outcome == CommandLine::Outcome::Failed && !answer.detail.isEmpty())
-        QTextStream(stderr) << "nsl-snap: " << answer.detail << Qt::endl;
+        QTextStream(stderr) << "snapslash: " << answer.detail << Qt::endl;
 }
 
 } // namespace
@@ -30,11 +32,11 @@ int main(int argc, char *argv[])
     CommandLine::Parsed parsed;
     {
         QCoreApplication parser(argc, argv);
-        QCoreApplication::setApplicationName(QStringLiteral("nsl-snap"));
+        QCoreApplication::setApplicationName(QStringLiteral("snapslash"));
         QCoreApplication::setApplicationVersion(QStringLiteral(NSL_VERSION));
         parsed = CommandLine::parse(QCoreApplication::arguments());
         if (!parsed.error.isEmpty()) {
-            QTextStream(stderr) << "nsl-snap: " << parsed.error << "\n\n" << CommandLine::helpText();
+            QTextStream(stderr) << "snapslash: " << parsed.error << "\n\n" << CommandLine::helpText();
             return CommandLine::exitCode(CommandLine::Outcome::Failed);
         }
         if (parsed.showHelp) {
@@ -42,7 +44,7 @@ int main(int argc, char *argv[])
             return 0;
         }
         if (parsed.showVersion) {
-            QTextStream(stdout) << "NSL Snap " << NSL_VERSION << '\n';
+            QTextStream(stdout) << "Snapslash " << NSL_VERSION << '\n';
             return 0;
         }
     }
@@ -50,19 +52,23 @@ int main(int argc, char *argv[])
     // Before Qt loads its platform theme (D-033).
     PlatformTheme::avoidBrokenGtk();
     QApplication app(argc, argv);
-    QApplication::setApplicationName(QStringLiteral("NSL Snap"));
+    QApplication::setApplicationName(QStringLiteral("Snapslash"));
     QApplication::setApplicationVersion(QStringLiteral(NSL_VERSION));
     QApplication::setOrganizationDomain(QStringLiteral("netslash.ch"));
     QApplication::setOrganizationName(QStringLiteral("netslash.ch")); // QSettings path
-    // Lets GNOME match the window to a .desktop file of the same name later.
-    QGuiApplication::setDesktopFileName(QStringLiteral("ch.netslash.Snap"));
+    // Lets the desktop match the window to resources/ch.netslash.Snapslash.desktop
+    // (Wayland), which also gives it its icon there (D-036).
+    QGuiApplication::setDesktopFileName(QStringLiteral("ch.netslash.Snapslash"));
+    // The icon on Windows and X11, which take it from the window.
+    QApplication::setWindowIcon(QIcon(QStringLiteral(":/icons/logo.svg")));
 
-    // NSL Snap already runs: it does the work, this start only waits.
+    // Snapslash already runs: it does the work, this start only waits.
     if (const auto answer = SingleInstance::forward(QApplication::arguments().mid(1))) {
         print(*answer);
         return CommandLine::exitCode(answer->outcome);
     }
 
+    Settings::migrateFromFormerName();
     MainWindow window;
     const auto applyTheme = [&app, &window] {
         const Theme theme = Theme::current();
@@ -77,7 +83,7 @@ int main(int argc, char *argv[])
     SingleInstance instance;
     instance.listen();
     instance.setHandler([&window](const QStringList &arguments, const SingleInstance::Reply &reply) {
-        const CommandLine::Parsed request = CommandLine::parse(QStringList{QStringLiteral("nsl-snap")} + arguments);
+        const CommandLine::Parsed request = CommandLine::parse(QStringList{QStringLiteral("snapslash")} + arguments);
         if (!request.error.isEmpty() || request.showHelp || request.showVersion) {
             reply({CommandLine::Outcome::Failed, request.error});
             return;

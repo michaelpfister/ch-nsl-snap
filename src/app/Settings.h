@@ -12,9 +12,13 @@
 #include <QList>
 #include <QString>
 
-// User settings, stored with QSettings (~/.config/netslash.ch/NSL Snap.conf
+// User settings, stored with QSettings (~/.config/netslash.ch/Snapslash.conf
 // on Linux, the registry on Windows, a plist on macOS).
 namespace Settings {
+
+// Copies the settings stored under the former app name "NSL Snap" (D-036),
+// once: only when there are none under the current name yet.
+void migrateFromFormerName();
 
 // Shows extra controls, e.g. the dim strength and blur sliders (F-27).
 bool advancedMode();

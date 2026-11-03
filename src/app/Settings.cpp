@@ -2,6 +2,7 @@
 
 #include "app/FileNames.h"
 
+#include <QCoreApplication>
 #include <QSettings>
 
 #include <algorithm>
@@ -12,6 +13,18 @@ namespace {
 const char *const kAdvancedMode = "editor/advancedMode";
 const char *const kRegionByDragging = "capture/regionByDragging";
 const char *const kCaptureDelay = "capture/delay";
+}
+
+void migrateFromFormerName()
+{
+    // QSettings() uses the organisation and application name set in main().
+    QSettings current;
+    if (!current.allKeys().isEmpty())
+        return;
+    const QSettings former(QCoreApplication::organizationName(), QStringLiteral("NSL Snap"));
+    const QStringList keys = former.allKeys();
+    for (const QString &key : keys)
+        current.setValue(key, former.value(key));
 }
 
 bool advancedMode()

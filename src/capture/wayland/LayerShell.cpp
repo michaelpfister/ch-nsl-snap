@@ -27,7 +27,7 @@ LayerShellQt::Window *layerFor(QWidget *widget, QScreen *screen)
     auto *layer = LayerShellQt::Window::get(widget->windowHandle());
     if (!layer)
         return nullptr;
-    layer->setScope(QStringLiteral("nsl-snap"));
+    layer->setScope(QStringLiteral("snapslash"));
     layer->setLayer(LayerShellQt::Window::LayerOverlay);
     // On the monitor of the widget, not where the compositor would put it.
 #ifdef NSL_LAYER_SHELL_QT_SET_SCREEN

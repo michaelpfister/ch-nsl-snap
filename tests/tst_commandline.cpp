@@ -13,7 +13,7 @@ namespace {
 
 CommandLine::Parsed parse(const QStringList &arguments)
 {
-    return CommandLine::parse(QStringList{QStringLiteral("nsl-snap")} + arguments);
+    return CommandLine::parse(QStringList{QStringLiteral("snapslash")} + arguments);
 }
 
 } // namespace
@@ -107,12 +107,12 @@ private slots:
         });
         QTRY_VERIFY(pending);
         QCOMPARE(received, QStringList({QStringLiteral("--capture-region"), QStringLiteral("--delay"), QStringLiteral("3")}));
-        pending({CommandLine::Outcome::Saved, QStringLiteral("/home/user/Pictures/NSL Snap/Bereich.png")});
+        pending({CommandLine::Outcome::Saved, QStringLiteral("/home/user/Pictures/Snapslash/Bereich.png")});
         // Keep this thread's event loop running until the answer is out.
         QTRY_VERIFY(answer.has_value());
         second.join();
         QCOMPARE(answer->outcome, CommandLine::Outcome::Saved);
-        QCOMPARE(answer->detail, QStringLiteral("/home/user/Pictures/NSL Snap/Bereich.png"));
+        QCOMPARE(answer->detail, QStringLiteral("/home/user/Pictures/Snapslash/Bereich.png"));
     }
 
     void staleSocketIsReplaced()

@@ -15,7 +15,7 @@ QString defaultPattern(); // "{Datum}_{Zeit}_{Titel}"
 // result becomes "screenshot".
 QString fromPattern(const QString &pattern, const QString &title, const QDateTime &time);
 
-// ~/Pictures/NSL Snap (or the home folder if there is no pictures folder).
+// ~/Pictures/Snapslash (or the home folder if there is no pictures folder).
 QString defaultFolder();
 
 } // namespace FileNames

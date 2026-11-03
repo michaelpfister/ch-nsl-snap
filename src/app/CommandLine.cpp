@@ -14,9 +14,9 @@ constexpr int kMaxDelay = 60;
 void addOptions(QCommandLineParser &parser)
 {
     parser.setApplicationDescription(QStringLiteral(
-        "NSL Snap: screenshots of single windows, regions and screens, with an editor.\n"
+        "Snapslash: screenshots of single windows, regions and screens, with an editor.\n"
         "With a --capture option the capture starts at once; without --open it is saved\n"
-        "to the save folder from the settings and its path printed. If NSL Snap is\n"
+        "to the save folder from the settings and its path printed. If Snapslash is\n"
         "already running, the running app does the capture."));
     parser.addOptions({
         {QStringLiteral("capture-window"), QStringLiteral("Pick a window and capture it.")},
