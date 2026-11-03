@@ -112,7 +112,13 @@ jobs:
           & "$env:QT_DIR\bin\windeployqt.exe" --release --no-translations --no-compiler-runtime "$folder\snapslash.exe"
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           # The C++ runtime as DLLs, so the folder runs without an installer.
-          Copy-Item "$env:VCToolsRedistDir\${{ matrix.arch }}\Microsoft.VC143.CRT\*.dll" $folder
+          # Its folder carries the toolset in its name (Microsoft.VC143.CRT
+          # with Visual Studio 2022, a newer one on runners with VS 2026).
+          $crt = Get-ChildItem "$env:VCToolsRedistDir\${{ matrix.arch }}" -Directory -Filter 'Microsoft.VC*.CRT' |
+            Sort-Object Name -Descending | Select-Object -First 1
+          if (-not $crt) { Write-Error "No C++ runtime in $env:VCToolsRedistDir\${{ matrix.arch }}"; exit 1 }
+          Write-Host "C++ runtime from $($crt.FullName)"
+          Copy-Item "$($crt.FullName)\*.dll" $folder
           Set-Content -Path "$folder\snapslash-portable.txt" -Encoding ascii -Value @(
             "Snapslash ${{ needs.version.outputs.version }}, portable version for Windows ${{ matrix.arch }}.",
             "Updates and other versions: Einstellungen > Updates. Keep this file: without it the app",
