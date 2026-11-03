@@ -114,6 +114,23 @@ Hyprland settings that matter (hyprland.conf):
   bind = ALT, Print, exec, snapslash --capture-window --open   # window, into the editor
   ```
 
+## Releasing
+
+A release is a version tag; `.github/workflows/release.yml` does the rest (D-037):
+
+1. Set the version in `CMakeLists.txt` (`project(Snapslash VERSION 0.2.0 ...)`) and in `nix/package.nix` (`version = "0.2.0";`). For a pre-release `nix/package.nix` carries the whole version (`"0.3.0-beta.1"`), CMake only the numbers (`0.3.0`).
+2. Commit, merge into `main`, then tag that commit and push the tag:
+
+   ```bash
+   git tag v0.2.0
+   git push origin v0.2.0
+   ```
+
+3. The workflow checks the tag against both versions, builds the Windows ZIPs (x64, ARM64), writes `SHA256SUMS.txt` and creates the release with notes generated from the merged pull requests. A tag with `-` (`v0.3.0-beta.1`) becomes a pre-release, which the app offers only with the setting "Auch Vorabversionen anbieten".
+4. Edit the notes on GitHub if needed: the app shows them in its update dialog (Markdown).
+
+To try an update before the first real one: release a pre-release, start the ZIP of an older pre-release, and enable pre-releases in the settings.
+
 ## Windows 11 (x64 and ARM64)
 
 There is no Windows capture backend yet: "Fenster" and "Bereich" say that capturing is not supported on this platform. The editor works: paste a capture with Ctrl+V (e.g. from Win + Shift + S), drag an image onto the window, or open it with Ctrl+O. The same steps run in CI on both architectures (green since 2026-10-26).

@@ -15,9 +15,16 @@
   gsettings-desktop-schemas,
 }:
 
+let
+  # Same as project(... VERSION) in CMakeLists.txt; the release workflow
+  # checks both against the tag (D-037).
+  version = "0.1.0";
+  # "beta.1" of "0.3.0-beta.1": the pre-release part the app reports.
+  suffix = lib.concatStringsSep "-" (lib.drop 1 (lib.splitString "-" version));
+in
 stdenv.mkDerivation {
   pname = "snapslash";
-  version = "0.1.0";
+  inherit version;
 
   src = lib.cleanSource ../.;
 
@@ -43,6 +50,8 @@ stdenv.mkDerivation {
     gtk3
     gsettings-desktop-schemas
   ];
+
+  cmakeFlags = lib.optional (suffix != "") "-DNSL_VERSION_SUFFIX=${suffix}";
 
   # One wrapper instead of two: the GTK variables go into Qt's wrapper.
   dontWrapGApps = true;

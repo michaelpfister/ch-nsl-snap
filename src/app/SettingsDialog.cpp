@@ -3,9 +3,12 @@
 #include "app/FileNames.h"
 #include "app/GlobalHotkeys.h"
 #include "app/Settings.h"
+#include "update/UpdateChecker.h"
+#include "update/UpdateInstaller.h"
 
 #include <QButtonGroup>
 #include <QCheckBox>
+#include <QComboBox>
 #include <QRadioButton>
 #include <QDateTime>
 #include <QDialogButtonBox>
@@ -182,6 +185,16 @@ SettingsDialog::SettingsDialog(GlobalHotkeys *hotkeys, QWidget *parent)
     });
     layout->addStretch(1);
 
+    // --- Updates (F-49, D-037) ---
+    createUpdatePage(page(tr("Updates")));
+    // The list of versions loads when the tab is opened, if automatic
+    // checks are allowed; otherwise only with "Jetzt suchen".
+    const int updateTab = tabs->count() - 1;
+    connect(tabs, &QTabWidget::currentChanged, this, [this, updateTab](int index) {
+        if (index == updateTab && m_releases.isEmpty() && Settings::checkForUpdates())
+            checkForUpdates();
+    });
+
     auto *buttons = new QDialogButtonBox(QDialogButtonBox::Close, this);
     buttons->button(QDialogButtonBox::Close)->setText(tr("Schliessen"));
     connect(buttons, &QDialogButtonBox::rejected, this, &QDialog::reject);
@@ -298,4 +311,143 @@ void SettingsDialog::createHotkeyPage(QVBoxLayout *layout)
             editing = editing || (now && (now == edit || edit->isAncestorOf(now)));
         m_hotkeys->setSuspended(editing);
     });
+}
+
+void SettingsDialog::createUpdatePage(QVBoxLayout *layout)
+{
+    m_updates = new UpdateChecker(this);
+
+    auto *versionTitle = new QLabel(tr("Version"), this);
+    versionTitle->setProperty("role", QStringLiteral("section"));
+    layout->addWidget(versionTitle);
+    QString kind;
+    switch (Releases::installation()) {
+    case Releases::Installation::PortableWindows: kind = tr("portable Windows-Version"); break;
+    case Releases::Installation::Nix: kind = tr("über Nix installiert"); break;
+    case Releases::Installation::Other: kind = tr("selbst gebaut"); break;
+    }
+    layout->addWidget(new QLabel(tr("Snapslash %1 · %2").arg(Version::current().toString(), kind), this));
+    layout->addSpacing(16);
+
+    auto *checkTitle = new QLabel(tr("Nach Updates suchen"), this);
+    checkTitle->setProperty("role", QStringLiteral("section"));
+    layout->addWidget(checkTitle);
+    auto *automatic = new QCheckBox(tr("Beim Start automatisch suchen, höchstens einmal pro Tag"), this);
+    automatic->setChecked(Settings::checkForUpdates());
+    layout->addWidget(automatic);
+    auto *prereleases = new QCheckBox(tr("Auch Vorabversionen anbieten"), this);
+    prereleases->setChecked(Settings::offerPrereleases());
+    layout->addWidget(prereleases);
+    auto *privacy = new QLabel(tr("Die App fragt dazu GitHub nach den veröffentlichten Versionen von Snapslash. "
+                                  "Übertragen wird nur diese Anfrage, keine Aufnahmen und keine Einstellungen."), this);
+    privacy->setProperty("role", QStringLiteral("hint"));
+    privacy->setWordWrap(true);
+    layout->addWidget(privacy);
+    layout->addSpacing(4);
+    auto *checkRow = new QHBoxLayout;
+    m_checkButton = new QPushButton(tr("Jetzt suchen"), this);
+    m_checkButton->setProperty("role", QStringLiteral("secondary"));
+    m_updateStatus = new QLabel(this);
+    m_updateStatus->setProperty("role", QStringLiteral("hint"));
+    m_updateStatus->setWordWrap(true);
+    checkRow->addWidget(m_checkButton);
+    checkRow->addWidget(m_updateStatus, 1);
+    layout->addLayout(checkRow);
+    layout->addSpacing(16);
+
+    // Downgrade: any published version, in case a new one misbehaves.
+    auto *otherTitle = new QLabel(tr("Andere Version installieren"), this);
+    otherTitle->setProperty("role", QStringLiteral("section"));
+    layout->addWidget(otherTitle);
+    auto *otherHint = new QLabel(tr("Falls eine neue Version Probleme macht, lässt sich hier eine frühere wieder "
+                                    "installieren. Die Einstellungen bleiben erhalten."), this);
+    otherHint->setProperty("role", QStringLiteral("hint"));
+    otherHint->setWordWrap(true);
+    layout->addWidget(otherHint);
+    auto *versionRow = new QHBoxLayout;
+    m_versions = new QComboBox(this);
+    m_versions->setAccessibleName(tr("Version"));
+    m_versions->setEnabled(false);
+    m_versions->addItem(tr("Noch nicht geladen"));
+    m_installVersion = new QPushButton(UpdateInstaller::isSupported() ? tr("Installieren …") : tr("Anleitung …"), this);
+    m_installVersion->setProperty("role", QStringLiteral("secondary"));
+    m_installVersion->setEnabled(false);
+    versionRow->addWidget(m_versions, 1);
+    versionRow->addWidget(m_installVersion);
+    layout->addLayout(versionRow);
+    layout->addStretch(1);
+
+    connect(automatic, &QCheckBox::toggled, this, [](bool enabled) { Settings::setCheckForUpdates(enabled); });
+    connect(prereleases, &QCheckBox::toggled, this, [this](bool enabled) {
+        Settings::setOfferPrereleases(enabled);
+        if (!m_releases.isEmpty()) {
+            fillVersions();
+            emit releasesLoaded(m_releases); // the update button follows
+        }
+    });
+    connect(m_checkButton, &QPushButton::clicked, this, &SettingsDialog::checkForUpdates);
+    connect(m_installVersion, &QPushButton::clicked, this, [this] {
+        const int index = m_versions->currentData().toInt();
+        const QList<Releases::Release> offered =
+            Releases::offered(m_releases, Settings::offerPrereleases(), Version::current());
+        if (index >= 0 && index < offered.size())
+            emit installRequested(offered[index]);
+    });
+    connect(m_updates, &UpdateChecker::finished, this, [this](const QList<Releases::Release> &releases) {
+        m_releases = releases;
+        m_checkButton->setEnabled(true);
+        Settings::setLastUpdateCheck(QDateTime::currentDateTimeUtc());
+        fillVersions();
+        emit releasesLoaded(releases);
+    });
+    connect(m_updates, &UpdateChecker::failed, this, [this](const QString &message) {
+        m_checkButton->setEnabled(true);
+        m_updateStatus->setText(message);
+    });
+}
+
+void SettingsDialog::checkForUpdates()
+{
+    m_checkButton->setEnabled(false);
+    m_updateStatus->setText(tr("Wird gesucht …"));
+    m_updates->check();
+}
+
+void SettingsDialog::fillVersions()
+{
+    const Version installed = Version::current();
+    const bool prereleases = Settings::offerPrereleases();
+    const std::optional<Releases::Release> newer = Releases::newerThan(m_releases, installed, prereleases);
+    if (m_releases.isEmpty())
+        m_updateStatus->setText(tr("Es ist noch keine Version veröffentlicht."));
+    else if (newer)
+        m_updateStatus->setText(tr("Version %1 ist verfügbar.").arg(newer->version.toString()));
+    else
+        m_updateStatus->setText(tr("Snapslash ist auf dem neusten Stand."));
+
+    // Item data: the index in the offered list, newest first.
+    m_versions->clear();
+    const QList<Releases::Release> offered = Releases::offered(m_releases, prereleases, installed);
+    int current = -1;
+    for (int i = 0; i < offered.size(); ++i) {
+        const Releases::Release &release = offered[i];
+        QString text = release.version.toString();
+        if (release.published.isValid())
+            text += QStringLiteral(" · ") + release.published.toLocalTime().date().toString(QStringLiteral("d.M.yyyy"));
+        if (release.version == installed) {
+            text += tr(" (installiert)");
+            current = i;
+        } else if (release.prerelease) {
+            text += tr(" (Vorabversion)");
+        }
+        m_versions->addItem(text, i);
+    }
+    // Preselect the version just below the installed one: the usual reason
+    // to come here is to go back one step.
+    if (current >= 0 && current + 1 < offered.size())
+        m_versions->setCurrentIndex(current + 1);
+    if (offered.isEmpty())
+        m_versions->addItem(tr("Keine Versionen veröffentlicht"));
+    m_versions->setEnabled(!offered.isEmpty());
+    m_installVersion->setEnabled(!offered.isEmpty());
 }

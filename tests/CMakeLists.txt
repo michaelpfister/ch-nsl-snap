@@ -81,3 +81,13 @@ endif()
 qt_add_executable(tst_filenames tst_filenames.cpp)
 target_link_libraries(tst_filenames PRIVATE nsl_snap_core Qt6::Test)
 add_test(NAME tst_filenames COMMAND tst_filenames)
+
+# Updates and downgrades (F-49, D-037); on Windows also the folder swap.
+qt_add_executable(tst_update tst_update.cpp)
+target_link_libraries(tst_update PRIVATE nsl_snap_core Qt6::Test)
+target_compile_definitions(tst_update PRIVATE NSL_TEST_DATA="${CMAKE_CURRENT_SOURCE_DIR}/data")
+add_test(NAME tst_update COMMAND tst_update)
+set_tests_properties(tst_update PROPERTIES ENVIRONMENT "${NSL_OFFSCREEN_ENV}")
+if(WIN32)
+    set_target_properties(tst_update PROPERTIES WIN32_EXECUTABLE FALSE)
+endif()

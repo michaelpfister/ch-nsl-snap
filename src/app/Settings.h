@@ -8,6 +8,7 @@
 #include "editor/TextStyle.h"
 
 #include <QColor>
+#include <QDateTime>
 #include <QKeySequence>
 #include <QList>
 #include <QString>
@@ -45,6 +46,18 @@ void setCloseToTray(bool enabled);
 // Whether the "still running in the tray" message was shown once.
 bool trayHintShown();
 void setTrayHintShown(bool shown);
+
+// Updates (F-49, D-037): ask GitHub at start, at most once a day; offer
+// pre-releases too. The time of the last check, and the newest version
+// found then that is newer than the installed one ("" if none).
+bool checkForUpdates();
+void setCheckForUpdates(bool enabled);
+bool offerPrereleases();
+void setOfferPrereleases(bool enabled);
+QDateTime lastUpdateCheck();
+void setLastUpdateCheck(const QDateTime &time);
+QString availableUpdate();
+void setAvailableUpdate(const QString &version);
 
 // Global hotkeys (F-42): the key of each action; GlobalHotkeys::defaultKey
 // until changed, an empty sequence when switched off.

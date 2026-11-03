@@ -38,6 +38,8 @@ add_library(nsl_snap_core STATIC
     src/app/SingleInstance.h
     src/app/ToolRail.cpp
     src/app/ToolRail.h
+    src/app/UpdateDialog.cpp
+    src/app/UpdateDialog.h
     src/capture/CaptureBackend.cpp
     src/capture/CaptureBackend.h
     src/capture/CaptureOverlay.cpp
@@ -94,9 +96,24 @@ add_library(nsl_snap_core STATIC
     src/ui/Icons.h
     src/ui/Theme.cpp
     src/ui/Theme.h
+    src/update/Releases.cpp
+    src/update/Releases.h
+    src/update/UpdateChecker.cpp
+    src/update/UpdateChecker.h
+    src/update/UpdateInstaller.cpp
+    src/update/UpdateInstaller.h
+    src/update/Version.cpp
+    src/update/Version.h
 )
 target_include_directories(nsl_snap_core PUBLIC src)
-target_compile_definitions(nsl_snap_core PUBLIC NSL_VERSION="${PROJECT_VERSION}")
+# The version the app reports and compares with the releases (D-037). The
+# release workflow sets the suffix for pre-releases (tag v0.3.0-beta.1).
+set(NSL_VERSION_SUFFIX "" CACHE STRING "Pre-release part of the version, e.g. beta.1")
+set(NSL_VERSION "${PROJECT_VERSION}")
+if(NSL_VERSION_SUFFIX)
+    string(APPEND NSL_VERSION "-${NSL_VERSION_SUFFIX}")
+endif()
+target_compile_definitions(nsl_snap_core PUBLIC NSL_VERSION="${NSL_VERSION}")
 target_link_libraries(nsl_snap_core PUBLIC Qt6::Widgets Qt6::Svg Qt6::Network)
 
 # Image processing runs over millions of pixels; keep it fast in debug
@@ -111,6 +128,13 @@ qt_add_resources(nsl_snap_core "icons"
     PREFIX "/icons"
     BASE "resources/icons"
     FILES ${NSL_ICONS}
+)
+
+# The script that swaps the app folder on Windows (UpdateInstaller, D-037).
+qt_add_resources(nsl_snap_core "update"
+    PREFIX "/update"
+    BASE "resources/update"
+    FILES resources/update/swap-folder.ps1
 )
 
 # Platform capture backends (docs/01-architecture.md).
