@@ -5,6 +5,13 @@ project(Snapslash VERSION 0.2.0 LANGUAGES CXX)
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
+# `cmake --install`: the installed program keeps the path to the Qt it was
+# built with (e.g. ~/Qt/6.8.3/gcc_64/lib). CMake would otherwise remove it,
+# and the program would not start, or pick up the distribution's older Qt.
+if(NOT DEFINED CMAKE_INSTALL_RPATH_USE_LINK_PATH)
+    set(CMAKE_INSTALL_RPATH_USE_LINK_PATH ON)
+endif()
+
 # Qt 6.8 LTS, installed separately (docs/07-development-setup.md).
 # Network: QLocalSocket for the single instance and Hyprland's socket.
 set(NSL_QT_COMPONENTS Widgets Svg Network)

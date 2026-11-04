@@ -166,10 +166,15 @@ QString UpdateDialog::instructions(Releases::Installation installation, const Re
               "entpacken und `snapslash.exe` darin starten; ab dann geht es mit einem Klick.")
         .arg(release.version.toString());
 #else
+    // The pre-release part goes to CMake, so the build reports the same
+    // version as the release (D-037).
+    const QString suffix = release.version.prerelease.join(QLatin1Char('.'));
     return tr("**Wechsel auf %1:** Diese Kopie wurde aus dem Quellcode gebaut. Im Repository:\n\n"
-              "```\ngit fetch --tags\ngit checkout %2\ncmake --build build\n```\n\n"
+              "```\ngit fetch --tags\ngit checkout %2\n"
+              "cmake -S . -B build -DNSL_VERSION_SUFFIX=%3\ncmake --build build\n"
+              "cmake --install build --prefix ~/.local\n```\n\n"
               "Unter GNOME danach die Erweiterung neu installieren (`scripts/dev-install.sh`) und sich "
               "ab- und wieder anmelden.")
-        .arg(release.version.toString(), tag);
+        .arg(release.version.toString(), tag, suffix);
 #endif
 }
