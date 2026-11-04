@@ -11,7 +11,30 @@
 #include <QTextStream>
 #include <QTimer>
 
+#ifdef Q_OS_WIN
+#define NOMINMAX // keep std::min and std::max usable
+#include <windows.h>
+
+#include <cstdio>
+#endif
+
 namespace {
+
+// On Windows the app is a GUI program (no console window of its own). Started
+// from a terminal, it borrows that terminal for the command line's output
+// (F-48): --help, the saved path and errors. Started from Explorer or the
+// Start menu there is no terminal and nothing happens.
+void attachToParentConsole()
+{
+#ifdef Q_OS_WIN
+    if (!AttachConsole(ATTACH_PARENT_PROCESS))
+        return;
+    // Point the C streams, which QTextStream(stdout) uses, at the terminal.
+    FILE *stream = nullptr;
+    freopen_s(&stream, "CONOUT$", "w", stdout);
+    freopen_s(&stream, "CONOUT$", "w", stderr);
+#endif
+}
 
 // Prints the answer of a request for scripts: the saved path on stdout,
 // errors on stderr.
@@ -27,6 +50,8 @@ void print(const SingleInstance::Answer &answer)
 
 int main(int argc, char *argv[])
 {
+    attachToParentConsole();
+
     // The command line first (F-48, D-034), under a plain QCoreApplication:
     // help and wrong arguments must work without a display.
     CommandLine::Parsed parsed;

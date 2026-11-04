@@ -393,6 +393,7 @@ Each entry: context, decision, rationale, consequences. Entries marked **(assump
 **Rejected:** D-Bus activation and a D-Bus interface for the app: not on Windows and macOS, and a socket gives the same with less code. A second process per capture: two tray icons, two editors.
 **Consequences:**
 - Qt's own GUI options (`-platform` and the like) are not accepted on the command line; use the environment variables (`QT_QPA_PLATFORM`).
+- On Windows `snapslash.exe` is a GUI program, so no console window opens next to the app. Started from a terminal it attaches to that terminal for its output; `cmd` and PowerShell do not wait for a GUI program, so the output arrives after the prompt, and scripts that need the exit code use `start /wait` or `Start-Process -Wait`.
 - Tested in a headless Sway (2026-10-27): save without a running app (path printed, exit 0, process ends), hand-over to a running app with an image in the editor (image untouched), `--open` into the running editor and as first start, Escape (exit 1), a second capture while one runs (exit 2).
 
 ## D-035 Global hotkeys on Windows: RegisterHotKey, a note about the Print key, taken keys shown in the settings
@@ -419,7 +420,7 @@ Each entry: context, decision, rationale, consequences. Entries marked **(assump
 **Context:** "NSL Snap" was a working title (Q-03). Issue #16: the Nix package has neither a desktop entry nor an icon, so the app is missing from the application launcher.
 **Decision:**
 - Name **Snapslash**: the snap of the capture and the slash of netslash. Command `snapslash`, Nix package `snapslash`, app id `ch.netslash.Snapslash` (D-007). The repository keeps its name.
-- **Logo:** two frame corners joined by a slash, white on coral (`#F2614E`) in a rounded square (`resources/icons/logo.svg`). It is the top bar logo, the tray icon, the window icon and the desktop icon.
+- **Logo:** two frame corners joined by a slash, white on coral (`#F2614E`) in a rounded square (`resources/icons/logo.svg`). It is the tray icon, the window icon, the desktop icon and, on Windows, the icon of `snapslash.exe` (`resources/windows/snapslash.ico`, the logo at 16 to 256 pixels, through `snapslash.rc`). The top bar shows neither logo nor name, since the window's title bar or the desktop's header already does (feedback on 0.2.0-beta.1, 2026-11-04).
 - **Desktop entry** `resources/ch.netslash.Snapslash.desktop`, with actions for window, region and screen capture (each with `--open`, so the capture appears in the editor). On Linux `cmake --install` puts it into `share/applications` and the logo into `share/icons/hicolor/scalable/apps/ch.netslash.Snapslash.svg`, so every package built with CMake has both, the Nix package included.
 - QSettings stores the settings under the app name; settings stored under "NSL Snap" are copied once at the first start with the new name (`Settings::migrateFromFormerName`).
 **Rationale:** Checked on 2026-11-03: no trademark "Snapslash" in Swissreg, EUIPO or the WIPO Global Brand Database; on GitHub only two small, inactive projects of that name; snapslash.ch, .app and .io were free, snapslash.com is taken.
@@ -428,7 +429,6 @@ Each entry: context, decision, rationale, consequences. Entries marked **(assump
 - The default save folder becomes `~/Pictures/Snapslash`; a folder chosen in the settings stays.
 - Hyprland configurations change `nsl-snap` to `snapslash` in their `bind` and `permission` lines (docs/07-development-setup.md).
 - "Snap" is also a mark of Snap Inc. (Snapchat); this matters only for a trademark application of our own.
-- The Windows executable has no icon of its own yet (needs an `.ico` and a resource file, with the packaging).
 
 ## D-037 Updates and downgrades from the GitHub releases
 

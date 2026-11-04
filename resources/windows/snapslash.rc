@@ -1,0 +1,5 @@
+// Windows resources of snapslash.exe (CMakeLists.txt, D-036): the icon that
+// Explorer, the taskbar and shortcuts show. snapslash.ico holds
+// resources/icons/logo.svg rendered at 16 to 256 pixels; after changing the
+// logo, render it again at those sizes and rebuild the .ico.
+IDI_ICON1 ICON "snapslash.ico"
