@@ -6,7 +6,7 @@ Screenshots for instructions and documentation: capture **one window** with clea
 
 ![The Snapslash editor with a captured settings window, two numbered frames and an arrow](docs/images/editor.png)
 
-> **Status:** pre-release ([v0.2.0-beta.1](https://github.com/michaelpfister/ch-nsl-snap/releases)). Usable every day on Windows, GNOME and Hyprland; macOS is planned.
+> **Status:** pre-release ([v0.2.0-beta.2](https://github.com/michaelpfister/ch-nsl-snap/releases)). Usable every day on Windows, GNOME and Hyprland; macOS is planned.
 
 ## Features
 
