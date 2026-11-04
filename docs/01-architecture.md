@@ -47,7 +47,7 @@ Each backend delivers a **capture result**: a PNG/RGBA image with alpha, plus me
 - It owns the D-Bus name `ch.netslash.Snap.Shell` and exports `ch.netslash.Snap1` at `/ch/netslash/Snap`.
 - Every capture method is **interactive**: the user must select a window or a region in the overlay. No caller can silently grab screen contents (D-003).
 - The capture uses the same path as GNOME's own screenshot UI: `MetaWindowActor.paint_to_content()` renders the window offscreen into a texture with alpha. Overlapping windows therefore do not matter. The extension can crop the texture to the window's frame rectangle (D-005), but the app requests the whole buffer and crops to the window's opaque core itself (D-010).
-- Freeze first (D-011, since 2026-10-25): `Capture` (API version 2; 3 adds `region-select`, D-023; 4 the screen mode, D-024; 5 `delay` with a countdown, D-025) takes a picture of the whole stage (`Shell.Screenshot.screenshot_stage_to_content()`) and renders every pickable window offscreen at the same moment (`overlay.js`, `freeze()`). The overlay then shows the frozen picture; the user picks a window (W) or drags a region (R) on it (D-021). Window captures come from the frozen window render, region captures are cut from the frozen stage picture. `PickWindow` (version 1) remains as `Capture` in window mode for the PoC client.
+- Freeze first (D-011, since 2026-10-25): `Capture` (API version 2; 3 adds `region-select`, D-023; 4 the screen mode, D-024; 5 `delay` with a countdown, D-025; 6 `hints`, the overlay's texts in the app's language, D-038) takes a picture of the whole stage (`Shell.Screenshot.screenshot_stage_to_content()`) and renders every pickable window offscreen at the same moment (`overlay.js`, `freeze()`). The overlay then shows the frozen picture; the user picks a window (W) or drags a region (R) on it (D-021). Window captures come from the frozen window render, region captures are cut from the frozen stage picture. `PickWindow` (version 1) remains as `Capture` in window mode for the PoC client.
 - Planned (D-011): the global hotkeys (F-42), which the extension will own and hand to the app. A D-Bus caller can only open the overlay.
 - The extension stays as thin as possible: pick, capture, return PNG bytes. All logic belongs in the app, because extension code has to be adapted to new GNOME versions.
 
@@ -89,6 +89,7 @@ The editor is object-based (D-012): the captured image stays unchanged, annotati
 | `.github/workflows/` | CI (`ci.yml`) and the release on a version tag (`release.yml`, D-037) |
 | `src/editor/` | Editor view (`QGraphicsView`), later the annotation items (D-012) |
 | `src/ui/` | Theme (colour tokens, style sheet, light/dark) and SVG icons (D-014) |
+| `translations/` | The English translation of the interface (`snapslash_en.ts`, D-038); `scripts/update-translations.sh` refreshes it |
 | `resources/icons/` | Line icons, drawn with `currentColor`, and the logo (D-036) |
 | `resources/ch.netslash.Snapslash.desktop` | Desktop entry for Linux, installed with the logo as icon (D-036) |
 | `src/update/` | Updates and downgrades (D-037): `Version`, the GitHub releases (`Releases`), the check (`UpdateChecker`) and the self-replacement of the portable Windows version (`UpdateInstaller`, with `resources/update/swap-folder.ps1`); the dialog is `src/app/UpdateDialog` |

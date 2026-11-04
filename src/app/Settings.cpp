@@ -99,6 +99,16 @@ void setTrayHintShown(bool shown)
     QSettings().setValue("tray/hintShown", shown);
 }
 
+QString language()
+{
+    return QSettings().value("ui/language").toString();
+}
+
+void setLanguage(const QString &language)
+{
+    QSettings().setValue("ui/language", language);
+}
+
 bool checkForUpdates()
 {
     return QSettings().value("updates/check", true).toBool();

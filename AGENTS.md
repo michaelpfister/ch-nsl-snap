@@ -5,7 +5,7 @@ Read [docs/README.md](docs/README.md) before changing behaviour. Decisions live 
 ## Conventions
 
 - Code, identifiers, comments, docs and commit messages: English.
-- UI text: German (Switzerland), no "ß".
+- UI text: German (Switzerland), no "ß", written in the code with `tr()` (or `QCoreApplication::translate()` outside a QObject); English comes from `translations/snapslash_en.ts` (D-038). After adding or changing a text, run `scripts/update-translations.sh` and translate the new entries; CI fails while one is missing.
 - App: C++20, Qt 6.8 Widgets, CMake (D-013). Look: colour tokens and style sheet in `src/ui/Theme.cpp`, icons in `resources/icons/` (D-014); select widgets by object name or `role` property, and follow the design mockup. Write for C++ newcomers: modern C++, Qt idioms, no template tricks, comments where Qt or platform APIs are not obvious.
 - The GNOME Shell extension stays thin: pick, capture, return image bytes. Logic belongs in the app (docs/01-architecture.md).
 - Every capture method of the extension must require an interactive pick by the user. Never add a D-Bus method that lists windows or captures without user interaction (docs/02-decisions.md, D-003).

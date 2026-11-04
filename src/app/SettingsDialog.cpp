@@ -2,6 +2,7 @@
 
 #include "app/FileNames.h"
 #include "app/GlobalHotkeys.h"
+#include "app/Language.h"
 #include "app/Settings.h"
 #include "update/UpdateChecker.h"
 #include "update/UpdateInstaller.h"
@@ -22,6 +23,7 @@
 #include <QKeySequenceEdit>
 #include <QLabel>
 #include <QLineEdit>
+#include <QLocale>
 #include <QMessageBox>
 #include <QPushButton>
 #include <QSystemTrayIcon>
@@ -63,6 +65,31 @@ SettingsDialog::SettingsDialog(GlobalHotkeys *hotkeys, QWidget *parent)
 
     // --- Allgemein ---
     QVBoxLayout *layout = page(tr("Allgemein"));
+
+    // Language (D-038): applies at the next start.
+    auto *languageTitle = new QLabel(tr("Sprache"), this);
+    languageTitle->setProperty("role", QStringLiteral("section"));
+    layout->addWidget(languageTitle);
+    auto *language = new QComboBox(this);
+    language->setAccessibleName(tr("Sprache"));
+    // The system's choice names the language it resolves to right now.
+    const QString systemLanguage = Language::resolve(QString(), QLocale::system().uiLanguages());
+    language->addItem(tr("Wie das System (%1)").arg(Language::nativeName(systemLanguage)), QString());
+    for (const QString &code : Language::available())
+        language->addItem(Language::nativeName(code), code);
+    language->setCurrentIndex(std::max(0, language->findData(Settings::language())));
+    auto *languageRow = new QHBoxLayout;
+    languageRow->addWidget(language);
+    languageRow->addStretch(1);
+    layout->addLayout(languageRow);
+    auto *languageHint = new QLabel(tr("Gilt nach einem Neustart von Snapslash."), this);
+    languageHint->setProperty("role", QStringLiteral("hint"));
+    languageHint->setWordWrap(true);
+    layout->addWidget(languageHint);
+    connect(language, &QComboBox::currentIndexChanged, this,
+            [language] { Settings::setLanguage(language->currentData().toString()); });
+    layout->addSpacing(16);
+
 
     m_advanced = new QCheckBox(tr("Erweiterter Modus"), this);
     m_advanced->setChecked(Settings::advancedMode());

@@ -1,0 +1,59 @@
+#include "capture/CaptureHints.h"
+
+#include <QCoreApplication>
+
+// Not in a QObject: translated in the context "CaptureHints".
+namespace CaptureHints {
+
+QString window()
+{
+    return QCoreApplication::translate("CaptureHints", "Fenster anklicken · R: Bereich · S: Bildschirm · Esc: Abbrechen");
+}
+
+QString screens()
+{
+    return QCoreApplication::translate(
+        "CaptureHints", "Bildschirm anklicken · Enter: alle Bildschirme · W: Fenster · R: Bereich · Esc: Abbrechen");
+}
+
+QString screen()
+{
+    return QCoreApplication::translate(
+        "CaptureHints", "Klicken oder Enter: Bildschirm aufnehmen · W: Fenster · R: Bereich · Esc: Abbrechen");
+}
+
+QString regionFirstCorner()
+{
+    return QCoreApplication::translate("CaptureHints", "Erste Ecke anklicken · Pfeiltasten: 1 Pixel · W: Fenster · Esc: Abbrechen");
+}
+
+QString regionSecondCorner()
+{
+    return QCoreApplication::translate("CaptureHints", "Gegenüberliegende Ecke anklicken · Rücktaste: neu beginnen · Esc: Abbrechen");
+}
+
+QString regionDrag()
+{
+    return QCoreApplication::translate(
+        "CaptureHints", "Bereich aufziehen · Pfeiltasten und Enter: pixelgenau · W: Fenster · Esc: Abbrechen");
+}
+
+QString countdown()
+{
+    return QCoreApplication::translate("CaptureHints", "Esc oder Klick: Abbrechen");
+}
+
+QVariantMap forExtension()
+{
+    return {
+        {QStringLiteral("window"), window()},
+        {QStringLiteral("screens"), screens()},
+        {QStringLiteral("screen"), screen()},
+        {QStringLiteral("region-first"), regionFirstCorner()},
+        {QStringLiteral("region-second"), regionSecondCorner()},
+        {QStringLiteral("region-drag"), regionDrag()},
+        {QStringLiteral("countdown"), countdown()},
+    };
+}
+
+} // namespace CaptureHints

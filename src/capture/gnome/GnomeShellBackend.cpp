@@ -1,5 +1,7 @@
 #include "capture/gnome/GnomeShellBackend.h"
 
+#include "capture/CaptureHints.h"
+
 #include <QDBusArgument>
 #include <QDBusConnection>
 #include <QDBusConnectionInterface>
@@ -122,6 +124,9 @@ void GnomeShellBackend::capture(const QString &mode)
                        regionByDragging() ? QStringLiteral("drag") : QStringLiteral("clicks"));
         if (delay() > 0)
             options.insert(QStringLiteral("delay"), QVariant::fromValue(uint(delay()))); // D-Bus type u
+        // The overlay's texts in the app's language (D-038, API version 6);
+        // older extensions ignore it and show their German ones.
+        options.insert(QStringLiteral("hints"), CaptureHints::forExtension()); // a{sv} of strings
     }
 
     auto message = QDBusMessage::createMethodCall(kService, kPath, kInterface,

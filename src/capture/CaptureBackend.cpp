@@ -1,5 +1,7 @@
 #include "capture/CaptureBackend.h"
 
+#include <QCoreApplication>
+
 #ifdef NSL_HAVE_GNOME_BACKEND
 #include "capture/gnome/GnomeShellBackend.h"
 #endif
@@ -22,7 +24,8 @@ public:
     bool isAvailable() const override { return false; }
     QString unavailableReason() const override
     {
-        return tr("Aufnehmen wird auf dieser Plattform noch nicht unterstützt.");
+        // No Q_OBJECT here, so the context is named for lupdate (D-038).
+        return QCoreApplication::translate("UnsupportedBackend", "Aufnehmen wird auf dieser Plattform noch nicht unterstützt.");
     }
     void captureWindow() override { emit failed(unavailableReason()); }
     void captureRegion() override { emit failed(unavailableReason()); }

@@ -2,7 +2,7 @@
 
 # Snapslash
 
-Screenshots for instructions and documentation: capture **one window** with clean edges and transparent rounded corners, a region or a whole screen, then annotate it with frames, numbers, arrows and text, and copy or save it. Inspired by [WinSnap](https://www.ntwind.com/software/winsnap.html), for **Windows** and **Linux** (GNOME, Hyprland and other Wayland desktops). The user interface is in German.
+Screenshots for instructions and documentation: capture **one window** with clean edges and transparent rounded corners, a region or a whole screen, then annotate it with frames, numbers, arrows and text, and copy or save it. Inspired by [WinSnap](https://www.ntwind.com/software/winsnap.html), for **Windows** and **Linux** (GNOME, Hyprland and other Wayland desktops). The user interface is in German and English.
 
 ![The Snapslash editor with a captured settings window, two numbered frames and an arrow](docs/images/editor.png)
 
