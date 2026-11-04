@@ -34,6 +34,8 @@ stdenv.mkDerivation {
     pkg-config
     wayland-scanner
     qt6.wrapQtAppsHook
+    # lrelease for the translations (D-038).
+    qt6.qttools
     # Provides the GSettings schemas GTK needs when Qt uses its GTK theme
     # (file dialogs); without them GLib aborts the app (D-033).
     wrapGAppsHook3

@@ -90,6 +90,16 @@ grim screen.png                          # what the compositor shows
 - Headless Sway has no pointer; wlrctl's virtual pointer did not reach the app. Use the keyboard (D-023).
 - The portal backend (D-032) needs `xdg-desktop-portal`, `xdg-desktop-portal-wlr`, `pipewire` and an Access portal such as `xdg-desktop-portal-gtk`, plus `~/.config/xdg-desktop-portal/sway-portals.conf` with `[preferred]`, `default=wlr;gtk`.
 
+### Translations
+
+The texts in the code are German; English is in `translations/snapslash_en.ts` (D-038). After adding or changing a text:
+
+```bash
+scripts/update-translations.sh
+```
+
+The new texts appear in the file as `type="unfinished"`: translate them in Qt Linguist (`~/Qt/6.8.3/gcc_64/bin/linguist translations/snapslash_en.ts`) or directly in the file, then commit it with the change. CI fails while the file is out of date or a text is untranslated. To try the English interface: settings, "Allgemein", "Sprache", then restart the app.
+
 ## Installing on Linux
 
 For using Snapslash rather than working on it, on a Linux without Nix (Ubuntu, Zorin OS, …). There is no package for these distributions yet: build a release from source and install it for your user. System packages and Qt as in steps 1 and 2 above, then:

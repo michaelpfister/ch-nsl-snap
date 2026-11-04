@@ -14,6 +14,18 @@ import St from 'gi://St';
 
 import * as Main from 'resource:///org/gnome/shell/ui/main.js';
 
+// The hint texts when the app sends none (an older app, or the PoC client).
+// The app sends them in its own language with every capture (D-038).
+export const DEFAULT_HINTS = {
+    'window': 'Fenster anklicken · R: Bereich · S: Bildschirm · Esc: Abbrechen',
+    'screens': 'Bildschirm anklicken · Enter: alle Bildschirme · W: Fenster · R: Bereich · Esc: Abbrechen',
+    'screen': 'Klicken oder Enter: Bildschirm aufnehmen · W: Fenster · R: Bereich · Esc: Abbrechen',
+    'region-first': 'Erste Ecke anklicken · Pfeiltasten: 1 Pixel · W: Fenster · Esc: Abbrechen',
+    'region-second': 'Gegenüberliegende Ecke anklicken · Rücktaste: neu beginnen · Esc: Abbrechen',
+    'region-drag': 'Bereich aufziehen · Pfeiltasten und Enter: pixelgenau · W: Fenster · Esc: Abbrechen',
+    'countdown': 'Esc oder Klick: Abbrechen',
+};
+
 export const Mode = Object.freeze({WINDOW: 'window', REGION: 'region', SCREEN: 'screen'});
 // How a region is selected (setting of the app): two clicks or a drag.
 export const RegionSelect = Object.freeze({CLICKS: 'clicks', DRAG: 'drag'});
@@ -164,9 +176,10 @@ class RegionSelector {
 
 const CaptureOverlay = GObject.registerClass(
 class CaptureOverlay extends St.Widget {
-    _init(frozen, mode, how, resolve) {
+    _init(frozen, mode, how, hints, resolve) {
         super._init({reactive: true, can_focus: true});
         this._frozen = frozen;
+        this._hints = {...DEFAULT_HINTS, ...hints};
         this._mode = mode;
         this._how = how;
         this._resolve = resolve;
@@ -337,17 +350,15 @@ class CaptureOverlay extends St.Widget {
 
         let text;
         if (this._mode === Mode.WINDOW)
-            text = 'Fenster anklicken · R: Bereich · S: Bildschirm · Esc: Abbrechen';
+            text = this._hints.window;
         else if (this._mode === Mode.SCREEN)
-            text = Main.layoutManager.monitors.length > 1
-                ? 'Bildschirm anklicken · Enter: alle Bildschirme · W: Fenster · R: Bereich · Esc: Abbrechen'
-                : 'Klicken oder Enter: Bildschirm aufnehmen · W: Fenster · R: Bereich · Esc: Abbrechen';
+            text = Main.layoutManager.monitors.length > 1 ? this._hints.screens : this._hints.screen;
         else if (this._selector.hasStart)
-            text = 'Gegenüberliegende Ecke anklicken · Rücktaste: neu beginnen · Esc: Abbrechen';
+            text = this._hints['region-second'];
         else if (this._how === RegionSelect.DRAG)
-            text = 'Bereich aufziehen · Pfeiltasten und Enter: pixelgenau · W: Fenster · Esc: Abbrechen';
+            text = this._hints['region-drag'];
         else
-            text = 'Erste Ecke anklicken · Pfeiltasten: 1 Pixel · W: Fenster · Esc: Abbrechen';
+            text = this._hints['region-first'];
         this._hint.text = text;
         const monitor = Main.layoutManager.primaryMonitor;
         if (monitor) {
@@ -586,14 +597,16 @@ class CaptureOverlay extends St.Widget {
  * @param {object} frozen - result of freeze()
  * @param {string} mode - Mode.WINDOW, Mode.REGION or Mode.SCREEN to start with
  * @param {string} how - RegionSelect.CLICKS or RegionSelect.DRAG
+ * @param {object} hints - the hint texts from the app (D-038), by key;
+ *   missing ones fall back to DEFAULT_HINTS
  * @returns {{promise: Promise<object|null>, cancel: Function}} resolves with
  *   {mode: 'window', window: entry} or {mode: 'region' or 'screen', region:
  *   rect in physical px}, or null
  */
-export function select(frozen, mode, how = RegionSelect.CLICKS) {
+export function select(frozen, mode, how = RegionSelect.CLICKS, hints = {}) {
     let overlay;
     const promise = new Promise(resolve => {
-        overlay = new CaptureOverlay(frozen, mode, how, resolve);
+        overlay = new CaptureOverlay(frozen, mode, how, hints, resolve);
         overlay.open();
     });
     return {promise, cancel: () => overlay.close()};

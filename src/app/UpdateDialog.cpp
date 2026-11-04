@@ -1,5 +1,8 @@
 #include "app/UpdateDialog.h"
 
+#include "app/Language.h"
+
+#include "ui/Placement.h"
 #include "update/UpdateInstaller.h"
 
 #include <QDesktopServices>
@@ -11,16 +14,6 @@
 #include <QStyle>
 #include <QTextBrowser>
 #include <QVBoxLayout>
-
-namespace {
-
-// Dates and sizes as the German UI writes them, whatever the system locale.
-QLocale uiLocale()
-{
-    return QLocale(QLocale::German, QLocale::Switzerland);
-}
-
-} // namespace
 
 UpdateDialog::UpdateDialog(const Releases::Release &release, QWidget *parent)
     : QDialog(parent)
@@ -54,7 +47,7 @@ UpdateDialog::UpdateDialog(const Releases::Release &release, QWidget *parent)
         summary += QLatin1Char(' ') + tr("Es ist eine Vorabversion zum Testen.");
     if (m_release.published.isValid())
         summary += QLatin1Char(' ') + tr("Veröffentlicht am %1.")
-                                          .arg(uiLocale().toString(m_release.published.toLocalTime().date(), QStringLiteral("d. MMMM yyyy")));
+                                          .arg(Language::locale().toString(m_release.published.toLocalTime().date(), tr("d. MMMM yyyy")));
     auto *summaryLabel = new QLabel(summary, this);
     summaryLabel->setWordWrap(true);
     summaryLabel->setProperty("role", QStringLiteral("hint"));
@@ -100,6 +93,8 @@ UpdateDialog::UpdateDialog(const Releases::Release &release, QWidget *parent)
         buttons->addWidget(m_installButton);
     }
     layout->addLayout(buttons);
+    resize(minimumSize());
+    fitIntoScreen(this); // the notes scroll
 }
 
 UpdateDialog::~UpdateDialog() = default;
@@ -113,7 +108,7 @@ void UpdateDialog::install()
                 m_progress->setRange(0, 1000);
                 m_progress->setValue(int(received * 1000 / total));
                 m_status->setText(tr("Wird heruntergeladen: %1 von %2")
-                                      .arg(uiLocale().formattedDataSize(received), uiLocale().formattedDataSize(total)));
+                                      .arg(Language::locale().formattedDataSize(received), Language::locale().formattedDataSize(total)));
             } else {
                 m_progress->setRange(0, 0); // busy indicator
             }

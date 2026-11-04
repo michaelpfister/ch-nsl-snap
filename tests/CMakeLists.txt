@@ -91,3 +91,12 @@ set_tests_properties(tst_update PROPERTIES ENVIRONMENT "${NSL_OFFSCREEN_ENV}")
 if(WIN32)
     set_target_properties(tst_update PROPERTIES WIN32_EXECUTABLE FALSE)
 endif()
+
+# The user interface in German and English (D-038).
+qt_add_executable(tst_language tst_language.cpp)
+target_link_libraries(tst_language PRIVATE nsl_snap_core Qt6::Test)
+target_compile_definitions(tst_language PRIVATE NSL_SOURCE_DIR="${PROJECT_SOURCE_DIR}")
+add_test(NAME tst_language COMMAND tst_language)
+if(WIN32)
+    set_target_properties(tst_language PROPERTIES WIN32_EXECUTABLE FALSE)
+endif()

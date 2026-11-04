@@ -450,3 +450,21 @@ Each entry: context, decision, rationale, consequences. Entries marked **(assump
 - The GNOME extension is not part of any release yet; a downgrade of the app on GNOME may need the extension of the same version (the app checks the extension's API version, D-021).
 - Tested: versions, the release list, checksums, the installation kinds, a rejected checksum (`tests/tst_update.cpp`); on Windows CI the whole path from ZIP to swapped folder with the real `tar.exe` and PowerShell. The download from GitHub and the restart by hand after the first release.
 
+## D-038 German and English, chosen in the settings
+
+**Context:** Snapslash is public; Q-02 assumed a German interface only. Users asked for English (2026-11-04).
+**Decision:**
+- **The texts in the code stay German** (`tr()`, or `QCoreApplication::translate()` with a named context outside a QObject). English is a Qt Linguist translation, `translations/snapslash_en.ts`; CMake builds it into the resources (`qt_add_lrelease`, `:/i18n/snapslash_en.qm`).
+- **Setting** "Sprache" in the tab "Allgemein": "Wie das System (…)" (default), "Deutsch", "English". The system's preferred languages decide by default (the first of German and English in the list; neither: English). A change applies at the next start, because the widgets take their texts when they are built.
+- `Language::install()` loads the translation at start, before any window, and sets the default `QLocale` to de_CH or en_GB, so dates and sizes follow the interface. For German it also loads Qt's own German texts (message box buttons, context menus): windeployqt puts them next to the program (`--translations de`), on Linux they come from Qt's folder.
+- **The GNOME extension holds no texts any more:** the app sends the overlay's hints and the countdown's text with each capture (`hints`, API version 6, `src/capture/CaptureHints`); the app's own overlay draws the same texts. An extension older than version 6 ignores them and stays German; one without them from the app (the PoC client) falls back to German.
+- **File name placeholders** work in both languages: `{Datum}`, `{Zeit}`, `{Titel}` and `{Date}`, `{Time}`, `{Title}`. The default pattern is the one of the interface's language.
+- The desktop entry has English names (`[en]`), which follow the desktop's language, not the setting.
+- `scripts/update-translations.sh` runs lupdate over all of `src/`, the Windows-only files included. CI runs it and fails if the file changes; `tst_language` fails if a text is untranslated or a translation lost a placeholder.
+**Rationale:** Writing the texts in English and translating to German would have meant rewriting 330 texts that were reviewed in German. Qt Linguist is Qt's own way, needs no runtime library, and keeps the translation next to the code. A restart for a language change is common in desktop apps and avoids rebuilding every window.
+**Rejected:** switching language without a restart (every widget would need a `retranslateUi`); a language list beyond German and English for now (more `.ts` files can be added later); translations inside the extension.
+**Consequences:**
+- Every new or changed text needs its English translation in the same pull request.
+- The Nix package needs `qttools` for lrelease; Qt's own German texts (a few buttons) may stay English there.
+- Command-line help (`--help`) stays English, as before (D-034).
+

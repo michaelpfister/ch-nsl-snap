@@ -1,4 +1,5 @@
 #include "app/CommandLine.h"
+#include "app/Language.h"
 #include "app/MainWindow.h"
 #include "app/PlatformTheme.h"
 #include "app/Settings.h"
@@ -86,6 +87,8 @@ int main(int argc, char *argv[])
     QGuiApplication::setDesktopFileName(QStringLiteral("ch.netslash.Snapslash"));
     // The icon on Windows and X11, which take it from the window.
     QApplication::setWindowIcon(QIcon(QStringLiteral(":/icons/logo.svg")));
+    // German or English (D-038), before any window or message is made.
+    Language::install(app, Language::resolve(Settings::language(), QLocale::system().uiLanguages()));
 
     // Snapslash already runs: it does the work, this start only waits.
     if (const auto answer = SingleInstance::forward(QApplication::arguments().mid(1))) {

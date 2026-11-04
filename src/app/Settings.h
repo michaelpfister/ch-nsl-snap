@@ -47,6 +47,11 @@ void setCloseToTray(bool enabled);
 bool trayHintShown();
 void setTrayHintShown(bool shown);
 
+// Language of the user interface (D-038): "de", "en", or "" to follow the
+// system. Applies at the next start.
+QString language();
+void setLanguage(const QString &language);
+
 // Updates (F-49, D-037): ask GitHub at start, at most once a day; offer
 // pre-releases too. The time of the last check, and the newest version
 // found then that is newer than the installed one ("" if none).

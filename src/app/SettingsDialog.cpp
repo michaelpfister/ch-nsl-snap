@@ -2,14 +2,17 @@
 
 #include "app/FileNames.h"
 #include "app/GlobalHotkeys.h"
+#include "app/Language.h"
 #include "app/Settings.h"
 #include "update/UpdateChecker.h"
 #include "update/UpdateInstaller.h"
+#include "ui/Placement.h"
 
 #include <QButtonGroup>
 #include <QCheckBox>
 #include <QComboBox>
 #include <QRadioButton>
+#include <QScrollArea>
 #include <QDateTime>
 #include <QDialogButtonBox>
 #include <QDir>
@@ -20,10 +23,13 @@
 #include <QKeySequenceEdit>
 #include <QLabel>
 #include <QLineEdit>
+#include <QLocale>
 #include <QMessageBox>
 #include <QPushButton>
 #include <QSystemTrayIcon>
 #include <QTabWidget>
+
+#include <algorithm>
 #include <QVBoxLayout>
 
 SettingsDialog::SettingsDialog(GlobalHotkeys *hotkeys, QWidget *parent)
@@ -38,17 +44,52 @@ SettingsDialog::SettingsDialog(GlobalHotkeys *hotkeys, QWidget *parent)
     outer->setContentsMargins(16, 16, 16, 12);
     auto *tabs = new QTabWidget(this);
     outer->addWidget(tabs);
+    // Each page scrolls, so the dialog fits small or highly scaled screens
+    // (fitIntoScreen below); usually the scroll bar never shows.
     const auto page = [this, tabs](const QString &title) {
         auto *widget = new QWidget(this);
         auto *pageLayout = new QVBoxLayout(widget);
         pageLayout->setContentsMargins(16, 16, 16, 16);
         pageLayout->setSpacing(6);
-        tabs->addTab(widget, title);
+        auto *scroll = new QScrollArea(this);
+        scroll->setWidget(widget);
+        scroll->setWidgetResizable(true);
+        scroll->setFrameShape(QFrame::NoFrame);
+        scroll->setHorizontalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
+        // The page's own background shows through, not the scroll area's.
+        scroll->viewport()->setAutoFillBackground(false);
+        widget->setAutoFillBackground(false);
+        tabs->addTab(scroll, title);
         return pageLayout;
     };
 
     // --- Allgemein ---
     QVBoxLayout *layout = page(tr("Allgemein"));
+
+    // Language (D-038): applies at the next start.
+    auto *languageTitle = new QLabel(tr("Sprache"), this);
+    languageTitle->setProperty("role", QStringLiteral("section"));
+    layout->addWidget(languageTitle);
+    auto *language = new QComboBox(this);
+    language->setAccessibleName(tr("Sprache"));
+    // The system's choice names the language it resolves to right now.
+    const QString systemLanguage = Language::resolve(QString(), QLocale::system().uiLanguages());
+    language->addItem(tr("Wie das System (%1)").arg(Language::nativeName(systemLanguage)), QString());
+    for (const QString &code : Language::available())
+        language->addItem(Language::nativeName(code), code);
+    language->setCurrentIndex(std::max(0, language->findData(Settings::language())));
+    auto *languageRow = new QHBoxLayout;
+    languageRow->addWidget(language);
+    languageRow->addStretch(1);
+    layout->addLayout(languageRow);
+    auto *languageHint = new QLabel(tr("Gilt nach einem Neustart von Snapslash."), this);
+    languageHint->setProperty("role", QStringLiteral("hint"));
+    languageHint->setWordWrap(true);
+    layout->addWidget(languageHint);
+    connect(language, &QComboBox::currentIndexChanged, this,
+            [language] { Settings::setLanguage(language->currentData().toString()); });
+    layout->addSpacing(16);
+
 
     m_advanced = new QCheckBox(tr("Erweiterter Modus"), this);
     m_advanced->setChecked(Settings::advancedMode());
@@ -204,6 +245,20 @@ SettingsDialog::SettingsDialog(GlobalHotkeys *hotkeys, QWidget *parent)
         Settings::setAdvancedMode(enabled);
         emit advancedModeChanged(enabled);
     });
+
+    // A scroll area asks only for a small size, so the pages' own sizes
+    // decide how large the dialog wants to be; then it is limited to the
+    // screen, so its title bar stays reachable.
+    int pageHeight = 0;
+    int pageWidth = 0;
+    for (int i = 0; i < tabs->count(); ++i) {
+        const QSize hint = static_cast<QScrollArea *>(tabs->widget(i))->widget()->sizeHint();
+        pageHeight = std::max(pageHeight, hint.height());
+        pageWidth = std::max(pageWidth, hint.width());
+    }
+    const QSize chrome = sizeHint() - tabs->currentWidget()->sizeHint();
+    resize(QSize(std::max(minimumWidth(), pageWidth + chrome.width()), pageHeight + chrome.height()).expandedTo(minimumSize()));
+    fitIntoScreen(this);
 }
 
 SettingsDialog::~SettingsDialog()

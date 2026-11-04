@@ -1,5 +1,7 @@
 #include "capture/Countdown.h"
 
+#include "capture/CaptureHints.h"
+
 #ifdef NSL_HAVE_WAYLAND_BACKEND
 #include "capture/wayland/LayerShell.h"
 #endif
@@ -124,7 +126,7 @@ void Countdown::paintEvent(QPaintEvent *)
     hint.setPixelSize(12);
     painter.setFont(hint);
     painter.setPen(QColor(255, 255, 255, 190));
-    painter.drawText(QRect(0, 98, width(), 30), Qt::AlignCenter, tr("Esc oder Klick: Abbrechen"));
+    painter.drawText(QRect(0, 98, width(), 30), Qt::AlignCenter, CaptureHints::countdown());
 }
 
 void Countdown::mousePressEvent(QMouseEvent *)

@@ -7,7 +7,7 @@ These files record **why** the tool is built the way it is. The code says how it
 ## Conventions
 
 - Documentation, code, identifiers and commit messages are in **English**.
-- The user interface is in **German (Switzerland)**: no "ß" (assumption, see Q-02).
+- The user interface is in **German (Switzerland)**, no "ß", and **English** (D-038); the texts in the code are German, English is a translation.
 
 ## Reading order
 

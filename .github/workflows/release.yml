@@ -101,15 +101,17 @@ jobs:
             -DNSL_VERSION_SUFFIX="${{ needs.version.outputs.suffix }}"
           cmake --build build --target snapslash
 
-      # The folder the ZIP holds: Snapslash\snapslash.exe with the Qt DLLs and
-      # plugins next to it (windeployqt), the C++ runtime, and the marker that
+      # The folder the ZIP holds: Snapslash\snapslash.exe with the Qt DLLs,
+      # plugins and Qt's German texts next to it (windeployqt), the C++ runtime, and the marker that
       # tells the app it may replace this folder (Releases::portableMarkerName).
       - name: Package
         run: |
           $folder = "package\Snapslash"
           New-Item -ItemType Directory -Force $folder | Out-Null
           Copy-Item build\snapslash.exe $folder
-          & "$env:QT_DIR\bin\windeployqt.exe" --release --no-translations --no-compiler-runtime "$folder\snapslash.exe"
+          # Qt's own German texts (message box buttons and the like) in
+          # translations\qt_de.qm; English needs none (D-038).
+          & "$env:QT_DIR\bin\windeployqt.exe" --release --translations de --no-compiler-runtime "$folder\snapslash.exe"
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           # The C++ runtime as DLLs, so the folder runs without an installer.
           # Its folder carries the toolset in its name (Microsoft.VC143.CRT

@@ -18,7 +18,7 @@ set(NSL_QT_COMPONENTS Widgets Svg Network)
 if(LINUX)
     list(APPEND NSL_QT_COMPONENTS DBus)
 endif()
-find_package(Qt6 6.8 REQUIRED COMPONENTS ${NSL_QT_COMPONENTS} Test)
+find_package(Qt6 6.8 REQUIRED COMPONENTS ${NSL_QT_COMPONENTS} Test LinguistTools)
 qt_standard_project_setup()
 
 # Everything except main() lives in a library, so the tests can link it.
@@ -31,6 +31,8 @@ add_library(nsl_snap_core STATIC
     src/app/FileNames.h
     src/app/GlobalHotkeys.cpp
     src/app/GlobalHotkeys.h
+    src/app/Language.cpp
+    src/app/Language.h
     src/app/MainWindow.cpp
     src/app/MainWindow.h
     src/app/PlatformTheme.cpp
@@ -48,6 +50,8 @@ add_library(nsl_snap_core STATIC
     src/app/UpdateDialog.cpp
     src/app/UpdateDialog.h
     src/capture/CaptureBackend.cpp
+    src/capture/CaptureHints.cpp
+    src/capture/CaptureHints.h
     src/capture/CaptureBackend.h
     src/capture/CaptureOverlay.cpp
     src/capture/CaptureOverlay.h
@@ -101,6 +105,8 @@ add_library(nsl_snap_core STATIC
     src/ui/ColorWheel.h
     src/ui/Icons.cpp
     src/ui/Icons.h
+    src/ui/Placement.cpp
+    src/ui/Placement.h
     src/ui/Theme.cpp
     src/ui/Theme.h
     src/update/Releases.cpp
@@ -222,6 +228,17 @@ if(WIN32)
     target_link_libraries(nsl_snap_core PUBLIC Qt6::GuiPrivate d3d11 dxgi dwmapi windowsapp)
     target_compile_definitions(nsl_snap_core PUBLIC NSL_HAVE_WINDOWS_BACKEND)
 endif()
+
+# Translations (D-038): the texts in the code are German; lrelease turns
+# translations/*.ts into .qm files in the resources (":/i18n/"), which
+# Language::install() loads. scripts/update-translations.sh refreshes the
+# .ts files from the code with lupdate.
+qt_add_lrelease(TS_FILES translations/snapslash_en.ts QM_FILES_OUTPUT_VARIABLE NSL_QM_FILES)
+qt_add_resources(nsl_snap_core "translations"
+    PREFIX "/i18n"
+    BASE ${CMAKE_CURRENT_BINARY_DIR}
+    FILES ${NSL_QM_FILES}
+)
 
 qt_add_executable(snapslash src/main.cpp)
 if(WIN32)
