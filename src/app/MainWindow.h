@@ -180,7 +180,6 @@ private:
     bool m_openUpdateWhenLoaded = false; // the button was clicked before the check
 
     // Top bar.
-    QLabel *m_logo = nullptr;
     QToolButton *m_windowButton = nullptr;
     QToolButton *m_regionButton = nullptr;
     QToolButton *m_screenButton = nullptr;

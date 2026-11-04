@@ -217,6 +217,13 @@ if(WIN32)
 endif()
 
 qt_add_executable(snapslash src/main.cpp)
+if(WIN32)
+    # A GUI program: no console window next to the app (main.cpp borrows the
+    # terminal it was started from, if any). The resource file gives the
+    # .exe its icon in Explorer and the taskbar (D-036).
+    set_target_properties(snapslash PROPERTIES WIN32_EXECUTABLE TRUE)
+    target_sources(snapslash PRIVATE resources/windows/snapslash.rc)
+endif()
 target_link_libraries(snapslash PRIVATE nsl_snap_core)
 
 # `cmake --install`, used by packages (e.g. the Nix package in nix/).

@@ -66,7 +66,6 @@ QStatusBar { border-top: 1px solid @border; color: @muted; font-size: 12px; }
 QStatusBar QLabel { color: @muted; font-size: 12px; padding: 0 4px; }
 QStatusBar::item { border: none; }
 
-#AppName { font-weight: 600; font-size: 14px; }
 QLabel[role="muted"] { color: @muted; }
 QLabel[role="section"] { color: @muted; font-size: 12px; font-weight: 500; }
 QLabel[role="panelTitle"] { font-size: 14px; font-weight: 600; }

@@ -299,13 +299,8 @@ QWidget *MainWindow::createTopBar()
     layout->setContentsMargins(12, 8, 12, 8);
     layout->setSpacing(12);
 
-    // Logo and name.
-    m_logo = new QLabel(bar);
-    auto *name = new QLabel(QStringLiteral("Snapslash"), bar);
-    name->setObjectName(QStringLiteral("AppName"));
-    layout->addWidget(m_logo);
-    layout->addWidget(name);
-    layout->addSpacing(8);
+    // No logo or name here: the window's title bar (or the desktop's header)
+    // already shows both (D-036).
 
     // Capture modes (F-01–F-03). The highlighted one is the last used mode.
     auto *modes = new QFrame(bar);
@@ -635,9 +630,6 @@ void MainWindow::keyPressEvent(QKeyEvent *event)
 
 void MainWindow::applyTheme(const Theme &theme)
 {
-    QIcon logo(QStringLiteral(":/icons/logo.svg"));
-    m_logo->setPixmap(logo.pixmap(QSize(26, 26)));
-
     // Segment buttons: muted when off, full text colour when on.
     m_windowButton->setIcon(Icons::toggleIcon(QStringLiteral("window"), theme.muted, theme.text));
     m_regionButton->setIcon(Icons::toggleIcon(QStringLiteral("region"), theme.muted, theme.text));
