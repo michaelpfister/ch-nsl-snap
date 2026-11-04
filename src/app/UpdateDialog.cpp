@@ -1,5 +1,6 @@
 #include "app/UpdateDialog.h"
 
+#include "ui/Placement.h"
 #include "update/UpdateInstaller.h"
 
 #include <QDesktopServices>
@@ -100,6 +101,8 @@ UpdateDialog::UpdateDialog(const Releases::Release &release, QWidget *parent)
         buttons->addWidget(m_installButton);
     }
     layout->addLayout(buttons);
+    resize(minimumSize());
+    fitIntoScreen(this); // the notes scroll
 }
 
 UpdateDialog::~UpdateDialog() = default;

@@ -5,11 +5,13 @@
 #include "app/Settings.h"
 #include "update/UpdateChecker.h"
 #include "update/UpdateInstaller.h"
+#include "ui/Placement.h"
 
 #include <QButtonGroup>
 #include <QCheckBox>
 #include <QComboBox>
 #include <QRadioButton>
+#include <QScrollArea>
 #include <QDateTime>
 #include <QDialogButtonBox>
 #include <QDir>
@@ -24,6 +26,8 @@
 #include <QPushButton>
 #include <QSystemTrayIcon>
 #include <QTabWidget>
+
+#include <algorithm>
 #include <QVBoxLayout>
 
 SettingsDialog::SettingsDialog(GlobalHotkeys *hotkeys, QWidget *parent)
@@ -38,12 +42,22 @@ SettingsDialog::SettingsDialog(GlobalHotkeys *hotkeys, QWidget *parent)
     outer->setContentsMargins(16, 16, 16, 12);
     auto *tabs = new QTabWidget(this);
     outer->addWidget(tabs);
+    // Each page scrolls, so the dialog fits small or highly scaled screens
+    // (fitIntoScreen below); usually the scroll bar never shows.
     const auto page = [this, tabs](const QString &title) {
         auto *widget = new QWidget(this);
         auto *pageLayout = new QVBoxLayout(widget);
         pageLayout->setContentsMargins(16, 16, 16, 16);
         pageLayout->setSpacing(6);
-        tabs->addTab(widget, title);
+        auto *scroll = new QScrollArea(this);
+        scroll->setWidget(widget);
+        scroll->setWidgetResizable(true);
+        scroll->setFrameShape(QFrame::NoFrame);
+        scroll->setHorizontalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
+        // The page's own background shows through, not the scroll area's.
+        scroll->viewport()->setAutoFillBackground(false);
+        widget->setAutoFillBackground(false);
+        tabs->addTab(scroll, title);
         return pageLayout;
     };
 
@@ -204,6 +218,20 @@ SettingsDialog::SettingsDialog(GlobalHotkeys *hotkeys, QWidget *parent)
         Settings::setAdvancedMode(enabled);
         emit advancedModeChanged(enabled);
     });
+
+    // A scroll area asks only for a small size, so the pages' own sizes
+    // decide how large the dialog wants to be; then it is limited to the
+    // screen, so its title bar stays reachable.
+    int pageHeight = 0;
+    int pageWidth = 0;
+    for (int i = 0; i < tabs->count(); ++i) {
+        const QSize hint = static_cast<QScrollArea *>(tabs->widget(i))->widget()->sizeHint();
+        pageHeight = std::max(pageHeight, hint.height());
+        pageWidth = std::max(pageWidth, hint.width());
+    }
+    const QSize chrome = sizeHint() - tabs->currentWidget()->sizeHint();
+    resize(QSize(std::max(minimumWidth(), pageWidth + chrome.width()), pageHeight + chrome.height()).expandedTo(minimumSize()));
+    fitIntoScreen(this);
 }
 
 SettingsDialog::~SettingsDialog()

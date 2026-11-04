@@ -101,6 +101,8 @@ add_library(nsl_snap_core STATIC
     src/ui/ColorWheel.h
     src/ui/Icons.cpp
     src/ui/Icons.h
+    src/ui/Placement.cpp
+    src/ui/Placement.h
     src/ui/Theme.cpp
     src/ui/Theme.h
     src/update/Releases.cpp
