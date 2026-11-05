@@ -18,7 +18,7 @@
 let
   # Same as project(... VERSION) in CMakeLists.txt; the release workflow
   # checks both against the tag (D-037).
-  version = "0.2.0-beta.3";
+  version = "0.2.0-beta.4";
   # "beta.1" of "0.3.0-beta.1": the pre-release part the app reports.
   suffix = lib.concatStringsSep "-" (lib.drop 1 (lib.splitString "-" version));
 in
