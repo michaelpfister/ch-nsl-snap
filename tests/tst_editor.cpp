@@ -12,6 +12,7 @@
 #include <QPainter>
 
 #include <QBuffer>
+#include <QSignalSpy>
 #include <QTest>
 #include <QUndoStack>
 
@@ -191,6 +192,49 @@ private slots:
         m_stack->push(new SetFrameStyleCommand({a}, off));
         QCOMPARE(m_scene->numberOf(b), 1);
         QCOMPARE(m_scene->numberOf(c), 2);
+    }
+
+    void numberingStartsAtTheFirstNumber()
+    {
+        // An instruction continues its numbering on the next screenshot (F-24).
+        FrameStyle numbered = squareStyle(kRed, 3);
+        numbered.badge = BadgePosition::TopRight;
+        auto *a = new FrameItem(QRectF(10, 10, 40, 30), numbered, 1.0);
+        auto *b = new FrameItem(QRectF(60, 10, 40, 30), numbered, 1.0);
+        for (FrameItem *f : {a, b})
+            m_stack->push(new AddItemsCommand(m_scene, {f}, QStringLiteral("add")));
+        QCOMPARE(m_scene->firstNumber(), 1);
+
+        QSignalSpy changed(m_scene, &EditorScene::firstNumberChanged);
+        m_stack->push(new SetFirstNumberCommand(m_scene, 4));
+        m_stack->push(new SetFirstNumberCommand(m_scene, 5)); // spin box steps merge
+        QCOMPARE(m_scene->numberOf(a), 5);
+        QCOMPARE(m_scene->numberOf(b), 6);
+        QCOMPARE(a->label(), QStringLiteral("Nummer 5"));
+        QCOMPARE(changed.size(), 2);
+
+        // One undo step back to 1.
+        m_stack->undo();
+        QCOMPARE(m_scene->firstNumber(), 1);
+        QCOMPARE(m_scene->numberOf(b), 2);
+        m_stack->redo();
+        QCOMPARE(m_scene->numberOf(b), 6);
+        // "Weiterzählen": the next image would start after the highest number.
+        QCOMPARE(m_scene->nextFirstNumber(), 7);
+        FrameStyle off = numbered;
+        off.badge = BadgePosition::None;
+        m_stack->push(new SetFrameStyleCommand({a, b}, off));
+        QCOMPARE(m_scene->nextFirstNumber(), 5); // nothing numbered: the same start
+        m_stack->undo();
+
+        // Out of range is clamped; a new image starts at 1 again.
+        m_scene->setFirstNumber(0);
+        QCOMPARE(m_scene->firstNumber(), 1);
+        m_scene->setFirstNumber(5000);
+        QCOMPARE(m_scene->firstNumber(), EditorScene::kMaxFirstNumber);
+        m_stack->clear();
+        m_scene->setBaseImage(QImage(200, 200, QImage::Format_ARGB32), 1.0);
+        QCOMPARE(m_scene->firstNumber(), 1);
     }
 
     void badgeIsDrawnOnTheCorner()

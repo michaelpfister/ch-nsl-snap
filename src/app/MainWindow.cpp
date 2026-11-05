@@ -144,6 +144,15 @@ MainWindow::MainWindow(QWidget *parent)
     connect(scene, &EditorScene::annotationsChanged, this, &MainWindow::updateObjectList);
     connect(m_undoStack, &QUndoStack::indexChanged, this, &MainWindow::onSelectionChanged);
     connect(m_properties, &PropertiesPanel::frameStyleChanged, this, &MainWindow::onFrameStyleChanged);
+    // The first number of the numbering (F-24): the panel changes it through
+    // an undo step; the scene's value (undo, a new image) shows in the panel.
+    connect(m_properties, &PropertiesPanel::firstNumberChanged, this, [this](int number) {
+        m_undoStack->push(new SetFirstNumberCommand(m_view->editorScene(), number));
+    });
+    connect(m_view->editorScene(), &EditorScene::firstNumberChanged, m_properties, &PropertiesPanel::setFirstNumber);
+    m_properties->setContinueNumbering(Settings::continueNumbering());
+    connect(m_properties, &PropertiesPanel::continueNumberingChanged, this,
+            [](bool enabled) { Settings::setContinueNumbering(enabled); });
     connect(m_properties, &PropertiesPanel::redactStyleChanged, this, &MainWindow::onRedactStyleChanged);
     connect(m_properties, &PropertiesPanel::replaceStyleChanged, this, &MainWindow::onReplaceStyleChanged);
     connect(m_properties, &PropertiesPanel::textStyleChanged, this, &MainWindow::onTextStyleChanged);
@@ -1147,8 +1156,13 @@ void MainWindow::loadImageFile(const QString &path)
 void MainWindow::setImage(const QImage &image, double scale, const QString &name, const QString &source)
 {
     // A new image starts a new document: older undo steps no longer apply.
+    rememberNextNumber();
     m_undoStack->clear();
     m_view->setImage(image, scale);
+    // Numbered from 1, or on from the previous image (F-24); a fresh
+    // document, so not an undo step.
+    if (Settings::continueNumbering())
+        m_view->editorScene()->setFirstNumber(m_nextFirstNumber);
     m_imageName = name;
     m_imageSource = source;
     m_savedPath.clear();
@@ -1156,6 +1170,15 @@ void MainWindow::setImage(const QImage &image, double scale, const QString &name
     updateImageInfo();
     updateActions();
     updateZoomLabel();
+}
+
+void MainWindow::rememberNextNumber()
+{
+    // Only an image that is still there tells where its numbers ended;
+    // after "Editor leeren" the number from before stays.
+    const EditorScene *scene = m_view->editorScene();
+    if (scene->hasImage())
+        m_nextFirstNumber = scene->nextFirstNumber();
 }
 
 void MainWindow::updateImageInfo()
@@ -1400,6 +1423,7 @@ void MainWindow::clearEditor()
     // Only unsaved work needs a question (F-10).
     if (hasUnsavedChanges() && !confirmDiscard(tr("Editor leeren"), tr("Trotzdem leeren?")))
         return;
+    rememberNextNumber();
     m_undoStack->clear();
     m_view->clear();
     m_imageName.clear();
