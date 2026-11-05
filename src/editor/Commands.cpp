@@ -186,6 +186,32 @@ bool SetDimCommand::mergeWith(const QUndoCommand *other)
     return true;
 }
 
+// --- First number ---------------------------------------------------------
+
+SetFirstNumberCommand::SetFirstNumberCommand(EditorScene *scene, int number)
+    : QUndoCommand(QCoreApplication::translate("Commands", "Erste Nummer ändern"))
+    , m_scene(scene)
+    , m_before(scene->firstNumber())
+    , m_after(number)
+{
+}
+
+void SetFirstNumberCommand::redo()
+{
+    m_scene->setFirstNumber(m_after);
+}
+
+void SetFirstNumberCommand::undo()
+{
+    m_scene->setFirstNumber(m_before);
+}
+
+bool SetFirstNumberCommand::mergeWith(const QUndoCommand *other)
+{
+    m_after = static_cast<const SetFirstNumberCommand *>(other)->m_after;
+    return true;
+}
+
 // --- Reorder ------------------------------------------------------------
 
 ReorderItemsCommand::ReorderItemsCommand(EditorScene *scene, int from, int to)

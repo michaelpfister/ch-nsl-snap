@@ -76,6 +76,8 @@ public:
     FrameStyle frameStyle() const;
     // Shows `style` without emitting frameStyleChanged.
     void setFrameStyle(const FrameStyle &style);
+    // The image's first number (F-24), shown without emitting a change.
+    void setFirstNumber(int number);
 
     // Number positions offered in the "Nummer" field; "Ohne Nummer" is
     // always there. Positions where the number would be cut off are hidden.
@@ -121,9 +123,13 @@ signals:
     void cropResetRequested();
     // The user changed the dim switch or one of its sliders (F-27).
     void dimSettingsChanged(const DimSettings &settings);
+    // The user changed the number the numbering starts from (F-24).
+    void firstNumberChanged(int number);
 
 private:
     void updateColorButtons();
+    // Shows "Beginnt bei" only while the frame style has a number.
+    void updateFirstNumberRow();
     // Opens the colour popup at `anchor`; `apply` receives every change.
     void openColorPopup(QWidget *anchor, const QColor &color, std::function<void(const QColor &)> apply);
 
@@ -165,6 +171,8 @@ private:
     QPushButton *m_rounded = nullptr;
     QSlider *m_width = nullptr;
     QComboBox *m_badge = nullptr;
+    QWidget *m_firstNumberRow = nullptr;
+    QSpinBox *m_firstNumber = nullptr;
     QWidget *m_dimSection = nullptr;
     QCheckBox *m_dim = nullptr;
     QSlider *m_dimStrength = nullptr;

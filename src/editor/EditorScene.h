@@ -75,8 +75,17 @@ public:
     QList<FrameItem *> selectedFrames() const;
 
     // Number of a numbered frame: its position among the numbered frames
-    // in creation order, so deleting one renumbers the rest (F-24).
+    // in creation order, so deleting one renumbers the rest (F-24),
+    // counted from firstNumber().
     int numberOf(const FrameItem *frame) const;
+
+    // The number of the first numbered frame (F-24): 1, or more when an
+    // instruction continues the numbering of an earlier screenshot.
+    // A new image starts at 1 again. Change it through SetFirstNumberCommand
+    // for undo.
+    static constexpr int kMaxFirstNumber = 999;
+    int firstNumber() const { return m_firstNumber; }
+    void setFirstNumber(int number);
 
     // Dimmed background (F-27). Change it through SetDimCommand for undo.
     DimSettings dimSettings() const { return m_dim; }
@@ -118,6 +127,7 @@ signals:
     void annotationsChanged();
     void dimSettingsChanged();
     void cropChanged();
+    void firstNumberChanged(int number);
 
 private:
     QUndoStack *m_undoStack;
@@ -134,6 +144,7 @@ private:
     MarkerStyle m_markerStyle;
     QString m_replaceText = QStringLiteral("Firstname Lastname");
     DimSettings m_dim;
+    int m_firstNumber = 1;
     DimItem *m_dimItem = nullptr;
     // Caches for dimLayer(): the blur is the slow part, so it is kept per
     // radius; the layer itself is cheap to rebuild from it.

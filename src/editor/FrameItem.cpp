@@ -3,6 +3,7 @@
 #include "editor/EditorScene.h"
 
 #include <QCoreApplication>
+#include <QFontMetricsF>
 #include <QPainter>
 #include <QPainterPathStroker>
 
@@ -201,9 +202,16 @@ void FrameItem::paint(QPainter *painter, const QStyleOptionGraphicsItem *, QWidg
         QFont font = painter->font();
         font.setPixelSize(qRound(FrameStyle::kBadgeFontSize * imageScale()));
         font.setWeight(QFont::Bold);
+        // Three digits (a numbering continued from earlier screenshots) get
+        // a smaller font, so they stay inside the circle.
+        const QString text = QString::number(number());
+        const qreal room = badge.width() * 0.8;
+        const qreal advance = QFontMetricsF(font).horizontalAdvance(text);
+        if (advance > room)
+            font.setPixelSize(std::max(1, int(font.pixelSize() * room / advance)));
         painter->setFont(font);
         painter->setPen(badgeTextColor(m_style.color));
-        painter->drawText(badge, Qt::AlignCenter, QString::number(number()));
+        painter->drawText(badge, Qt::AlignCenter, text);
     }
 
     paintHandles(painter);

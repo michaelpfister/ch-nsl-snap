@@ -91,9 +91,13 @@ void EditorScene::clearAll()
     m_scale = 1.0;
     m_blurred.clear();
     m_dimLayer = QPixmap();
-    // A new image starts without the dim effect.
+    // A new image starts without the dim effect, and numbered from 1.
     m_dim.enabled = false;
     emit dimSettingsChanged();
+    if (m_firstNumber != 1) {
+        m_firstNumber = 1;
+        emit firstNumberChanged(1);
+    }
     setSceneRect(QRectF());
     emit cropChanged();
     emit annotationsChanged();
@@ -203,11 +207,23 @@ QList<FrameItem *> EditorScene::frames() const
     return result;
 }
 
+void EditorScene::setFirstNumber(int number)
+{
+    number = std::clamp(number, 1, kMaxFirstNumber);
+    if (number == m_firstNumber)
+        return;
+    m_firstNumber = number;
+    for (FrameItem *frame : frames())
+        frame->update(); // repaint the badges
+    emit firstNumberChanged(number);
+    emit annotationsChanged(); // the object list shows the numbers
+}
+
 int EditorScene::numberOf(const FrameItem *frame) const
 {
     if (!frame->isNumbered())
         return 0;
-    int number = 0;
+    int number = m_firstNumber - 1;
     for (const FrameItem *other : frames()) {
         if (other->isNumbered())
             ++number;

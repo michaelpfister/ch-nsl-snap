@@ -144,6 +144,12 @@ MainWindow::MainWindow(QWidget *parent)
     connect(scene, &EditorScene::annotationsChanged, this, &MainWindow::updateObjectList);
     connect(m_undoStack, &QUndoStack::indexChanged, this, &MainWindow::onSelectionChanged);
     connect(m_properties, &PropertiesPanel::frameStyleChanged, this, &MainWindow::onFrameStyleChanged);
+    // The first number of the numbering (F-24): the panel changes it through
+    // an undo step; the scene's value (undo, a new image) shows in the panel.
+    connect(m_properties, &PropertiesPanel::firstNumberChanged, this, [this](int number) {
+        m_undoStack->push(new SetFirstNumberCommand(m_view->editorScene(), number));
+    });
+    connect(m_view->editorScene(), &EditorScene::firstNumberChanged, m_properties, &PropertiesPanel::setFirstNumber);
     connect(m_properties, &PropertiesPanel::redactStyleChanged, this, &MainWindow::onRedactStyleChanged);
     connect(m_properties, &PropertiesPanel::replaceStyleChanged, this, &MainWindow::onReplaceStyleChanged);
     connect(m_properties, &PropertiesPanel::textStyleChanged, this, &MainWindow::onTextStyleChanged);

@@ -182,6 +182,10 @@
         <source>Zuschneiden</source>
         <translation>Crop</translation>
     </message>
+    <message>
+        <source>Erste Nummer ändern</source>
+        <translation>Change first number</translation>
+    </message>
 </context>
 <context>
     <name>Countdown</name>
@@ -881,6 +885,18 @@ Ctrl+S saves straight into the folder from the settings</translation>
     <message>
         <source>%1 ausgewählt</source>
         <translation>%1 selected</translation>
+    </message>
+    <message>
+        <source>Beginnt bei</source>
+        <translation>Starts at</translation>
+    </message>
+    <message>
+        <source>Erste Nummer</source>
+        <translation>First number</translation>
+    </message>
+    <message>
+        <source>Die Nummerierung in diesem Bild beginnt mit dieser Zahl, zum Beispiel 4, wenn das vorherige Bild der Anleitung bis 3 ging.</source>
+        <translation>The numbering in this image starts with this number, for example 4 when the previous image of the instructions went up to 3.</translation>
     </message>
 </context>
 <context>
