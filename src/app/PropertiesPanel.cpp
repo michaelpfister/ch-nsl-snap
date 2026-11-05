@@ -219,8 +219,11 @@ PropertiesPanel::PropertiesPanel(QWidget *parent)
     // numbers continue from one screenshot to the next. It belongs to the
     // image, not to the frame style.
     m_firstNumberRow = new QWidget(this);
-    auto *firstNumberLayout = new QHBoxLayout(m_firstNumberRow);
-    firstNumberLayout->setContentsMargins(0, 4, 0, 0);
+    auto *firstNumberColumn = new QVBoxLayout(m_firstNumberRow);
+    firstNumberColumn->setContentsMargins(0, 4, 0, 0);
+    firstNumberColumn->setSpacing(6);
+    auto *firstNumberLayout = new QHBoxLayout;
+    firstNumberColumn->addLayout(firstNumberLayout);
     auto *firstNumberLabel = new QLabel(tr("Beginnt bei"), m_firstNumberRow);
     firstNumberLabel->setProperty("role", QStringLiteral("muted"));
     m_firstNumber = new QSpinBox(m_firstNumberRow);
@@ -231,10 +234,20 @@ PropertiesPanel::PropertiesPanel(QWidget *parent)
     firstNumberLayout->addWidget(firstNumberLabel);
     firstNumberLayout->addStretch(1);
     firstNumberLayout->addWidget(m_firstNumber);
+    // Off: every new image starts at 1. On: it goes on where this one ends.
+    m_continueNumbering = new QCheckBox(tr("Beim nächsten Bild weiterzählen"), m_firstNumberRow);
+    m_continueNumbering->setToolTip(tr("Das nächste aufgenommene oder geöffnete Bild beginnt mit der Nummer "
+                                       "nach der höchsten in diesem Bild."));
+    m_continueNumbering->setFocusPolicy(Qt::NoFocus);
+    firstNumberColumn->addWidget(m_continueNumbering);
     frameLayout->addWidget(m_firstNumberRow);
     connect(m_firstNumber, &QSpinBox::valueChanged, this, [this](int number) {
         if (!m_updating)
             emit firstNumberChanged(number);
+    });
+    connect(m_continueNumbering, &QCheckBox::toggled, this, [this](bool enabled) {
+        if (!m_updating)
+            emit continueNumberingChanged(enabled);
     });
     layout->addWidget(m_frameSection);
 
@@ -587,6 +600,13 @@ void PropertiesPanel::setFirstNumber(int number)
 {
     m_updating = true;
     m_firstNumber->setValue(number);
+    m_updating = false;
+}
+
+void PropertiesPanel::setContinueNumbering(bool enabled)
+{
+    m_updating = true;
+    m_continueNumbering->setChecked(enabled);
     m_updating = false;
 }
 

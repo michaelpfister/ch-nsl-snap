@@ -219,6 +219,16 @@ void EditorScene::setFirstNumber(int number)
     emit annotationsChanged(); // the object list shows the numbers
 }
 
+int EditorScene::nextFirstNumber() const
+{
+    int numbered = 0;
+    for (const FrameItem *frame : frames()) {
+        if (frame->isNumbered())
+            ++numbered;
+    }
+    return std::min(m_firstNumber + numbered, kMaxFirstNumber);
+}
+
 int EditorScene::numberOf(const FrameItem *frame) const
 {
     if (!frame->isNumbered())

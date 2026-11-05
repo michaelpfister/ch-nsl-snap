@@ -47,6 +47,11 @@ void setCloseToTray(bool enabled);
 bool trayHintShown();
 void setTrayHintShown(bool shown);
 
+// Numbered frames (F-24): whether a new image goes on with the numbers
+// where the previous one stopped, instead of starting at 1 (default off).
+bool continueNumbering();
+void setContinueNumbering(bool enabled);
+
 // Language of the user interface (D-038): "de", "en", or "" to follow the
 // system. Applies at the next start.
 QString language();

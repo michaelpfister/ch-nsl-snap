@@ -99,6 +99,16 @@ void setTrayHintShown(bool shown)
     QSettings().setValue("tray/hintShown", shown);
 }
 
+bool continueNumbering()
+{
+    return QSettings().value("editor/continueNumbering", false).toBool();
+}
+
+void setContinueNumbering(bool enabled)
+{
+    QSettings().setValue("editor/continueNumbering", enabled);
+}
+
 QString language()
 {
     return QSettings().value("ui/language").toString();

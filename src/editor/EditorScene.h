@@ -86,6 +86,9 @@ public:
     static constexpr int kMaxFirstNumber = 999;
     int firstNumber() const { return m_firstNumber; }
     void setFirstNumber(int number);
+    // Where the next image would go on: one after the highest number, or
+    // firstNumber() if no frame is numbered (setting "weiterzählen").
+    int nextFirstNumber() const;
 
     // Dimmed background (F-27). Change it through SetDimCommand for undo.
     DimSettings dimSettings() const { return m_dim; }

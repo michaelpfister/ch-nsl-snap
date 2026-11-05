@@ -219,6 +219,13 @@ private slots:
         QCOMPARE(m_scene->numberOf(b), 2);
         m_stack->redo();
         QCOMPARE(m_scene->numberOf(b), 6);
+        // "Weiterzählen": the next image would start after the highest number.
+        QCOMPARE(m_scene->nextFirstNumber(), 7);
+        FrameStyle off = numbered;
+        off.badge = BadgePosition::None;
+        m_stack->push(new SetFrameStyleCommand({a, b}, off));
+        QCOMPARE(m_scene->nextFirstNumber(), 5); // nothing numbered: the same start
+        m_stack->undo();
 
         // Out of range is clamped; a new image starts at 1 again.
         m_scene->setFirstNumber(0);

@@ -125,6 +125,8 @@ private:
     void showUpdate(const Releases::Release &release, QWidget *parent);
 
     void setImage(const QImage &image, double scale, const QString &name, const QString &source);
+    // Before the image goes: where its numbering ended (F-24).
+    void rememberNextNumber();
     void onToolChanged(ToolId id);
     void onSelectionChanged();
     void onFrameStyleChanged(const FrameStyle &style);
@@ -164,6 +166,7 @@ private:
     QString m_savedPath;  // last saved file, for Ctrl+E and Ctrl+Alt+C
     QString m_lastSaveFolder; // the save dialog starts here
     bool m_handedOff = false; // saved or copied since the image came in
+    int m_nextFirstNumber = 1; // where the next image's numbers start, if they go on
     QSystemTrayIcon *m_tray = nullptr;
     bool m_quitting = false;
     bool m_hiddenBeforeCapture = false;

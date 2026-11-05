@@ -78,6 +78,7 @@ public:
     void setFrameStyle(const FrameStyle &style);
     // The image's first number (F-24), shown without emitting a change.
     void setFirstNumber(int number);
+    void setContinueNumbering(bool enabled);
 
     // Number positions offered in the "Nummer" field; "Ohne Nummer" is
     // always there. Positions where the number would be cut off are hidden.
@@ -125,6 +126,8 @@ signals:
     void dimSettingsChanged(const DimSettings &settings);
     // The user changed the number the numbering starts from (F-24).
     void firstNumberChanged(int number);
+    // "Beim nächsten Bild weiterzählen" was switched.
+    void continueNumberingChanged(bool enabled);
 
 private:
     void updateColorButtons();
@@ -173,6 +176,7 @@ private:
     QComboBox *m_badge = nullptr;
     QWidget *m_firstNumberRow = nullptr;
     QSpinBox *m_firstNumber = nullptr;
+    QCheckBox *m_continueNumbering = nullptr;
     QWidget *m_dimSection = nullptr;
     QCheckBox *m_dim = nullptr;
     QSlider *m_dimStrength = nullptr;
