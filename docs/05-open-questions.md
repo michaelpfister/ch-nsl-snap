@@ -17,6 +17,11 @@
 | Q-22 | Use ext-image-copy-capture (compositor-neutral, also windows) instead of wlr-screencopy and hyprland-toplevel-export once the compositors in use offer it? | later; would give window capture on more desktops | D-031 |
 | Q-23 | Rotated monitors (Wayland output transform) on Hyprland and Sway: is the frozen picture already upright? | not handled; untested | D-031 |
 | Q-24 | Hyprland rounds window corners only when composing (decoration:rounding); round the capture like on Windows 11 (D-022)? | no: square, as the window buffer is | D-031 |
+| Q-25 | GNOME video: may the extension open a Mutter screen cast (`org.gnome.Mutter.ScreenCast`, `RecordWindow` / `RecordMonitor`) and hand the PipeWire stream to the app? Can the top bar indicator be kept out of monitor recordings? | yes, to be proven in a spike before the GNOME backend; else the ScreenCast portal with its dialog | F-50 on GNOME |
+| Q-26 | Does Qt Multimedia's FFmpeg build encode H.264 on every Linux machine (software encoder, or VA-API only)? | to be checked on Zorin and NixOS; without an encoder the app says so instead of offering video | F-50 on Linux |
+| Q-27 | Trimming (F-51): re-encode the chosen range (frame-exact, slower) or cut at key frames without re-encoding (fast, about 1 s exact)? | re-encode; decided in phase 1 | F-51 |
+| Q-28 | A window resized during the recording: scale it into the start size (black bars), or crop? | scale, keeping the aspect ratio | F-50 |
+| Q-29 | Monitor recordings on Wayland: no protocol keeps the indicator out of the video. Show it only in the tray and on other monitors, or accept it in the video? | a small layer surface in a corner, shown in the video; stop also via tray, hotkey or command | F-50 on Hyprland, Sway, portal |
 
 ## Resolved
 
