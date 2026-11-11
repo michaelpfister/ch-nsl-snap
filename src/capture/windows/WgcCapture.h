@@ -104,6 +104,8 @@ public:
     bool takeLatest(Pixels &out);
     // The window was closed (or the capture ended otherwise).
     bool isClosed() const;
+    // "frames arrived 12, pool recreated 1", for the tests' log.
+    std::string statistics() const;
 
     struct Impl;
 

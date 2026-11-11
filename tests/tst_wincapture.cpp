@@ -229,7 +229,8 @@ private slots:
         auto stream = WgcCapture::Stream::forWindow(hwnd);
         QVERIFY2(stream, "the window stream did not start");
         WgcCapture::Pixels pixels;
-        QTRY_VERIFY_WITH_TIMEOUT(stream->takeLatest(pixels), 3000);
+        QTRY_VERIFY2_WITH_TIMEOUT(stream->takeLatest(pixels), stream->statistics().c_str(), 3000);
+        qInfo("window stream: %s", stream->statistics().c_str());
         QImage image = streamFrame(pixels, hwnd);
         QVERIFY(!image.isNull());
         const int y = image.height() - 20;
@@ -246,6 +247,7 @@ private slots:
         QTRY_VERIFY_WITH_TIMEOUT(stream->takeLatest(pixels) && streamFrame(pixels, hwnd).width() >= firstWidth + 150,
                                  5000);
         image = streamFrame(pixels, hwnd);
+        qInfo("window stream after resizing: %s", stream->statistics().c_str());
         qInfo("stream frame %dx%d after resizing from %d", image.width(), image.height(), firstWidth);
         QVERIFY(similar(image.pixelColor(image.width() * 3 / 4, image.height() - 20), kBlue));
 
@@ -261,7 +263,8 @@ private slots:
         auto stream = WgcCapture::Stream::forMonitorAt(0, 0);
         QVERIFY2(stream, "the monitor stream did not start");
         WgcCapture::Pixels pixels;
-        QTRY_VERIFY_WITH_TIMEOUT(stream->takeLatest(pixels), 3000);
+        QTRY_VERIFY2_WITH_TIMEOUT(stream->takeLatest(pixels), stream->statistics().c_str(), 3000);
+        qInfo("monitor stream: %s", stream->statistics().c_str());
         qInfo("monitor frame %dx%d, screen %dx%d", pixels.width, pixels.height, GetSystemMetrics(SM_CXSCREEN),
               GetSystemMetrics(SM_CYSCREEN));
         QCOMPARE(pixels.width, GetSystemMetrics(SM_CXSCREEN));
