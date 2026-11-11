@@ -105,7 +105,7 @@ void prepare(RecordingController &controller, const QString &folder)
     controller.setTemporaryFolder(folder);
 }
 
-bool near(const QColor &a, const QColor &b)
+bool similar(const QColor &a, const QColor &b)
 {
     return std::abs(a.red() - b.red()) <= 3 && std::abs(a.green() - b.green()) <= 3
            && std::abs(a.blue() - b.blue()) <= 3 && a.alpha() == 255;
@@ -146,9 +146,9 @@ private slots:
         QCOMPARE(image.size(), QSize(info.frame.width(), info.frame.height()));
         // The client area at the bottom: red left, blue right.
         const int y = image.height() - 20;
-        QVERIFY2(near(image.pixelColor(image.width() / 4, y), kRed),
+        QVERIFY2(similar(image.pixelColor(image.width() / 4, y), kRed),
                  qPrintable(image.pixelColor(image.width() / 4, y).name(QColor::HexArgb)));
-        QVERIFY2(near(image.pixelColor(image.width() * 3 / 4, y), kBlue),
+        QVERIFY2(similar(image.pixelColor(image.width() * 3 / 4, y), kBlue),
                  qPrintable(image.pixelColor(image.width() * 3 / 4, y).name(QColor::HexArgb)));
     }
 
@@ -211,8 +211,8 @@ private slots:
         const QImage image = captureOf(*freeze, window);
         QVERIFY2(!image.isNull(), "the covered window was not frozen");
         const int y = image.height() - 20;
-        QVERIFY(near(image.pixelColor(image.width() / 4, y), kRed));
-        QVERIFY(near(image.pixelColor(image.width() * 3 / 4, y), kBlue));
+        QVERIFY(similar(image.pixelColor(image.width() / 4, y), kRed));
+        QVERIFY(similar(image.pixelColor(image.width() * 3 / 4, y), kBlue));
     }
 
     // Videos (F-50, D-039): the continuous capture.
@@ -233,9 +233,9 @@ private slots:
         QImage image = streamFrame(pixels, hwnd);
         QVERIFY(!image.isNull());
         const int y = image.height() - 20;
-        QVERIFY2(near(image.pixelColor(image.width() / 4, y), kRed),
+        QVERIFY2(similar(image.pixelColor(image.width() / 4, y), kRed),
                  qPrintable(image.pixelColor(image.width() / 4, y).name(QColor::HexArgb)));
-        QVERIFY(near(image.pixelColor(image.width() * 3 / 4, y), kBlue));
+        QVERIFY(similar(image.pixelColor(image.width() * 3 / 4, y), kBlue));
         const int firstWidth = image.width();
         // Nothing new until the window changes.
         QTest::qWait(200);
@@ -247,7 +247,7 @@ private slots:
                                  5000);
         image = streamFrame(pixels, hwnd);
         qInfo("stream frame %dx%d after resizing from %d", image.width(), image.height(), firstWidth);
-        QVERIFY(near(image.pixelColor(image.width() * 3 / 4, image.height() - 20), kBlue));
+        QVERIFY(similar(image.pixelColor(image.width() * 3 / 4, image.height() - 20), kBlue));
 
         // Closed: the stream says so.
         delete window;
