@@ -124,6 +124,7 @@ void RecordingController::startRecording()
     m_lastIndex = -1;
     m_durationMs = 0;
     m_limitReached = false;
+    m_empty = false;
     m_endReason.clear();
 
     m_encoder = new VideoEncoder(this);
@@ -217,16 +218,10 @@ void RecordingController::stopRecording()
         m_indicator->deleteLater();
         m_indicator = nullptr;
     }
-    if (m_encoder->framesWritten() == 0 && m_latest.isNull()) {
-        // Not a single frame came: nothing worth keeping.
-        const QString reason = m_endReason;
-        delete m_encoder;
-        m_encoder = nullptr;
-        QFile::remove(m_path);
-        reset();
-        emit failed(reason.isEmpty() ? tr("Es kam kein Bild vom Bildschirm an; das Video ist leer.") : reason);
-        return;
-    }
+    // Not a single frame came: nothing worth keeping. The file is deleted
+    // once the encoder has closed it (onEncoderFinished); Windows does not
+    // delete a file that is still open.
+    m_empty = m_encoder->framesWritten() == 0 && m_latest.isNull();
     m_encoder->finish();
 }
 
@@ -234,6 +229,15 @@ void RecordingController::onEncoderFinished()
 {
     if (m_state != State::Finishing)
         return;
+    if (m_empty) {
+        m_encoder->deleteLater();
+        m_encoder = nullptr;
+        QFile::remove(m_path);
+        const QString reason = m_endReason;
+        reset();
+        emit failed(reason.isEmpty() ? tr("Es kam kein Bild vom Bildschirm an; das Video ist leer.") : reason);
+        return;
+    }
     Result result;
     result.path = m_path;
     result.title = m_title;
@@ -257,8 +261,14 @@ void RecordingController::onEncoderFailed(const QString &message)
     m_encoder->deleteLater();
     m_encoder = nullptr;
     QFile::remove(m_path);
+    const bool empty = m_empty;
+    const QString reason = m_endReason;
     reset();
-    emit failed(tr("Das Video konnte nicht geschrieben werden: %1").arg(message));
+    // Stopped before the first frame: that is the news, not the encoder's complaint.
+    if (empty)
+        emit failed(reason.isEmpty() ? tr("Es kam kein Bild vom Bildschirm an; das Video ist leer.") : reason);
+    else
+        emit failed(tr("Das Video konnte nicht geschrieben werden: %1").arg(message));
 }
 
 void RecordingController::reset()

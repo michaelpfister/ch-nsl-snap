@@ -103,6 +103,7 @@ private:
     QImage m_latest;       // the newest frame, already in the video size
     qint64 m_lastIndex = -1; // the frame number last handed to the encoder
     bool m_limitReached = false;
+    bool m_empty = false;      // stopped before the first frame
     QString m_endReason;
 };
 
