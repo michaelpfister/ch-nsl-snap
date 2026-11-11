@@ -87,8 +87,8 @@ bool windowRects(HWND hwnd, Rect &windowRect, Rect &frame);
 // A continuous capture for videos (F-50, D-039): a window or a monitor,
 // with the pointer, without the yellow border where Windows allows that.
 // Windows sends a frame whenever the content changes; takeLatest() reads
-// the newest one back. A window that changes its size gets a frame pool of
-// the new size.
+// the newest one back. A window's buffers are as large as the desktop, so
+// it may grow during the recording.
 class Stream
 {
 public:

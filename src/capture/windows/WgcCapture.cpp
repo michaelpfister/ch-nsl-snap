@@ -419,12 +419,20 @@ struct Stream::Impl
     std::shared_ptr<StreamState> state = std::make_shared<StreamState>();
     winrt::com_ptr<ID3D11Texture2D> staging; // for reading back; reused while the size stays
 
-    bool start(GraphicsCaptureItem captureItem)
+    // `window`: the buffers are made as large as the whole desktop, so the
+    // window still fits after it grew. Windows sends the next frame only
+    // when the window changes again; a pool made for the new size after
+    // the fact would leave a cut-off frame in the video until then.
+    bool start(GraphicsCaptureItem captureItem, bool window)
     {
         item = captureItem;
-        const auto size = item.Size();
+        auto size = item.Size();
         if (size.Width <= 0 || size.Height <= 0)
             return false;
+        if (window) {
+            size.Width = std::max(size.Width, int32_t(GetSystemMetrics(SM_CXVIRTUALSCREEN)));
+            size.Height = std::max(size.Height, int32_t(GetSystemMetrics(SM_CYVIRTUALSCREEN)));
+        }
         state->poolSize = size;
         state->winrtDevice = toWinrtDevice(state->device);
         pool = Direct3D11CaptureFramePool::CreateFreeThreaded(
@@ -462,14 +470,16 @@ struct Stream::Impl
                 // Always given back: a frame kept open would take one of
                 // the pool's two buffers for good.
                 frame.Close();
-                if (content.Width > 0 && content.Height > 0
-                    && (content.Width != strong->poolSize.Width || content.Height != strong->poolSize.Height)) {
-                    // The window changed its size: a pool of the new size
-                    // for the next frames. This one is kept as it is.
-                    strong->poolSize = content;
+                if (content.Width > strong->poolSize.Width || content.Height > strong->poolSize.Height) {
+                    // Larger than the buffers (a window wider than the
+                    // desktop, or a monitor whose resolution changed):
+                    // larger buffers for the next frames. This one is kept,
+                    // cut to the old size.
+                    strong->poolSize.Width = std::max(content.Width, strong->poolSize.Width);
+                    strong->poolSize.Height = std::max(content.Height, strong->poolSize.Height);
                     ++strong->recreated;
                     sender.Recreate(strong->winrtDevice, DirectXPixelFormat::B8G8R8A8UIntNormalized, kStreamBuffers,
-                                    content);
+                                    strong->poolSize);
                 }
             } catch (...) {
                 // The pool was closed meanwhile.
@@ -511,7 +521,8 @@ namespace {
 // Device and capture item for a stream; `create` makes the item.
 using CreateItem = std::function<bool(IGraphicsCaptureItemInterop *interop, GraphicsCaptureItem &item)>;
 
-std::unique_ptr<Stream> makeStream(std::unique_ptr<Stream> stream, Stream::Impl &d, const CreateItem &create)
+std::unique_ptr<Stream> makeStream(std::unique_ptr<Stream> stream, Stream::Impl &d, bool window,
+                                   const CreateItem &create)
 {
     try {
         d.state->device = createDevice();
@@ -520,7 +531,7 @@ std::unique_ptr<Stream> makeStream(std::unique_ptr<Stream> stream, Stream::Impl 
         d.state->device->GetImmediateContext(d.state->context.put());
         const auto interop = winrt::get_activation_factory<GraphicsCaptureItem, IGraphicsCaptureItemInterop>();
         GraphicsCaptureItem item{nullptr};
-        if (!create(interop.get(), item) || !item || !d.start(item))
+        if (!create(interop.get(), item) || !item || !d.start(item, window))
             return nullptr;
         return stream;
     } catch (const winrt::hresult_error &) {
@@ -534,7 +545,7 @@ std::unique_ptr<Stream> Stream::forWindow(HWND hwnd)
 {
     std::unique_ptr<Stream> stream(new Stream);
     Impl &d = *stream->d;
-    return makeStream(std::move(stream), d, [hwnd](IGraphicsCaptureItemInterop *interop, GraphicsCaptureItem &item) {
+    return makeStream(std::move(stream), d, true, [hwnd](IGraphicsCaptureItemInterop *interop, GraphicsCaptureItem &item) {
         return SUCCEEDED(interop->CreateForWindow(
             hwnd, winrt::guid_of<winrt::Windows::Graphics::Capture::IGraphicsCaptureItem>(), winrt::put_abi(item)));
     });
@@ -545,7 +556,7 @@ std::unique_ptr<Stream> Stream::forMonitorAt(int x, int y)
     std::unique_ptr<Stream> stream(new Stream);
     Impl &d = *stream->d;
     HMONITOR monitor = MonitorFromPoint(POINT{x, y}, MONITOR_DEFAULTTONEAREST);
-    return makeStream(std::move(stream), d, [monitor](IGraphicsCaptureItemInterop *interop, GraphicsCaptureItem &item) {
+    return makeStream(std::move(stream), d, false, [monitor](IGraphicsCaptureItemInterop *interop, GraphicsCaptureItem &item) {
         return SUCCEEDED(interop->CreateForMonitor(
             monitor, winrt::guid_of<winrt::Windows::Graphics::Capture::IGraphicsCaptureItem>(), winrt::put_abi(item)));
     });
