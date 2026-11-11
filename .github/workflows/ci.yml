@@ -19,11 +19,12 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      # docs/07-development-setup.md, step 1.
+      # docs/07-development-setup.md, step 1. With retries and a fallback
+      # mirror: the runner's Azure mirror is sometimes unreachable.
       - name: Install system packages
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y ninja-build libgl-dev libegl-dev libopengl-dev libxkbcommon-dev libvulkan-dev libxcb-cursor0 libwayland-dev
+        run: >
+          scripts/ci-apt-install.sh
+          ninja-build libgl-dev libegl-dev libopengl-dev libxkbcommon-dev libvulkan-dev libxcb-cursor0 libwayland-dev
 
       # Qt 6.8.3 via aqtinstall, as on the development machines (D-013);
       # never the distribution's Qt 6.4.
@@ -181,7 +182,7 @@ jobs:
       # The extension's settings schema (keybindings) must compile.
       - name: Check the extension's settings schema
         run: |
-          sudo apt-get install -y libglib2.0-bin
+          scripts/ci-apt-install.sh libglib2.0-bin
           glib-compile-schemas --strict --dry-run gnome-extension/*/schemas
 
       - name: Syntax check of the PoC client and scripts
