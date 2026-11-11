@@ -23,6 +23,11 @@
 
 #include <cmath>
 
+#ifndef NOMINMAX
+#define NOMINMAX
+#endif
+#include <windows.h> // IsWindow, GetSystemMetrics
+
 namespace {
 
 const QColor kRed(0xE5484D);
