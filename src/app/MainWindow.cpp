@@ -320,7 +320,13 @@ MainWindow::MainWindow(QWidget *parent)
             QMessageBox::warning(this, tr("Update"), message);
     });
     // A few seconds after start, so it never slows down the first capture.
-    QTimer::singleShot(5000, this, &MainWindow::checkForUpdatesAtStart);
+    QTimer::singleShot(5000, this, &MainWindow::checkForUpdatesIfDue);
+    // The app may wait in the tray for days (Windows): every hour it looks
+    // again whether the daily check is due.
+    auto *updateTimer = new QTimer(this);
+    updateTimer->setInterval(60 * 60 * 1000);
+    connect(updateTimer, &QTimer::timeout, this, &MainWindow::checkForUpdatesIfDue);
+    updateTimer->start();
     onToolChanged(m_toolRail->currentTool());
     updateActions();
     updateZoomLabel();
@@ -1561,7 +1567,7 @@ void MainWindow::showSettings()
     dialog.exec();
 }
 
-void MainWindow::checkForUpdatesAtStart()
+void MainWindow::checkForUpdatesIfDue()
 {
     if (!Settings::checkForUpdates())
         return;
