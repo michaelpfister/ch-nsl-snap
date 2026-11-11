@@ -14,6 +14,12 @@
 #include "recording/VideoEncoder.h"
 #include "recording/VideoFrames.h"
 #include "recording/VideoTrimmer.h"
+#ifdef NSL_HAVE_PIPEWIRE
+#include "recording/gnome/GnomeRecordingBackend.h"
+#include "recording/pipewire/PipeWireStream.h"
+
+#include <spa/param/video/raw.h>
+#endif
 
 #include <QDeadlineTimer>
 #include <QDir>
@@ -568,6 +574,72 @@ private slots:
         QCOMPARE(discarded.count(), 1);
         QTRY_VERIFY(!QFile::exists(recording));
     }
+
+#ifdef NSL_HAVE_PIPEWIRE
+    // GNOME (D-039): the parts that need no running Shell or PipeWire.
+    void pipeWireFramesBecomeImages()
+    {
+        // 4 x 2 pixels BGRx: B, G, R, X in memory, as Qt's RGB32.
+        const uchar bgrx[] = {
+            0, 0, 255, 0, 0, 255, 0, 0, 255, 0, 0, 0, 1, 2, 3, 0, // red, green, blue, dark
+            0, 0, 255, 0, 0, 255, 0, 0, 255, 0, 0, 0, 1, 2, 3, 0,
+        };
+        QImage image = PipeWireStream::toImage(bgrx, 4, 2, 16, SPA_VIDEO_FORMAT_BGRx);
+        QCOMPARE(image.size(), QSize(4, 2));
+        QCOMPARE(image.pixelColor(0, 0), QColor(Qt::red));
+        QCOMPARE(image.pixelColor(1, 1), QColor(Qt::green));
+        QCOMPARE(image.pixelColor(2, 0), QColor(Qt::blue));
+        // RGBx: R, G, B, X in memory; the same bytes read the other way round.
+        image = PipeWireStream::toImage(bgrx, 4, 2, 16, SPA_VIDEO_FORMAT_RGBx);
+        QCOMPARE(image.pixelColor(0, 0), QColor(Qt::blue));
+        // The crop region of Mutter's window streams.
+        image = PipeWireStream::toImage(bgrx, 4, 2, 16, SPA_VIDEO_FORMAT_BGRx, QRect(1, 0, 2, 2));
+        QCOMPARE(image.size(), QSize(2, 2));
+        QCOMPARE(image.pixelColor(0, 0), QColor(Qt::green));
+        // A crop beyond the frame is kept inside it; other formats are refused.
+        QCOMPARE(PipeWireStream::toImage(bgrx, 4, 2, 16, SPA_VIDEO_FORMAT_BGRx, QRect(2, 0, 10, 10)).size(), QSize(2, 2));
+        QVERIFY(PipeWireStream::toImage(bgrx, 4, 2, 16, SPA_VIDEO_FORMAT_NV12).isNull());
+        QVERIFY(PipeWireStream::toImage(nullptr, 4, 2, 16, SPA_VIDEO_FORMAT_BGRx).isNull());
+    }
+
+    void gnomePickFromTheExtension()
+    {
+        QVariantMap window;
+        window.insert(QStringLiteral("mode"), QStringLiteral("window"));
+        window.insert(QStringLiteral("window-id"), QVariant::fromValue(quint64(1397639509)));
+        window.insert(QStringLiteral("title"), QStringLiteral("Firefox"));
+        window.insert(QStringLiteral("width"), 1280);
+        window.insert(QStringLiteral("height"), 688);
+        const auto pick = GnomeRecordingBackend::pickFromReply(window);
+        QVERIFY(pick.window);
+        QCOMPARE(pick.windowId, quint64(1397639509));
+        QCOMPARE(pick.title, QStringLiteral("Firefox"));
+        QCOMPARE(pick.size, QSize(1280, 688));
+
+        QVariantMap screen;
+        screen.insert(QStringLiteral("mode"), QStringLiteral("screen"));
+        screen.insert(QStringLiteral("width"), 2560);
+        screen.insert(QStringLiteral("height"), 1440);
+        const auto screenPick = GnomeRecordingBackend::pickFromReply(screen);
+        QVERIFY(!screenPick.window);
+        QCOMPARE(screenPick.windowId, quint64(0));
+        QCOMPARE(screenPick.size, QSize(2560, 1440));
+    }
+
+    void pipeWireStreamWithoutDaemon()
+    {
+        // No PipeWire daemon (CI): start() fails or the stream ends, never a hang.
+        qputenv("PIPEWIRE_REMOTE", "snapslash-test-no-such-socket");
+        PipeWireStream stream;
+        const bool started = stream.start(12345);
+        if (started)
+            QTRY_VERIFY_WITH_TIMEOUT(stream.hasEnded(), 3000);
+        QImage frame;
+        QVERIFY(!stream.takeLatest(frame));
+        stream.stop();
+        qunsetenv("PIPEWIRE_REMOTE");
+    }
+#endif
 
     void overlayForVideoHasNoRegion()
     {

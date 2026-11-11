@@ -314,6 +314,49 @@
     </message>
 </context>
 <context>
+    <name>GnomeRecordingBackend</name>
+    <message>
+        <source>Die GNOME-Erweiterung «Snapslash» ist veraltet und kennt die Videoaufnahme noch nicht. Bitte ab- und wieder anmelden, damit die neue Version geladen wird.</source>
+        <translation>The GNOME extension “Snapslash” is outdated and does not know video recording yet. Please log out and in again to load the new version.</translation>
+    </message>
+    <message>
+        <source>Die GNOME-Erweiterung hat kein Fenster genannt.</source>
+        <translation>The GNOME extension named no window.</translation>
+    </message>
+    <message>
+        <source>Bildschirm</source>
+        <translation>Screen</translation>
+    </message>
+    <message>
+        <source>GNOME verweigert die Bildschirmaufnahme: %1</source>
+        <translation>GNOME refuses the screen recording: %1</translation>
+    </message>
+    <message>
+        <source>Das Fenster lässt sich nicht aufnehmen: %1</source>
+        <translation>The window cannot be recorded: %1</translation>
+    </message>
+    <message>
+        <source>Der Bildschirm lässt sich nicht aufnehmen: %1</source>
+        <translation>The screen cannot be recorded: %1</translation>
+    </message>
+    <message>
+        <source>PipeWire ist nicht erreichbar; ohne PipeWire gibt es unter GNOME keine Videos.</source>
+        <translation>PipeWire cannot be reached; without PipeWire there are no videos on GNOME.</translation>
+    </message>
+    <message>
+        <source>Das Fenster ist nicht mehr da; die Aufnahme wurde beendet.</source>
+        <translation>The window is gone; the recording was stopped.</translation>
+    </message>
+    <message>
+        <source>GNOME hat die Bildschirmaufnahme beendet.</source>
+        <translation>GNOME ended the screen recording.</translation>
+    </message>
+    <message>
+        <source>Der Videostrom von GNOME ist abgebrochen: %1</source>
+        <translation>The video stream from GNOME broke off: %1</translation>
+    </message>
+</context>
+<context>
     <name>GnomeShellBackend</name>
     <message>
         <source>Die GNOME-Erweiterung «Snapslash» läuft nicht. Bitte installieren und aktivieren (docs/06-poc-gnome-window-capture.md) und danach ab- und wieder anmelden.</source>
@@ -1587,8 +1630,12 @@ Click to open in the editor</translation>
 <context>
     <name>UnsupportedRecordingBackend</name>
     <message>
-        <source>Videos lassen sich auf diesem Desktop noch nicht aufnehmen. Bisher gehen Hyprland, andere wlroots-Desktops und Windows; GNOME folgt.</source>
-        <translation>Videos cannot be recorded on this desktop yet. So far Hyprland, other wlroots desktops and Windows work; GNOME will follow.</translation>
+        <source>Videos lassen sich auf diesem Desktop noch nicht aufnehmen. Bisher gehen GNOME, Hyprland, andere wlroots-Desktops und Windows.</source>
+        <translation>Videos cannot be recorded on this desktop yet. So far GNOME, Hyprland, other wlroots desktops and Windows work.</translation>
+    </message>
+    <message>
+        <source>Diese Snapslash-Version wurde ohne PipeWire gebaut; unter GNOME gibt es damit keine Videos.</source>
+        <translation>This Snapslash version was built without PipeWire, so there are no videos on GNOME.</translation>
     </message>
 </context>
 <context>

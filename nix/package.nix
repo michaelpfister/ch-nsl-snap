@@ -10,6 +10,7 @@
   wayland,
   qt6,
   kdePackages,
+  pipewire,
   wrapGAppsHook3,
   gtk3,
   gsettings-desktop-schemas,
@@ -49,6 +50,8 @@ stdenv.mkDerivation {
     # Encoding videos (F-50, D-039), with nixpkgs' FFmpeg.
     qt6.qtmultimedia
     wayland
+    # Videos on GNOME: Mutter's screen cast through PipeWire (D-039).
+    pipewire
     # The capture overlay as a layer surface above all windows (D-031).
     kdePackages.layer-shell-qt
     gtk3

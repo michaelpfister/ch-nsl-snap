@@ -24,7 +24,7 @@ jobs:
       - name: Install system packages
         run: >
           scripts/ci-apt-install.sh
-          ninja-build libgl-dev libegl-dev libopengl-dev libxkbcommon-dev libvulkan-dev libxcb-cursor0 libwayland-dev
+          ninja-build libgl-dev libegl-dev libopengl-dev libxkbcommon-dev libvulkan-dev libxcb-cursor0 libwayland-dev libpipewire-0.3-dev
 
       # Qt 6.8.3 via aqtinstall, as on the development machines (D-013);
       # never the distribution's Qt 6.4.

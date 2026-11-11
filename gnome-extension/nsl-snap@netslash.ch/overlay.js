@@ -176,11 +176,13 @@ class RegionSelector {
 
 const CaptureOverlay = GObject.registerClass(
 class CaptureOverlay extends St.Widget {
-    _init(frozen, mode, how, hints, resolve) {
+    _init(frozen, mode, how, hints, video, resolve) {
         super._init({reactive: true, can_focus: true});
         this._frozen = frozen;
         this._hints = {...DEFAULT_HINTS, ...hints};
-        this._mode = mode;
+        // Picking for a video (F-50): window or screen only, no region.
+        this._video = video;
+        this._mode = video && mode === Mode.REGION ? Mode.SCREEN : mode;
         this._how = how;
         this._resolve = resolve;
         this._hovered = null;     // window entry under the pointer (window mode)
@@ -490,7 +492,7 @@ class CaptureOverlay extends St.Widget {
             break;
         case Clutter.KEY_r:
         case Clutter.KEY_R:
-            if (this._mode !== Mode.REGION)
+            if (this._mode !== Mode.REGION && !this._video)
                 this._setMode(Mode.REGION);
             break;
         case Clutter.KEY_s:
@@ -599,14 +601,15 @@ class CaptureOverlay extends St.Widget {
  * @param {string} how - RegionSelect.CLICKS or RegionSelect.DRAG
  * @param {object} hints - the hint texts from the app (D-038), by key;
  *   missing ones fall back to DEFAULT_HINTS
+ * @param {boolean} video - picking for a video (F-50): no region mode
  * @returns {{promise: Promise<object|null>, cancel: Function}} resolves with
  *   {mode: 'window', window: entry} or {mode: 'region' or 'screen', region:
  *   rect in physical px}, or null
  */
-export function select(frozen, mode, how = RegionSelect.CLICKS, hints = {}) {
+export function select(frozen, mode, how = RegionSelect.CLICKS, hints = {}, video = false) {
     let overlay;
     const promise = new Promise(resolve => {
-        overlay = new CaptureOverlay(frozen, mode, how, hints, resolve);
+        overlay = new CaptureOverlay(frozen, mode, how, hints, video, resolve);
         overlay.open();
     });
     return {promise, cancel: () => overlay.close()};

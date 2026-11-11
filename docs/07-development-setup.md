@@ -11,10 +11,10 @@ Verified on 2026-10-25 on Zorin OS 18.1.
 The distribution's Qt (6.4) is too old and is not used. The prebuilt Qt below needs a compiler, build tools and a few system headers:
 
 ```bash
-sudo apt install build-essential cmake ninja-build libgl-dev libegl-dev libopengl-dev libxkbcommon-dev libvulkan-dev libxcb-cursor0 libwayland-dev
+sudo apt install build-essential cmake ninja-build libgl-dev libegl-dev libopengl-dev libxkbcommon-dev libvulkan-dev libxcb-cursor0 libwayland-dev libpipewire-0.3-dev
 ```
 
-`libwayland-dev` (with `wayland-scanner`) is for the Wayland backend (D-031). KDE's LayerShellQt is optional: with it, the capture overlay on Hyprland and Sway is a layer surface above all windows, without it a full-screen window. Ubuntu 24.04 only has it for Qt 5, so the Qt 6.8 build here runs without; the Nix package has it.
+`libwayland-dev` (with `wayland-scanner`) is for the Wayland backend (D-031). `libpipewire-0.3-dev` is for videos on GNOME (D-039); without it the app builds, but records no videos there. KDE's LayerShellQt is optional: with it, the capture overlay on Hyprland and Sway is a layer surface above all windows, without it a full-screen window. Ubuntu 24.04 only has it for Qt 5, so the Qt 6.8 build here runs without; the Nix package has it.
 
 Without the OpenGL headers CMake reports "Could NOT find OpenGL" and then fails to find `Qt6Gui` and `Qt6Widgets`. `libxcb-cursor0` is needed by Qt's X11 platform plugin (Xwayland fallback).
 
@@ -91,6 +91,15 @@ grim screen.png                          # what the compositor shows
 - Headless Sway has no pointer; wlrctl's virtual pointer did not reach the app. Use the keyboard (D-023).
 - Videos (F-50): `snapslash --record-screen`, then Enter in the overlay (all monitors) or a click; the same command again stops it. Qt's FFmpeg finds no H.264 encoder in a headless Sway (no graphics card), so the app refuses there; the controller with MPEG-4 can be driven from a small test program (`RecordingController::setVideoCodec`). `NSL_TEST_H264=1 ctest -R tst_recording` tries the machine's H.264 encoder.
 - The portal backend (D-032) needs `xdg-desktop-portal`, `xdg-desktop-portal-wlr`, `pipewire` and an Access portal such as `xdg-desktop-portal-gtk`, plus `~/.config/xdg-desktop-portal/sway-portals.conf` with `[preferred]`, `default=wlr;gtk`.
+
+### Trying GNOME videos in a headless GNOME Shell
+
+GNOME Shell 46 runs without a screen (`--headless`), so the extension's pick and Mutter's screen cast can be tried in a container (2026-11-11, D-039). It needs `gnome-shell`, `xwayland`, `pipewire`, `wireplumber` and, for a test window and the scripted keys, `python3-gi` with `gir1.2-gtk-3.0` and `python3-gi-cairo`.
+
+- The Shell needs a system bus (`dbus-daemon --system --fork`) and, without systemd-logind, no `/run/systemd/seats` (then it uses its dummy login manager).
+- Inside `dbus-run-session`: link or copy the extension, `gsettings set org.gnome.shell enabled-extensions "['nsl-snap@netslash.ch']"` (with the same `HOME` as the D-Bus daemon, which starts dconf), start `pipewire` and `wireplumber`, then `gnome-shell --headless --wayland --virtual-monitor 1280x720`.
+- Keys and pointer for the overlay come from Mutter's own `org.gnome.Mutter.RemoteDesktop` (`CreateSession`, `Start`, `NotifyPointerMotionRelative`, `NotifyKeyboardKeysym`).
+- The Shell starts in the overview; a maximized test window covers the middle of the screen.
 
 ### Translations
 

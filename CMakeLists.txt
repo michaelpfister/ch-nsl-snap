@@ -228,6 +228,23 @@ if(LINUX)
     target_link_libraries(nsl_snap_core PUBLIC PkgConfig::WAYLAND_CLIENT)
     target_compile_definitions(nsl_snap_core PUBLIC NSL_HAVE_WAYLAND_BACKEND)
 
+    # Videos on GNOME (D-039): Mutter's screen cast, read from PipeWire.
+    # Optional: without libpipewire the app records no videos on GNOME.
+    pkg_check_modules(PIPEWIRE IMPORTED_TARGET libpipewire-0.3)
+    if(PIPEWIRE_FOUND)
+        target_sources(nsl_snap_core PRIVATE
+            src/recording/gnome/GnomeRecordingBackend.cpp
+            src/recording/gnome/GnomeRecordingBackend.h
+            src/recording/pipewire/PipeWireStream.cpp
+            src/recording/pipewire/PipeWireStream.h
+        )
+        target_link_libraries(nsl_snap_core PUBLIC PkgConfig::PIPEWIRE)
+        target_compile_definitions(nsl_snap_core PUBLIC NSL_HAVE_PIPEWIRE)
+        message(STATUS "PipeWire found: videos on GNOME")
+    else()
+        message(STATUS "PipeWire not found: no videos on GNOME")
+    endif()
+
     # Optional: KDE's LayerShellQt puts the overlay above all windows on
     # Hyprland, Sway & co. Without it the overlay is shown full screen.
     find_package(LayerShellQt 6 CONFIG QUIET)
