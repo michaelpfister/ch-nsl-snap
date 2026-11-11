@@ -6,7 +6,7 @@ Screenshots for instructions and documentation: capture **one window** with clea
 
 ![The Snapslash editor with a captured settings window, two numbered frames and an arrow](docs/images/editor.png)
 
-> **Status:** pre-release ([v0.3.0-beta.1](https://github.com/michaelpfister/ch-nsl-snap/releases)). Usable every day on Windows, GNOME and Hyprland; macOS is planned.
+> **Status:** pre-release ([v0.3.0-beta.2](https://github.com/michaelpfister/ch-nsl-snap/releases)). Usable every day on Windows, GNOME and Hyprland; macOS is planned.
 
 ## Features
 
@@ -14,7 +14,7 @@ Screenshots for instructions and documentation: capture **one window** with clea
 - **Window, region or screen.** The screen freezes first, then you pick on the frozen picture, so menus, tooltips and hover states stay as they were.
 - **Clean windows:** only the window itself. No shadow, no background and no neighbouring windows; rounded corners stay transparent. Add the shadow in your page's CSS instead.
 - **Region** by two clicks or by dragging, with a magnifier and arrow keys to get it right to the pixel. A **screen** is one monitor, or all of them with Enter.
-- **Timer:** a countdown of 3, 5 or 10 seconds before the freeze, for menus that close when you click elsewhere.
+- **Timer:** a countdown of 3, 5 or 10 seconds before the freeze, for menus that close when you click elsewhere. It can sit in a corner instead of the middle, and ignore clicks.
 - **Global hotkeys** on Windows (Print, Shift/Alt/Ctrl+Alt + Print, configurable). On Linux, the desktop's own key bindings run the command line.
 
 **Video**
@@ -31,6 +31,7 @@ Screenshots for instructions and documentation: capture **one window** with clea
 
 **Keep**
 - **Copy** to the clipboard, or **save** as PNG with a naming pattern (`{Datum}_{Zeit}_{Titel}`) into a default folder. HiDPI captures keep their scale in the PNG.
+- **Series of captures:** each capture goes straight into the save folder; the strip "Letzte Aufnahmen" shows the recent ones as thumbnails and opens them in the editor.
 - Runs in the **tray**, and starts captures from there.
 - **Command line** for scripts and key bindings: `snapslash --capture-region` saves straight into the save folder and prints the path; `--open` shows the capture in the editor instead.
 - **Updates and downgrades** from the GitHub releases (settings tab "Updates"). The portable Windows version installs any published version itself, older ones too, in case a new one misbehaves.
