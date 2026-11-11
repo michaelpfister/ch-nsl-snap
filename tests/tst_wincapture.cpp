@@ -22,6 +22,7 @@
 #include <QWidget>
 
 #include <cmath>
+#include <functional>
 
 #ifndef NOMINMAX
 #define NOMINMAX
@@ -82,6 +83,21 @@ QImage streamFrame(const WgcCapture::Pixels &pixels, HWND hwnd)
         return {};
     return whole.copy(PickGeometry::frameInCapture(whole.size(), toQRect(windowRect), toQRect(frame)))
         .convertToFormat(QImage::Format_ARGB32);
+}
+
+// Waits up to `timeoutMs` for a frame from `stream` for which `wanted`
+// holds. Not QTRY_VERIFY: that evaluates its expression once more after
+// waiting, and takeLatest() hands each frame out only once.
+bool waitForFrame(WgcCapture::Stream &stream, WgcCapture::Pixels &pixels, int timeoutMs,
+                  const std::function<bool(const WgcCapture::Pixels &)> &wanted = {})
+{
+    QDeadlineTimer deadline(timeoutMs);
+    while (!deadline.hasExpired()) {
+        if (stream.takeLatest(pixels) && (!wanted || wanted(pixels)))
+            return true;
+        QTest::qWait(20);
+    }
+    return false;
 }
 
 // The duration of a video as Qt reads it, in ms; -1 if it does not load.
@@ -229,7 +245,7 @@ private slots:
         auto stream = WgcCapture::Stream::forWindow(hwnd);
         QVERIFY2(stream, "the window stream did not start");
         WgcCapture::Pixels pixels;
-        QTRY_VERIFY2_WITH_TIMEOUT(stream->takeLatest(pixels), stream->statistics().c_str(), 3000);
+        QVERIFY2(waitForFrame(*stream, pixels, 3000), stream->statistics().c_str());
         qInfo("window stream: %s", stream->statistics().c_str());
         QImage image = streamFrame(pixels, hwnd);
         QVERIFY(!image.isNull());
@@ -244,8 +260,11 @@ private slots:
 
         // Resized: the frames follow, at the new size.
         window->resize(600, 300);
-        QTRY_VERIFY_WITH_TIMEOUT(stream->takeLatest(pixels) && streamFrame(pixels, hwnd).width() >= firstWidth + 150,
-                                 5000);
+        QVERIFY2(waitForFrame(*stream, pixels, 5000,
+                              [&](const WgcCapture::Pixels &frame) {
+                                  return streamFrame(frame, hwnd).width() >= firstWidth + 150;
+                              }),
+                 stream->statistics().c_str());
         image = streamFrame(pixels, hwnd);
         qInfo("window stream after resizing: %s", stream->statistics().c_str());
         qInfo("stream frame %dx%d after resizing from %d", image.width(), image.height(), firstWidth);
@@ -263,7 +282,7 @@ private slots:
         auto stream = WgcCapture::Stream::forMonitorAt(0, 0);
         QVERIFY2(stream, "the monitor stream did not start");
         WgcCapture::Pixels pixels;
-        QTRY_VERIFY2_WITH_TIMEOUT(stream->takeLatest(pixels), stream->statistics().c_str(), 3000);
+        QVERIFY2(waitForFrame(*stream, pixels, 3000), stream->statistics().c_str());
         qInfo("monitor stream: %s", stream->statistics().c_str());
         qInfo("monitor frame %dx%d, screen %dx%d", pixels.width, pixels.height, GetSystemMetrics(SM_CXSCREEN),
               GetSystemMetrics(SM_CYSCREEN));
