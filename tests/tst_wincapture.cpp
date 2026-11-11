@@ -6,8 +6,16 @@
 #include "capture/windows/WgcCapture.h"
 #include "capture/windows/WindowsBackend.h"
 #include "imaging/WindowImage.h"
+#include "recording/RecordingController.h"
+#include "recording/windows/WindowsRecordingBackend.h"
 
 #include <QApplication>
+#include <QDeadlineTimer>
+#include <QFile>
+#include <QMediaPlayer>
+#include <QSignalSpy>
+#include <QTemporaryDir>
+#include <QUrl>
 #include <QOperatingSystemVersion>
 #include <QPainter>
 #include <QTest>
@@ -56,6 +64,40 @@ QImage captureOf(const WgcCapture::Freeze &freeze, const QWidget &widget, WgcCap
         return whole.copy(frame).convertToFormat(QImage::Format_ARGB32);
     }
     return {};
+}
+
+// A frame of a window stream, cut to the visible frame as the recording
+// backend does it.
+QImage streamFrame(const WgcCapture::Pixels &pixels, HWND hwnd)
+{
+    const QImage whole(pixels.bgra.data(), pixels.width, pixels.height, pixels.width * 4,
+                       QImage::Format_ARGB32_Premultiplied);
+    WgcCapture::Rect windowRect, frame;
+    if (!WgcCapture::windowRects(hwnd, windowRect, frame))
+        return {};
+    return whole.copy(PickGeometry::frameInCapture(whole.size(), toQRect(windowRect), toQRect(frame)))
+        .convertToFormat(QImage::Format_ARGB32);
+}
+
+// The duration of a video as Qt reads it, in ms; -1 if it does not load.
+qint64 durationOf(const QString &path)
+{
+    QMediaPlayer player;
+    player.setSource(QUrl::fromLocalFile(path));
+    QDeadlineTimer deadline(5000);
+    while (player.mediaStatus() != QMediaPlayer::LoadedMedia && player.mediaStatus() != QMediaPlayer::InvalidMedia
+           && !deadline.hasExpired())
+        QTest::qWait(20);
+    return player.mediaStatus() == QMediaPlayer::LoadedMedia ? player.duration() : -1;
+}
+
+// A recording controller for the tests: MPEG-4 Part 2 (software, on every
+// runner), short countdown, files in `folder`.
+void prepare(RecordingController &controller, const QString &folder)
+{
+    controller.setVideoCodec(QMediaFormat::VideoCodec::MPEG4);
+    controller.setCountdownTickInterval(10);
+    controller.setTemporaryFolder(folder);
 }
 
 bool near(const QColor &a, const QColor &b)
@@ -166,6 +208,132 @@ private slots:
         const int y = image.height() - 20;
         QVERIFY(near(image.pixelColor(image.width() / 4, y), kRed));
         QVERIFY(near(image.pixelColor(image.width() * 3 / 4, y), kBlue));
+    }
+
+    // Videos (F-50, D-039): the continuous capture.
+    void streamFollowsAWindow()
+    {
+        auto *window = new Pattern;
+        window->setWindowTitle(QStringLiteral("Snapslash Videofenster"));
+        window->setGeometry(200, 200, 400, 300);
+        window->show();
+        QVERIFY(QTest::qWaitForWindowExposed(window));
+        QTest::qWait(300);
+        const HWND hwnd = reinterpret_cast<HWND>(window->winId());
+
+        auto stream = WgcCapture::Stream::forWindow(hwnd);
+        QVERIFY2(stream, "the window stream did not start");
+        WgcCapture::Pixels pixels;
+        QTRY_VERIFY_WITH_TIMEOUT(stream->takeLatest(pixels), 3000);
+        QImage image = streamFrame(pixels, hwnd);
+        QVERIFY(!image.isNull());
+        const int y = image.height() - 20;
+        QVERIFY2(near(image.pixelColor(image.width() / 4, y), kRed),
+                 qPrintable(image.pixelColor(image.width() / 4, y).name(QColor::HexArgb)));
+        QVERIFY(near(image.pixelColor(image.width() * 3 / 4, y), kBlue));
+        const int firstWidth = image.width();
+        // Nothing new until the window changes.
+        QTest::qWait(200);
+        stream->takeLatest(pixels);
+
+        // Resized: the frames follow, at the new size.
+        window->resize(600, 300);
+        QTRY_VERIFY_WITH_TIMEOUT(stream->takeLatest(pixels) && streamFrame(pixels, hwnd).width() >= firstWidth + 150,
+                                 5000);
+        image = streamFrame(pixels, hwnd);
+        qInfo("stream frame %dx%d after resizing from %d", image.width(), image.height(), firstWidth);
+        QVERIFY(near(image.pixelColor(image.width() * 3 / 4, image.height() - 20), kBlue));
+
+        // Closed: the stream says so.
+        delete window;
+        QTRY_VERIFY_WITH_TIMEOUT(stream->isClosed() || !IsWindow(hwnd), 5000);
+        qInfo("stream closed: %d", int(stream->isClosed()));
+    }
+
+    void streamOfAMonitor()
+    {
+        // The primary monitor holds the point 0,0.
+        auto stream = WgcCapture::Stream::forMonitorAt(0, 0);
+        QVERIFY2(stream, "the monitor stream did not start");
+        WgcCapture::Pixels pixels;
+        QTRY_VERIFY_WITH_TIMEOUT(stream->takeLatest(pixels), 3000);
+        qInfo("monitor frame %dx%d, screen %dx%d", pixels.width, pixels.height, GetSystemMetrics(SM_CXSCREEN),
+              GetSystemMetrics(SM_CYSCREEN));
+        QCOMPARE(pixels.width, GetSystemMetrics(SM_CXSCREEN));
+        QCOMPARE(pixels.height, GetSystemMetrics(SM_CYSCREEN));
+    }
+
+    void recordsAWindow()
+    {
+        QTemporaryDir dir;
+        Pattern window;
+        window.setWindowTitle(QStringLiteral("Snapslash Videofenster"));
+        window.setGeometry(200, 200, 400, 300);
+        window.show();
+        QVERIFY(QTest::qWaitForWindowExposed(&window));
+        QTest::qWait(300);
+
+        WindowsRecordingBackend backend;
+        WindowsBackend::VideoPick pick;
+        pick.hwnd = reinterpret_cast<HWND>(window.winId());
+        pick.title = QStringLiteral("Videofenster");
+        WgcCapture::Rect windowRect, frame;
+        QVERIFY(WgcCapture::windowRects(pick.hwnd, windowRect, frame));
+        pick.size = QSize(frame.width(), frame.height());
+        backend.setPresetPick(pick);
+        int frames = 0;
+        connect(&backend, &RecordingBackend::frameReady, this, [&frames] { ++frames; });
+
+        RecordingController controller(&backend);
+        prepare(controller, dir.path());
+        QSignalSpy started(&controller, &RecordingController::recordingStarted);
+        QSignalSpy finished(&controller, &RecordingController::finished);
+        QSignalSpy failed(&controller, &RecordingController::failed);
+        controller.start(RecordingBackend::Source::Window);
+        QVERIFY(started.wait(5000));
+        // Some movement, so Windows sends frames.
+        for (int i = 0; i < 10; ++i) {
+            window.resize(400 + i * 4, 300);
+            QTest::qWait(80);
+        }
+        controller.stop();
+        QVERIFY(finished.wait(15000));
+        QCOMPARE(failed.count(), 0);
+        qInfo("%d frames from the window", frames);
+        QVERIFY(frames > 0);
+        const auto result = finished.first().first().value<RecordingController::Result>();
+        QCOMPARE(result.title, QStringLiteral("Videofenster"));
+        const qint64 duration = durationOf(result.path);
+        QVERIFY2(duration > 500, qPrintable(QString::number(duration)));
+    }
+
+    void closingTheWindowEndsTheRecording()
+    {
+        QTemporaryDir dir;
+        auto *window = new Pattern;
+        window->setWindowTitle(QStringLiteral("Snapslash Videofenster"));
+        window->setGeometry(200, 200, 400, 300);
+        window->show();
+        QVERIFY(QTest::qWaitForWindowExposed(window));
+        QTest::qWait(300);
+
+        WindowsRecordingBackend backend;
+        WindowsBackend::VideoPick pick;
+        pick.hwnd = reinterpret_cast<HWND>(window->winId());
+        pick.size = QSize(400, 300);
+        backend.setPresetPick(pick);
+        RecordingController controller(&backend);
+        prepare(controller, dir.path());
+        QSignalSpy started(&controller, &RecordingController::recordingStarted);
+        QSignalSpy finished(&controller, &RecordingController::finished);
+        controller.start(RecordingBackend::Source::Window);
+        QVERIFY(started.wait(5000));
+        QTest::qWait(500);
+        delete window;
+        QVERIFY(finished.wait(15000));
+        const auto result = finished.first().first().value<RecordingController::Result>();
+        QVERIFY(!result.endReason.isEmpty());
+        QVERIFY(QFile::exists(result.path));
     }
 
     void windowListIsTopmostFirst()

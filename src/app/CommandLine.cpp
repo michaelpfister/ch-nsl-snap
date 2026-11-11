@@ -24,7 +24,7 @@ void addOptions(QCommandLineParser &parser)
         {QStringLiteral("capture-window"), QStringLiteral("Pick a window and capture it.")},
         {QStringLiteral("capture-region"), QStringLiteral("Select a region and capture it.")},
         {QStringLiteral("capture-screen"), QStringLiteral("Pick a monitor (Enter: all) and capture it.")},
-        {QStringLiteral("record-window"), QStringLiteral("Pick a window and record a video of it (Hyprland so far).")},
+        {QStringLiteral("record-window"), QStringLiteral("Pick a window and record a video of it (Hyprland, Windows).")},
         {QStringLiteral("record-screen"), QStringLiteral("Pick a monitor (Enter: all) and record a video of it.")},
         {QStringLiteral("open"), QStringLiteral("Show the capture in the editor (a video: in the trim window) instead of saving it.")},
         {QStringLiteral("delay"), QStringLiteral("Count down <seconds> before the capture (0-60)."),

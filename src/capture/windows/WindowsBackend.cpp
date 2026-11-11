@@ -108,10 +108,23 @@ void WindowsBackend::captureScreen()
     start(CaptureOverlay::Mode::Screen);
 }
 
+void WindowsBackend::pickForVideo(bool window)
+{
+    if (m_overlay || m_countdown)
+        return;
+    if (!isAvailable()) {
+        emit failed(unavailableReason());
+        return;
+    }
+    m_forVideo = true;
+    freezeAndPick(window ? CaptureOverlay::Mode::Window : CaptureOverlay::Mode::Screen, false);
+}
+
 void WindowsBackend::start(CaptureOverlay::Mode mode, bool activeWindow)
 {
     if (m_overlay || m_countdown)
         return;
+    m_forVideo = false;
     if (!isAvailable()) {
         emit failed(unavailableReason());
         return;
@@ -169,11 +182,16 @@ void WindowsBackend::freezeAndPick(CaptureOverlay::Mode mode, bool activeWindow)
 
     m_overlay = new CaptureOverlay(m_screens, frames, mode,
                                    regionByDragging() ? RegionSelector::Mode::Drag : RegionSelector::Mode::Clicks, this);
+    m_overlay->setForVideo(m_forVideo);
     connect(m_overlay, &CaptureOverlay::windowPicked, this, &WindowsBackend::onWindowPicked);
     connect(m_overlay, &CaptureOverlay::regionSelected, this,
             [this](const QRect &native) { deliverPart(native, CaptureResult::Kind::Region); });
-    connect(m_overlay, &CaptureOverlay::screenSelected, this,
-            [this](const QRect &native) { deliverPart(native, CaptureResult::Kind::Screen); });
+    connect(m_overlay, &CaptureOverlay::screenSelected, this, [this](const QRect &native) {
+        if (m_forVideo)
+            deliverVideoScreens(native);
+        else
+            deliverPart(native, CaptureResult::Kind::Screen);
+    });
     connect(m_overlay, &CaptureOverlay::cancelled, this, [this] {
         finish();
         emit cancelled();
@@ -184,6 +202,16 @@ void WindowsBackend::freezeAndPick(CaptureOverlay::Mode mode, bool activeWindow)
 void WindowsBackend::onWindowPicked(int index)
 {
     const WgcCapture::Window window = m_freeze->windows()[std::size_t(index)];
+    if (m_forVideo) {
+        // The stream starts after the countdown; the frozen frame is not needed.
+        finish();
+        VideoPick pick;
+        pick.hwnd = window.hwnd;
+        pick.title = QString::fromStdWString(window.title);
+        pick.size = QSize(window.frame.width(), window.frame.height());
+        emit videoPicked(pick);
+        return;
+    }
     WgcCapture::Pixels pixels;
     const bool ok = m_freeze->pixels(std::size_t(index), pixels);
     finish();
@@ -226,6 +254,23 @@ void WindowsBackend::deliverPart(const QRect &native, CaptureResult::Kind kind)
     result.scale = scale;
     result.regionRect = native;
     emit captured(result);
+}
+
+void WindowsBackend::deliverVideoScreens(const QRect &native)
+{
+    // One monitor, or all of them (Enter): those inside the rectangle.
+    VideoPick pick;
+    for (const CaptureOverlay::Screen &screen : std::as_const(m_screens)) {
+        if (native.contains(screen.native))
+            pick.monitors << screen.native;
+    }
+    pick.size = native.size();
+    finish();
+    if (pick.monitors.isEmpty()) {
+        emit cancelled();
+        return;
+    }
+    emit videoPicked(pick);
 }
 
 void WindowsBackend::finish()

@@ -509,3 +509,11 @@ Each entry: context, decision, rationale, consequences. Entries marked **(assump
 - "Ganz speichern", or "Speichern" with the handles at both ends, keeps the recording as it is, without encoding it again.
 - Closing the window without a choice asks before the recording is discarded; the recording stays in the temporary folder while the window is open and is deleted with it.
 - From the command line without `--open` the trim window is skipped (as decided above); with `--open` it opens, and the command ends when it is closed.
+
+**Implementation, step 3 (2026-11-11):** Windows (`WgcCapture::Stream`, `WindowsRecordingBackend`).
+- The pick is the image backend's freeze and overlay in video mode. The stream is a Windows.Graphics.Capture frame pool of two buffers for the window or each picked monitor, with the pointer and without the border where Windows allows it.
+- Windows sends a frame only when the content changes; the backend reads back the newest one at each of the controller's ticks, and the controller repeats the last frame in between.
+- A window that changes its size gets a pool of the new size (the frame drawn into the old size is dropped). Each frame is cut to the window's visible frame as for a window screenshot, with the window's rectangles of that moment.
+- A closed window (the capture item's `Closed` event, or the handle gone) ends the recording, which is kept.
+- The indicator is left out of every capture with `WDA_EXCLUDEFROMCAPTURE`, so it never shows in a video.
+- Tested on the Windows CI runners with real windows (`tst_wincapture`): the stream of a window and of a monitor, a resize, closing, and a whole recording with MPEG-4. Which H.264 encoder Qt finds on Windows (Media Foundation, or the graphics card's) shows in the log of `tst_recording` (Q-28).

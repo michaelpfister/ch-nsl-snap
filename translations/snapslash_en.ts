@@ -1447,8 +1447,8 @@ Ctrl+S saves straight into the folder from the settings</translation>
 <context>
     <name>UnsupportedRecordingBackend</name>
     <message>
-        <source>Videos lassen sich auf diesem Desktop noch nicht aufnehmen. Zuerst folgen Hyprland und andere wlroots-Desktops, danach Windows und GNOME.</source>
-        <translation>Videos cannot be recorded on this desktop yet. Hyprland and other wlroots desktops come first, then Windows and GNOME.</translation>
+        <source>Videos lassen sich auf diesem Desktop noch nicht aufnehmen. Bisher gehen Hyprland, andere wlroots-Desktops und Windows; GNOME folgt.</source>
+        <translation>Videos cannot be recorded on this desktop yet. So far Hyprland, other wlroots desktops and Windows work; GNOME will follow.</translation>
     </message>
 </context>
 <context>
@@ -1725,6 +1725,21 @@ On GNOME, then install the extension again (`scripts/dev-install.sh`) and log ou
     <message>
         <source>Das Fenster konnte nicht gelesen werden.</source>
         <translation>The window could not be read.</translation>
+    </message>
+</context>
+<context>
+    <name>WindowsRecordingBackend</name>
+    <message>
+        <source>Bildschirm</source>
+        <translation>Screen</translation>
+    </message>
+    <message>
+        <source>Die Aufnahme liess sich nicht starten: Windows.Graphics.Capture verweigert sie.</source>
+        <translation>The recording could not start: Windows.Graphics.Capture refuses it.</translation>
+    </message>
+    <message>
+        <source>Das Fenster ist nicht mehr da; die Aufnahme wurde beendet.</source>
+        <translation>The window is gone; the recording was stopped.</translation>
     </message>
 </context>
 </TS>
