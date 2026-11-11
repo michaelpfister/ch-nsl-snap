@@ -40,7 +40,7 @@ Screenshots for instructions and documentation: capture **one window** with clea
 | | Window | Region, screen | Video | Updates |
 |---|---|---|---|---|
 | **Windows 10 (1903+) and 11**, x64 and ARM64 | ✓ | ✓ | window, screen | installs itself |
-| **GNOME** on Wayland (46), with the Snapslash Shell extension | ✓ | ✓ | planned | shows the steps |
+| **GNOME** on Wayland (46), with the Snapslash Shell extension | ✓ | ✓ | window, screen | shows the steps |
 | **Hyprland** | ✓ | ✓ | window, screen | shows the steps (Nix) |
 | **Sway** and other wlroots desktops | – | ✓ | screen | shows the steps |
 | Other Wayland desktops (KDE, …), through the desktop portal | – | ✓ | planned | shows the steps |

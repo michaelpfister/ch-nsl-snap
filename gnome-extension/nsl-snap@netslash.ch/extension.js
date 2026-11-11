@@ -25,7 +25,8 @@ const ERROR_PREFIX = 'ch.netslash.Snap1.Error';
 // 4: screen mode (F-01).
 // 5: delay with a countdown (F-04).
 // 6: hints, the overlay's texts in the app's language (D-038).
-const API_VERSION = 6;
+// 7: purpose "video": the pick for a video (F-50, D-039).
+const API_VERSION = 7;
 
 const IFACE_XML = `
 <node>
@@ -47,11 +48,18 @@ const IFACE_XML = `
                   app's language (D-038): window, screens, screen,
                   region-first, region-second, region-drag, countdown.
                   Missing ones are shown in German.
+        purpose (s): "image" (default), or "video" (F-50, D-039): the same
+                  freeze and pick, window or screen only, and no image:
+                  png is empty, info names what was picked, so the app can
+                  record it with Mutter's screen cast. A window comes with
+                  window-id (t), the id Mutter's RecordWindow takes; a
+                  screen with rect (logical px, for RecordArea) and pixels.
       png:  the capture as PNG with alpha channel.
       info: mode ("window", "region" or "screen"), scale, width, height
             (image px); screen: one monitor or all (rect, pixels as region);
             window: title, app-id, wm-class, frame-rect, buffer-rect, crop;
             region: rect (logical px), pixels (physical px).
+            video: as above without the image, plus window-id for a window.
     -->
     <method name="Capture">
       <arg type="a{sv}" name="options" direction="in"/>
@@ -129,6 +137,48 @@ async function encodeWindow(entry, crop) {
         'crop': GLib.Variant.new_string(crop),
     };
     return [png, info];
+}
+
+/**
+ * What was picked for a video (F-50, D-039): no image, only enough for the
+ * app to record it with Mutter's screen cast. The id is useless without the
+ * user's pick: there is still no method that lists windows (D-003).
+ *
+ * @param {object} frozen - result of freeze()
+ * @param {object} result - the overlay's selection
+ * @returns {[GLib.Bytes, object]} empty bytes and the info dictionary
+ */
+function describeForVideo(frozen, result) {
+    const empty = new GLib.Bytes(new Uint8Array(0));
+    if (result.mode === Mode.WINDOW) {
+        const entry = result.window;
+        const {scale, frameRect: frame} = entry;
+        return [empty, {
+            'mode': GLib.Variant.new_string(Mode.WINDOW),
+            'window-id': GLib.Variant.new_uint64(entry.window.get_id()),
+            'title': GLib.Variant.new_string(entry.title),
+            'app-id': GLib.Variant.new_string(
+                Shell.WindowTracker.get_default().get_window_app(entry.window)?.get_id() ?? ''),
+            'frame-rect': rectVariant(frame),
+            'scale': GLib.Variant.new_double(scale),
+            'width': GLib.Variant.new_int32(Math.round(frame.width * scale)),
+            'height': GLib.Variant.new_int32(Math.round(frame.height * scale)),
+        }];
+    }
+    const region = result.region;
+    const scale = frozen.scale;
+    const logical = {
+        x: Math.round(region.x / scale), y: Math.round(region.y / scale),
+        width: Math.round(region.width / scale), height: Math.round(region.height / scale),
+    };
+    return [empty, {
+        'mode': GLib.Variant.new_string(Mode.SCREEN),
+        'rect': rectVariant(logical),
+        'pixels': rectVariant(region),
+        'scale': GLib.Variant.new_double(scale),
+        'width': GLib.Variant.new_int32(region.width),
+        'height': GLib.Variant.new_int32(region.height),
+    }];
 }
 
 /**
@@ -226,6 +276,10 @@ class SnapService {
             throw new CaptureError('InvalidArgs', `Unknown region-select "${how}"`);
         if (!Number.isInteger(delay) || delay < 0 || delay > 60)
             throw new CaptureError('InvalidArgs', `Invalid delay ${delay}`);
+        const purpose = options.purpose ?? 'image';
+        if (purpose !== 'image' && purpose !== 'video')
+            throw new CaptureError('InvalidArgs', `Unknown purpose "${purpose}"`);
+        const video = purpose === 'video';
 
         this._busy = true;
         try {
@@ -240,11 +294,13 @@ class SnapService {
             }
             // Freeze first, then select on the frozen picture (D-011).
             const frozen = await freeze();
-            this._selection = select(frozen, mode, how, hints);
+            this._selection = select(frozen, mode, how, hints, video);
             const result = await this._selection.promise;
             this._selection = null;
             if (!result)
                 throw new CaptureError('Cancelled', 'Cancelled by the user');
+            if (video)
+                return describeForVideo(frozen, result);
             if (result.mode === Mode.WINDOW)
                 return await encodeWindow(result.window, crop);
             return await encodeRegion(frozen, result.region, result.mode);

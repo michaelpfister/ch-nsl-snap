@@ -9,34 +9,45 @@
 #ifdef NSL_HAVE_WINDOWS_BACKEND
 #include "recording/windows/WindowsRecordingBackend.h"
 #endif
+#ifdef NSL_HAVE_PIPEWIRE
+#include "recording/gnome/GnomeRecordingBackend.h"
+#endif
 
 namespace {
 
-// Platforms whose video backend is not written yet (D-039: GNOME, the
-// portal and macOS follow).
+// Platforms whose video backend is not written yet (D-039: the portal and
+// macOS follow), or a build without what it needs.
 class UnsupportedRecordingBackend : public RecordingBackend
 {
 public:
-    using RecordingBackend::RecordingBackend;
+    explicit UnsupportedRecordingBackend(const QString &reason, QObject *parent = nullptr)
+        : RecordingBackend(parent)
+        , m_reason(reason)
+    {
+    }
 
     bool isAvailable() const override { return false; }
-    QString unavailableReason() const override
-    {
-        // No Q_OBJECT here, so the context is named for lupdate (D-038).
-        return QCoreApplication::translate("UnsupportedRecordingBackend",
-                                           "Videos lassen sich auf diesem Desktop noch nicht aufnehmen. Bisher "
-                                           "gehen Hyprland, andere wlroots-Desktops und Windows; GNOME folgt.");
-    }
+    QString unavailableReason() const override { return m_reason; }
     bool supportsWindow() const override { return false; }
     void pick(Source) override { emit failed(unavailableReason()); }
     void startStream() override {}
     void requestFrame() override {}
     void stopStream() override {}
+
+private:
+    QString m_reason;
 };
 
-#ifdef NSL_HAVE_WAYLAND_BACKEND
-// GNOME keeps its own path (Q-27), even though Mutter offers no
-// wlr-screencopy anyway.
+// No Q_OBJECT in this file, so the context is named for lupdate (D-038).
+QString notYet()
+{
+    return QCoreApplication::translate("UnsupportedRecordingBackend",
+                                       "Videos lassen sich auf diesem Desktop noch nicht aufnehmen. Bisher gehen "
+                                       "GNOME, Hyprland, andere wlroots-Desktops und Windows.");
+}
+
+#ifdef NSL_HAVE_GNOME_BACKEND
+// GNOME, also under another name (Zorin sets "zorin:GNOME").
 bool onGnome()
 {
     const QStringList desktops = qEnvironmentVariable("XDG_CURRENT_DESKTOP").split(QLatin1Char(':'));
@@ -51,10 +62,23 @@ std::unique_ptr<RecordingBackend> createRecordingBackend(QObject *parent)
 #if defined(NSL_HAVE_WINDOWS_BACKEND)
     return std::make_unique<WindowsRecordingBackend>(parent);
 #else
+#ifdef NSL_HAVE_GNOME_BACKEND
+    if (onGnome()) {
+#ifdef NSL_HAVE_PIPEWIRE
+        return std::make_unique<GnomeRecordingBackend>(parent);
+#else
+        return std::make_unique<UnsupportedRecordingBackend>(
+            QCoreApplication::translate("UnsupportedRecordingBackend",
+                                        "Diese Snapslash-Version wurde ohne PipeWire gebaut; unter GNOME gibt es "
+                                        "damit keine Videos."),
+            parent);
+#endif
+    }
+#endif
 #ifdef NSL_HAVE_WAYLAND_BACKEND
-    if (!onGnome() && WaylandBackend::isSupported())
+    if (WaylandBackend::isSupported())
         return std::make_unique<WaylandRecordingBackend>(parent);
 #endif
-    return std::make_unique<UnsupportedRecordingBackend>(parent);
+    return std::make_unique<UnsupportedRecordingBackend>(notYet(), parent);
 #endif
 }
