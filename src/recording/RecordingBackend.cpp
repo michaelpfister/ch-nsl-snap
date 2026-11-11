@@ -6,11 +6,14 @@
 #include "capture/wayland/WaylandBackend.h"
 #include "recording/wayland/WaylandRecordingBackend.h"
 #endif
+#ifdef NSL_HAVE_WINDOWS_BACKEND
+#include "recording/windows/WindowsRecordingBackend.h"
+#endif
 
 namespace {
 
-// Platforms whose video backend is not written yet (D-039: Windows, GNOME,
-// the portal and macOS follow).
+// Platforms whose video backend is not written yet (D-039: GNOME, the
+// portal and macOS follow).
 class UnsupportedRecordingBackend : public RecordingBackend
 {
 public:
@@ -21,8 +24,8 @@ public:
     {
         // No Q_OBJECT here, so the context is named for lupdate (D-038).
         return QCoreApplication::translate("UnsupportedRecordingBackend",
-                                           "Videos lassen sich auf diesem Desktop noch nicht aufnehmen. Zuerst "
-                                           "folgen Hyprland und andere wlroots-Desktops, danach Windows und GNOME.");
+                                           "Videos lassen sich auf diesem Desktop noch nicht aufnehmen. Bisher "
+                                           "gehen Hyprland, andere wlroots-Desktops und Windows; GNOME folgt.");
     }
     bool supportsWindow() const override { return false; }
     void pick(Source) override { emit failed(unavailableReason()); }
@@ -45,9 +48,13 @@ bool onGnome()
 
 std::unique_ptr<RecordingBackend> createRecordingBackend(QObject *parent)
 {
+#if defined(NSL_HAVE_WINDOWS_BACKEND)
+    return std::make_unique<WindowsRecordingBackend>(parent);
+#else
 #ifdef NSL_HAVE_WAYLAND_BACKEND
     if (!onGnome() && WaylandBackend::isSupported())
         return std::make_unique<WaylandRecordingBackend>(parent);
 #endif
     return std::make_unique<UnsupportedRecordingBackend>(parent);
+#endif
 }

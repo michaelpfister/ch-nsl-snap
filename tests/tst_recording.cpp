@@ -265,6 +265,9 @@ private slots:
     {
         // Opt-in: a listed hardware encoder can still fail on a machine
         // without a display (CI runners), which says nothing about the app.
+        // Which encoders this machine has, in the log (Q-28).
+        QMediaFormat mp4(QMediaFormat::MPEG4);
+        qInfo() << "MP4 video encoders:" << mp4.supportedVideoCodecs(QMediaFormat::Encode);
         if (!qEnvironmentVariableIsSet("NSL_TEST_H264"))
             QSKIP("Set NSL_TEST_H264=1 to try the machine's H.264 encoder.");
         if (!VideoEncoder::canEncodeH264())

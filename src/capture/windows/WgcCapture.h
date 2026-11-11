@@ -80,4 +80,38 @@ private:
     std::unique_ptr<Impl> d;
 };
 
+// The window's rectangles right now (they change when it is moved or
+// resized); false if the window is gone.
+bool windowRects(HWND hwnd, Rect &windowRect, Rect &frame);
+
+// A continuous capture for videos (F-50, D-039): a window or a monitor,
+// with the pointer, without the yellow border where Windows allows that.
+// Windows sends a frame whenever the content changes; takeLatest() reads
+// the newest one back. A window's buffers are as large as the desktop, so
+// it may grow during the recording.
+class Stream
+{
+public:
+    // nullptr if the capture cannot start.
+    static std::unique_ptr<Stream> forWindow(HWND hwnd);
+    // The monitor that holds the point (physical desktop pixels).
+    static std::unique_ptr<Stream> forMonitorAt(int x, int y);
+    ~Stream();
+
+    // The newest frame since the last call, as BGRA with premultiplied
+    // alpha; false if none came since. A window frame is its whole
+    // captured surface, as with Freeze::pixels().
+    bool takeLatest(Pixels &out);
+    // The window was closed (or the capture ended otherwise).
+    bool isClosed() const;
+    // "frames arrived 12, pool recreated 1", for the tests' log.
+    std::string statistics() const;
+
+    struct Impl;
+
+private:
+    Stream();
+    std::unique_ptr<Impl> d;
+};
+
 } // namespace WgcCapture

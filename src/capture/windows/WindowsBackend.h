@@ -5,6 +5,8 @@
 
 #include <memory>
 
+struct HWND__;
+
 class Countdown;
 
 namespace WgcCapture { class Freeze; struct Window; }
@@ -33,6 +35,24 @@ public:
     // for maximised windows and when the app asks for square corners.
     static double cornerRadius(const WgcCapture::Window &window);
 
+    // What the user picked for a video (F-50, D-039): a window, or one or
+    // all monitors.
+    struct VideoPick
+    {
+        HWND__ *hwnd = nullptr;   // a window, or
+        QList<QRect> monitors;    // monitors, in physical desktop pixels
+        QString title;
+        QSize size;               // physical pixels of the window's frame or the monitors
+    };
+
+    // The same freeze and overlay as for an image, in video mode (no
+    // region, no countdown before it). Answers with videoPicked(),
+    // cancelled() or failed().
+    void pickForVideo(bool window);
+
+signals:
+    void videoPicked(const WindowsBackend::VideoPick &pick);
+
 private:
     // After the countdown, if a delay is set (F-04), then freeze and pick.
     // `activeWindow`: take the foreground window instead of picking.
@@ -42,9 +62,11 @@ private:
     // A region or a whole monitor (or all), from the frozen monitors.
     void deliverPart(const QRect &native, CaptureResult::Kind kind);
     void finish();
+    void deliverVideoScreens(const QRect &native);
 
     std::unique_ptr<WgcCapture::Freeze> m_freeze;
     QList<CaptureOverlay::Screen> m_screens;
     CaptureOverlay *m_overlay = nullptr;
     Countdown *m_countdown = nullptr;
+    bool m_forVideo = false;
 };

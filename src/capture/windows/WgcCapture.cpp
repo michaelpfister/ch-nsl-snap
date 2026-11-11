@@ -9,6 +9,7 @@
 #include <unknwn.h>
 #include <inspectable.h>
 #include <d3d11.h>
+#include <d3d11_4.h> // ID3D11Multithread
 #include <dwmapi.h>
 #include <dxgi.h>
 
@@ -25,8 +26,11 @@
 #include <windows.graphics.directx.direct3d11.interop.h>
 
 #include <algorithm>
+#include <atomic>
 #include <chrono>
+#include <cstdio>
 #include <cstring>
+#include <functional>
 #include <mutex>
 
 namespace WgcCapture {
@@ -111,8 +115,14 @@ winrt::com_ptr<ID3D11Device> createDevice()
     winrt::com_ptr<ID3D11Device> device;
     for (const D3D_DRIVER_TYPE type : {D3D_DRIVER_TYPE_HARDWARE, D3D_DRIVER_TYPE_WARP}) {
         if (SUCCEEDED(D3D11CreateDevice(nullptr, type, nullptr, D3D11_CREATE_DEVICE_BGRA_SUPPORT, nullptr, 0,
-                                        D3D11_SDK_VERSION, device.put(), nullptr, nullptr)))
+                                        D3D11_SDK_VERSION, device.put(), nullptr, nullptr))) {
+            // Windows.Graphics.Capture uses the device's context on its own
+            // threads too; without this guard, a copy of ours at the same
+            // moment can crash (Microsoft's capture sample turns it on).
+            if (const auto multithread = device.try_as<ID3D11Multithread>())
+                multithread->SetMultithreadProtected(TRUE);
             return device;
+        }
         device = nullptr;
     }
     return nullptr;
@@ -329,6 +339,290 @@ bool Freeze::pixels(std::size_t index, Pixels &out) const
         d->context->Unmap(staging.get(), 0);
         return true;
     } catch (const winrt::hresult_error &) {
+        return false;
+    }
+}
+
+bool windowRects(HWND hwnd, Rect &windowRect, Rect &frame)
+{
+    RECT r = {};
+    RECT f = {};
+    if (!IsWindow(hwnd) || !GetWindowRect(hwnd, &r)
+        || FAILED(DwmGetWindowAttribute(hwnd, DWMWA_EXTENDED_FRAME_BOUNDS, &f, sizeof f)))
+        return false;
+    windowRect = toRect(r);
+    frame = toRect(f);
+    return true;
+}
+
+namespace {
+
+// What the frame pool's callbacks share with the stream. They run on
+// thread-pool threads: the mutex guards everything here, also the
+// Direct3D context, which is not thread-safe. The callbacks hold only a
+// weak pointer, so one that comes late finds nothing.
+struct StreamState
+{
+    std::mutex mutex;
+    winrt::com_ptr<ID3D11Device> device;
+    winrt::com_ptr<ID3D11DeviceContext> context;
+    IDirect3DDevice winrtDevice{nullptr};
+    winrt::Windows::Graphics::SizeInt32 poolSize{};
+    // The newest frame, copied on the GPU right when it arrives, so the
+    // pool gets its buffer back at once and may be recreated safely.
+    winrt::com_ptr<ID3D11Texture2D> latest;
+    int latestWidth = 0;  // the content inside it
+    int latestHeight = 0;
+    bool fresh = false;   // not read yet
+    std::atomic<bool> closed{false};
+    // For the tests' log: how many frames came, and how often the pool
+    // got a new size.
+    int arrived = 0;
+    int recreated = 0;
+    std::string lastError; // the last Direct3D or capture error, for the log
+
+    void noteError(const char *where, const winrt::hresult_error &error)
+    {
+        char code[16] = {};
+        std::snprintf(code, sizeof code, "0x%08X", unsigned(error.code().value));
+        lastError = std::string(where) + ": " + winrt::to_string(error.message()) + " (" + code + ")";
+    }
+
+    // Keeps a GPU copy of `frame`; with the mutex held.
+    void keep(const Direct3D11CaptureFrame &frame)
+    {
+        const auto texture = textureOf(frame.Surface());
+        D3D11_TEXTURE2D_DESC desc = {};
+        texture->GetDesc(&desc);
+        D3D11_TEXTURE2D_DESC current = {};
+        if (latest)
+            latest->GetDesc(&current);
+        if (!latest || current.Width != desc.Width || current.Height != desc.Height || current.Format != desc.Format) {
+            desc.Usage = D3D11_USAGE_DEFAULT;
+            desc.BindFlags = 0;
+            desc.CPUAccessFlags = 0;
+            desc.MiscFlags = 0;
+            latest = nullptr;
+            winrt::check_hresult(device->CreateTexture2D(&desc, nullptr, latest.put()));
+        }
+        context->CopyResource(latest.get(), texture.get());
+        const auto content = frame.ContentSize();
+        latestWidth = std::min(content.Width, int(desc.Width));
+        latestHeight = std::min(content.Height, int(desc.Height));
+        fresh = true;
+    }
+};
+
+constexpr int kStreamBuffers = 2;
+
+} // namespace
+
+struct Stream::Impl
+{
+    GraphicsCaptureItem item{nullptr};
+    Direct3D11CaptureFramePool pool{nullptr};
+    GraphicsCaptureSession session{nullptr};
+    winrt::event_token closedToken{};
+    std::shared_ptr<StreamState> state = std::make_shared<StreamState>();
+    winrt::com_ptr<ID3D11Texture2D> staging; // for reading back; reused while the size stays
+
+    // `window`: the buffers are made as large as the whole desktop, so the
+    // window still fits after it grew. Windows sends the next frame only
+    // when the window changes again; a pool made for the new size after
+    // the fact would leave a cut-off frame in the video until then.
+    bool start(GraphicsCaptureItem captureItem, bool window)
+    {
+        item = captureItem;
+        auto size = item.Size();
+        if (size.Width <= 0 || size.Height <= 0)
+            return false;
+        if (window) {
+            size.Width = std::max(size.Width, int32_t(GetSystemMetrics(SM_CXVIRTUALSCREEN)));
+            size.Height = std::max(size.Height, int32_t(GetSystemMetrics(SM_CYVIRTUALSCREEN)));
+        }
+        state->poolSize = size;
+        state->winrtDevice = toWinrtDevice(state->device);
+        pool = Direct3D11CaptureFramePool::CreateFreeThreaded(
+            state->winrtDevice, DirectXPixelFormat::B8G8R8A8UIntNormalized, kStreamBuffers, size);
+        session = pool.CreateCaptureSession(item);
+        try {
+            session.IsCursorCaptureEnabled(true); // videos show the pointer (F-50)
+        } catch (const winrt::hresult_error &) {
+        }
+        try {
+            session.IsBorderRequired(false); // no yellow border (Windows 11)
+        } catch (const winrt::hresult_error &) {
+        }
+        std::weak_ptr<StreamState> weak = state;
+        pool.FrameArrived([weak](const Direct3D11CaptureFramePool &sender, const auto &) {
+            try {
+                const auto strong = weak.lock();
+                if (!strong)
+                    return;
+                auto frame = sender.TryGetNextFrame();
+                if (!frame)
+                    return;
+                std::lock_guard<std::mutex> lock(strong->mutex);
+                if (strong->closed) {
+                    frame.Close();
+                    return;
+                }
+                ++strong->arrived;
+                try {
+                    strong->keep(frame);
+                } catch (const winrt::hresult_error &error) {
+                    strong->noteError("keep", error);
+                }
+                const auto content = frame.ContentSize();
+                // Always given back: a frame kept open would take one of
+                // the pool's two buffers for good.
+                frame.Close();
+                if (content.Width > strong->poolSize.Width || content.Height > strong->poolSize.Height) {
+                    // Larger than the buffers (a window wider than the
+                    // desktop, or a monitor whose resolution changed):
+                    // larger buffers for the next frames. This one is kept,
+                    // cut to the old size.
+                    strong->poolSize.Width = std::max(content.Width, strong->poolSize.Width);
+                    strong->poolSize.Height = std::max(content.Height, strong->poolSize.Height);
+                    ++strong->recreated;
+                    sender.Recreate(strong->winrtDevice, DirectXPixelFormat::B8G8R8A8UIntNormalized, kStreamBuffers,
+                                    strong->poolSize);
+                }
+            } catch (...) {
+                // The pool was closed meanwhile.
+            }
+        });
+        std::weak_ptr<StreamState> weakClosed = state;
+        closedToken = item.Closed([weakClosed](const auto &, const auto &) {
+            if (const auto strong = weakClosed.lock())
+                strong->closed = true;
+        });
+        session.StartCapture();
+        return true;
+    }
+
+    ~Impl()
+    {
+        try {
+            state->closed = true;
+            if (item)
+                item.Closed(closedToken);
+            if (session)
+                session.Close();
+            if (pool)
+                pool.Close();
+        } catch (const winrt::hresult_error &) {
+        }
+    }
+};
+
+Stream::Stream()
+    : d(std::make_unique<Impl>())
+{
+}
+
+Stream::~Stream() = default;
+
+namespace {
+
+// Device and capture item for a stream; `create` makes the item.
+using CreateItem = std::function<bool(IGraphicsCaptureItemInterop *interop, GraphicsCaptureItem &item)>;
+
+std::unique_ptr<Stream> makeStream(std::unique_ptr<Stream> stream, Stream::Impl &d, bool window,
+                                   const CreateItem &create)
+{
+    try {
+        d.state->device = createDevice();
+        if (!d.state->device)
+            return nullptr;
+        d.state->device->GetImmediateContext(d.state->context.put());
+        const auto interop = winrt::get_activation_factory<GraphicsCaptureItem, IGraphicsCaptureItemInterop>();
+        GraphicsCaptureItem item{nullptr};
+        if (!create(interop.get(), item) || !item || !d.start(item, window))
+            return nullptr;
+        return stream;
+    } catch (const winrt::hresult_error &) {
+        return nullptr;
+    }
+}
+
+} // namespace
+
+std::unique_ptr<Stream> Stream::forWindow(HWND hwnd)
+{
+    std::unique_ptr<Stream> stream(new Stream);
+    Impl &d = *stream->d;
+    return makeStream(std::move(stream), d, true, [hwnd](IGraphicsCaptureItemInterop *interop, GraphicsCaptureItem &item) {
+        return SUCCEEDED(interop->CreateForWindow(
+            hwnd, winrt::guid_of<winrt::Windows::Graphics::Capture::IGraphicsCaptureItem>(), winrt::put_abi(item)));
+    });
+}
+
+std::unique_ptr<Stream> Stream::forMonitorAt(int x, int y)
+{
+    std::unique_ptr<Stream> stream(new Stream);
+    Impl &d = *stream->d;
+    HMONITOR monitor = MonitorFromPoint(POINT{x, y}, MONITOR_DEFAULTTONEAREST);
+    return makeStream(std::move(stream), d, false, [monitor](IGraphicsCaptureItemInterop *interop, GraphicsCaptureItem &item) {
+        return SUCCEEDED(interop->CreateForMonitor(
+            monitor, winrt::guid_of<winrt::Windows::Graphics::Capture::IGraphicsCaptureItem>(), winrt::put_abi(item)));
+    });
+}
+
+bool Stream::isClosed() const
+{
+    return d->state->closed;
+}
+
+std::string Stream::statistics() const
+{
+    std::lock_guard<std::mutex> lock(d->state->mutex);
+    std::string text = "frames arrived " + std::to_string(d->state->arrived) + ", pool recreated "
+                       + std::to_string(d->state->recreated);
+    if (!d->state->lastError.empty())
+        text += ", last error " + d->state->lastError;
+    return text;
+}
+
+bool Stream::takeLatest(Pixels &out)
+{
+    StreamState &state = *d->state;
+    std::lock_guard<std::mutex> lock(state.mutex);
+    if (!state.fresh || !state.latest)
+        return false;
+    state.fresh = false;
+    try {
+        D3D11_TEXTURE2D_DESC desc = {};
+        state.latest->GetDesc(&desc);
+        D3D11_TEXTURE2D_DESC stagingDesc = {};
+        if (d->staging)
+            d->staging->GetDesc(&stagingDesc);
+        if (!d->staging || stagingDesc.Width != desc.Width || stagingDesc.Height != desc.Height
+            || stagingDesc.Format != desc.Format) {
+            desc.Usage = D3D11_USAGE_STAGING;
+            desc.BindFlags = 0;
+            desc.CPUAccessFlags = D3D11_CPU_ACCESS_READ;
+            desc.MiscFlags = 0;
+            d->staging = nullptr;
+            winrt::check_hresult(state.device->CreateTexture2D(&desc, nullptr, d->staging.put()));
+        }
+        state.context->CopyResource(d->staging.get(), state.latest.get());
+
+        D3D11_MAPPED_SUBRESOURCE mapped = {};
+        winrt::check_hresult(state.context->Map(d->staging.get(), 0, D3D11_MAP_READ, 0, &mapped));
+        const int width = state.latestWidth;
+        const int height = state.latestHeight;
+        out.width = width;
+        out.height = height;
+        out.bgra.resize(std::size_t(width) * std::size_t(height) * 4);
+        const auto *source = static_cast<const std::uint8_t *>(mapped.pData);
+        for (int y = 0; y < height; ++y)
+            std::memcpy(out.bgra.data() + std::size_t(y) * std::size_t(width) * 4,
+                        source + std::size_t(y) * mapped.RowPitch, std::size_t(width) * 4);
+        state.context->Unmap(d->staging.get(), 0);
+        return width > 0 && height > 0;
+    } catch (const winrt::hresult_error &error) {
+        state.noteError("takeLatest", error);
         return false;
     }
 }

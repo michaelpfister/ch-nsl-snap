@@ -244,6 +244,8 @@ if(WIN32)
         src/capture/windows/WgcCapture.h
         src/capture/windows/WindowsBackend.cpp
         src/capture/windows/WindowsBackend.h
+        src/recording/windows/WindowsRecordingBackend.cpp
+        src/recording/windows/WindowsRecordingBackend.h
     )
     # GuiPrivate: the monitors' physical geometry (QPlatformScreen).
     target_link_libraries(nsl_snap_core PUBLIC Qt6::GuiPrivate d3d11 dxgi dwmapi windowsapp)
