@@ -9,6 +9,7 @@
 #include <unknwn.h>
 #include <inspectable.h>
 #include <d3d11.h>
+#include <d3d11_4.h> // ID3D11Multithread
 #include <dwmapi.h>
 #include <dxgi.h>
 
@@ -114,8 +115,14 @@ winrt::com_ptr<ID3D11Device> createDevice()
     winrt::com_ptr<ID3D11Device> device;
     for (const D3D_DRIVER_TYPE type : {D3D_DRIVER_TYPE_HARDWARE, D3D_DRIVER_TYPE_WARP}) {
         if (SUCCEEDED(D3D11CreateDevice(nullptr, type, nullptr, D3D11_CREATE_DEVICE_BGRA_SUPPORT, nullptr, 0,
-                                        D3D11_SDK_VERSION, device.put(), nullptr, nullptr)))
+                                        D3D11_SDK_VERSION, device.put(), nullptr, nullptr))) {
+            // Windows.Graphics.Capture uses the device's context on its own
+            // threads too; without this guard, a copy of ours at the same
+            // moment can crash (Microsoft's capture sample turns it on).
+            if (const auto multithread = device.try_as<ID3D11Multithread>())
+                multithread->SetMultithreadProtected(TRUE);
             return device;
+        }
         device = nullptr;
     }
     return nullptr;
