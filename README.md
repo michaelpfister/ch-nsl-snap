@@ -6,7 +6,7 @@ Screenshots for instructions and documentation: capture **one window** with clea
 
 ![The Snapslash editor with a captured settings window, two numbered frames and an arrow](docs/images/editor.png)
 
-> **Status:** pre-release ([v0.2.0-beta.4](https://github.com/michaelpfister/ch-nsl-snap/releases)). Usable every day on Windows, GNOME and Hyprland; macOS is planned.
+> **Status:** pre-release ([v0.3.0-beta.1](https://github.com/michaelpfister/ch-nsl-snap/releases)). Usable every day on Windows, GNOME and Hyprland; macOS is planned.
 
 ## Features
 
@@ -16,6 +16,11 @@ Screenshots for instructions and documentation: capture **one window** with clea
 - **Region** by two clicks or by dragging, with a magnifier and arrow keys to get it right to the pixel. A **screen** is one monitor, or all of them with Enter.
 - **Timer:** a countdown of 3, 5 or 10 seconds before the freeze, for menus that close when you click elsewhere.
 - **Global hotkeys** on Windows (Print, Shift/Alt/Ctrl+Alt + Print, configurable). On Linux, the desktop's own key bindings run the command line.
+
+**Video**
+- **Record a window or a screen** as MP4 (H.264, 30 fps), with the mouse pointer and without sound, for short tutorials. Picked on the frozen screen like a screenshot, after a countdown of 3 seconds; up to 10 minutes.
+- A small **indicator** shows the time and stops the recording; it never appears in the video on Windows.
+- **Trim** the start and the end before saving, exact to the frame.
 
 **Edit**
 - **Frames** (square or rounded) and **numbered frames** that number themselves 1, 2, 3 and renumber when one is removed.
@@ -32,14 +37,14 @@ Screenshots for instructions and documentation: capture **one window** with clea
 
 ## Platforms
 
-| | Window | Region, screen | Updates |
-|---|---|---|---|
-| **Windows 10 (1903+) and 11**, x64 and ARM64 | ✓ | ✓ | installs itself |
-| **GNOME** on Wayland (46), with the Snapslash Shell extension | ✓ | ✓ | shows the steps |
-| **Hyprland** | ✓ | ✓ | shows the steps (Nix) |
-| **Sway** and other wlroots desktops | – | ✓ | shows the steps |
-| Other Wayland desktops (KDE, …), through the desktop portal | – | ✓ | shows the steps |
-| macOS | planned | planned | |
+| | Window | Region, screen | Video | Updates |
+|---|---|---|---|---|
+| **Windows 10 (1903+) and 11**, x64 and ARM64 | ✓ | ✓ | window, screen | installs itself |
+| **GNOME** on Wayland (46), with the Snapslash Shell extension | ✓ | ✓ | planned | shows the steps |
+| **Hyprland** | ✓ | ✓ | window, screen | shows the steps (Nix) |
+| **Sway** and other wlroots desktops | – | ✓ | screen | shows the steps |
+| Other Wayland desktops (KDE, …), through the desktop portal | – | ✓ | planned | shows the steps |
+| macOS | planned | planned | planned | |
 
 Wayland does not let normal apps see other windows. On GNOME, a small Shell extension in this repository does the capture; on Hyprland the compositor's own protocols do. [docs/03-platform-capabilities.md](docs/03-platform-capabilities.md) has the details.
 
@@ -71,7 +76,10 @@ There is no Linux package yet: build the release from source, install it for you
 snapslash --capture-region             # select, then save to the save folder; prints the path
 snapslash --capture-window --open      # pick a window, then edit it
 snapslash --capture-screen --delay 5   # count down 5 seconds first
+snapslash --record-window              # record a video; the same command again stops and saves it
 ```
+
+On Linux, videos need the graphics card's H.264 encoder (VA-API or NVENC); without one, Snapslash says so.
 
 A running Snapslash does the capture itself, so key bindings never open a second window. `snapslash --help` lists all options. Exit code 0 means saved or opened, 1 cancelled, 2 failed.
 

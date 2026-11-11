@@ -109,14 +109,14 @@ For using Snapslash rather than working on it, on a Linux without Nix (Ubuntu, Z
 ```bash
 git clone https://github.com/michaelpfister/ch-nsl-snap.git ~/snapslash
 cd ~/snapslash
-git checkout v0.2.0-beta.4
-cmake -S . -B build -G Ninja -DCMAKE_PREFIX_PATH=$HOME/Qt/6.8.3/gcc_64 -DCMAKE_BUILD_TYPE=Release -DNSL_VERSION_SUFFIX=beta.4
+git checkout v0.3.0-beta.1
+cmake -S . -B build -G Ninja -DCMAKE_PREFIX_PATH=$HOME/Qt/6.8.3/gcc_64 -DCMAKE_BUILD_TYPE=Release -DNSL_VERSION_SUFFIX=beta.1
 cmake --build build
 cmake --install build --prefix ~/.local
 scripts/dev-install.sh
 ```
 
-- `NSL_VERSION_SUFFIX` is the part of the tag after the `-` (`beta.4`); leave it out for a release without one. The app then reports the version it was built from, which its update check compares with the releases (D-037).
+- `NSL_VERSION_SUFFIX` is the part of the tag after the `-` (`beta.1`); leave it out for a release without one. The app then reports the version it was built from, which its update check compares with the releases (D-037).
 - `cmake --install` puts `snapslash` into `~/.local/bin`, the desktop entry and the icon into `~/.local/share`, so the app shows up among the applications with its quick actions (D-036). The installed program keeps the path to Qt in `~/Qt` (`CMAKE_INSTALL_RPATH_USE_LINK_PATH`, on by default).
 - `scripts/dev-install.sh` links the GNOME extension from the checkout, so keep the folder. Log out and in again afterwards: GNOME Shell only loads new extensions at login. A login also puts `~/.local/bin` on the `PATH` if the folder did not exist before.
 - Another version later: the same steps with its tag; the app's settings tab "Updates" shows them for the chosen version.
