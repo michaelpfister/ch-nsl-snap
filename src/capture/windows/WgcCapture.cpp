@@ -27,6 +27,7 @@
 #include <algorithm>
 #include <atomic>
 #include <chrono>
+#include <cstdio>
 #include <cstring>
 #include <functional>
 #include <mutex>
@@ -371,6 +372,14 @@ struct StreamState
     // got a new size.
     int arrived = 0;
     int recreated = 0;
+    std::string lastError; // the last Direct3D or capture error, for the log
+
+    void noteError(const char *where, const winrt::hresult_error &error)
+    {
+        char code[16] = {};
+        std::snprintf(code, sizeof code, "0x%08X", unsigned(error.code().value));
+        lastError = std::string(where) + ": " + winrt::to_string(error.message()) + " (" + code + ")";
+    }
 
     // Keeps a GPU copy of `frame`; with the mutex held.
     void keep(const Direct3D11CaptureFrame &frame)
@@ -444,8 +453,14 @@ struct Stream::Impl
                     return;
                 }
                 ++strong->arrived;
-                strong->keep(frame);
+                try {
+                    strong->keep(frame);
+                } catch (const winrt::hresult_error &error) {
+                    strong->noteError("keep", error);
+                }
                 const auto content = frame.ContentSize();
+                // Always given back: a frame kept open would take one of
+                // the pool's two buffers for good.
                 frame.Close();
                 if (content.Width > 0 && content.Height > 0
                     && (content.Width != strong->poolSize.Width || content.Height != strong->poolSize.Height)) {
@@ -544,8 +559,11 @@ bool Stream::isClosed() const
 std::string Stream::statistics() const
 {
     std::lock_guard<std::mutex> lock(d->state->mutex);
-    return "frames arrived " + std::to_string(d->state->arrived) + ", pool recreated "
-           + std::to_string(d->state->recreated);
+    std::string text = "frames arrived " + std::to_string(d->state->arrived) + ", pool recreated "
+                       + std::to_string(d->state->recreated);
+    if (!d->state->lastError.empty())
+        text += ", last error " + d->state->lastError;
+    return text;
 }
 
 bool Stream::takeLatest(Pixels &out)
@@ -585,7 +603,8 @@ bool Stream::takeLatest(Pixels &out)
                         source + std::size_t(y) * mapped.RowPitch, std::size_t(width) * 4);
         state.context->Unmap(d->staging.get(), 0);
         return width > 0 && height > 0;
-    } catch (const winrt::hresult_error &) {
+    } catch (const winrt::hresult_error &error) {
+        state.noteError("takeLatest", error);
         return false;
     }
 }
