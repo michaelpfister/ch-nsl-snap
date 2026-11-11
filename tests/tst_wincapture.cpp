@@ -258,17 +258,19 @@ private slots:
         QTest::qWait(200);
         stream->takeLatest(pixels);
 
-        // Resized: the frames follow, at the new size.
+        // Resized: the frames follow, at the new size. The first frame of
+        // the new size may come before the window has painted its new part;
+        // the painted one follows.
         window->resize(600, 300);
-        QVERIFY2(waitForFrame(*stream, pixels, 5000,
-                              [&](const WgcCapture::Pixels &frame) {
-                                  return streamFrame(frame, hwnd).width() >= firstWidth + 150;
-                              }),
-                 stream->statistics().c_str());
+        const auto grownAndPainted = [&](const WgcCapture::Pixels &frame) {
+            const QImage grown = streamFrame(frame, hwnd);
+            return grown.width() >= firstWidth + 150
+                   && similar(grown.pixelColor(grown.width() * 3 / 4, grown.height() - 20), kBlue);
+        };
+        QVERIFY2(waitForFrame(*stream, pixels, 5000, grownAndPainted), stream->statistics().c_str());
         image = streamFrame(pixels, hwnd);
         qInfo("window stream after resizing: %s", stream->statistics().c_str());
         qInfo("stream frame %dx%d after resizing from %d", image.width(), image.height(), firstWidth);
-        QVERIFY(similar(image.pixelColor(image.width() * 3 / 4, image.height() - 20), kBlue));
 
         // Closed: the stream says so.
         delete window;
