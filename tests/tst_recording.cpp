@@ -9,8 +9,11 @@
 #include "recording/RecordingBackend.h"
 #include "recording/RecordingController.h"
 #include "recording/RecordingIndicator.h"
+#include "recording/TrimTimeline.h"
+#include "recording/TrimWindow.h"
 #include "recording/VideoEncoder.h"
 #include "recording/VideoFrames.h"
+#include "recording/VideoTrimmer.h"
 
 #include <QDeadlineTimer>
 #include <QDir>
@@ -21,7 +24,11 @@
 #include <QScreen>
 #include <QSignalSpy>
 #include <QTemporaryDir>
+#include <QPushButton>
+#include <QToolButton>
 #include <QTest>
+#include <QVideoFrame>
+#include <QVideoSink>
 
 namespace {
 
@@ -102,6 +109,69 @@ qint64 durationOf(const QString &path)
            && !deadline.hasExpired())
         QTest::qWait(20);
     return player.mediaStatus() == QMediaPlayer::LoadedMedia ? player.duration() : -1;
+}
+
+// The colour of second `second` in makeVideo(): red, green, blue, ...
+QColor colourOfSecond(int second)
+{
+    static const QColor colours[] = {Qt::red, Qt::green, Qt::blue, Qt::yellow};
+    return colours[second % 4];
+}
+
+// A video of `seconds` seconds at 30 fps, one colour per second.
+bool makeVideo(const QString &path, int seconds)
+{
+    VideoEncoder encoder;
+    encoder.setVideoCodec(testCodec());
+    encoder.setKeepAllFrames(true);
+    QSignalSpy finished(&encoder, &VideoEncoder::finished);
+    encoder.start(path, QSize(160, 120));
+    for (int i = 0; i < seconds * VideoEncoder::kFramesPerSecond; ++i) {
+        encoder.addFrame(solid(QSize(160, 120), colourOfSecond(i / VideoEncoder::kFramesPerSecond)),
+                         qint64(i) * 1000000 / VideoEncoder::kFramesPerSecond);
+        if (encoder.queuedFrames() > 10)
+            QTest::qWait(5);
+    }
+    encoder.finish();
+    return finished.wait(10000);
+}
+
+// The colour in the middle of the first and the last frame of a video.
+std::pair<QColor, QColor> firstAndLastColour(const QString &path)
+{
+    QMediaPlayer player;
+    QVideoSink sink;
+    player.setVideoSink(&sink);
+    QColor first, last;
+    QObject::connect(&sink, &QVideoSink::videoFrameChanged, [&](const QVideoFrame &frame) {
+        if (!frame.isValid())
+            return;
+        const QImage image = frame.toImage();
+        const QColor colour = image.pixelColor(image.width() / 2, image.height() / 2);
+        if (!first.isValid())
+            first = colour;
+        last = colour;
+    });
+    player.setSource(QUrl::fromLocalFile(path));
+    player.setPlaybackRate(4);
+    player.play();
+    QDeadlineTimer deadline(10000);
+    while (player.mediaStatus() != QMediaPlayer::EndOfMedia && player.mediaStatus() != QMediaPlayer::InvalidMedia
+           && !deadline.hasExpired())
+        QTest::qWait(20);
+    return {first, last};
+}
+
+// Lossy encoding changes colours a little: which of red, green and blue it is.
+char dominant(const QColor &colour)
+{
+    if (colour.red() > 150 && colour.green() < 100 && colour.blue() < 100)
+        return 'r';
+    if (colour.green() > 150 && colour.red() < 100 && colour.blue() < 100)
+        return 'g';
+    if (colour.blue() > 150 && colour.red() < 100 && colour.green() < 100)
+        return 'b';
+    return '?';
 }
 
 } // namespace
@@ -346,6 +416,154 @@ private slots:
         QCOMPARE(cancelled.count(), 2);
         QCOMPARE(started.count(), 0);
         QCOMPARE(controller.state(), RecordingController::State::Idle);
+    }
+
+    void timelineFrames()
+    {
+        QCOMPARE(TrimTimeline::frameToMs(30), qint64(1000));
+        QCOMPARE(TrimTimeline::msToFrame(1000), 30);
+        QCOMPARE(TrimTimeline::msToFrame(1017), 31); // rounded to the nearest frame
+        QCOMPARE(TrimTimeline::msToFrame(TrimTimeline::frameToMs(7)), 7);
+    }
+
+    void timelineHandles()
+    {
+        TrimTimeline timeline;
+        timeline.resize(600, 60);
+        timeline.setFrameCount(300);
+        QVERIFY(timeline.isWhole());
+        QCOMPARE(timeline.endFrame(), 300);
+        QSignalSpy moved(&timeline, &TrimTimeline::handleMoved);
+
+        // Right: one frame; Shift + Right: one second.
+        QTest::keyClick(&timeline, Qt::Key_Right);
+        QCOMPARE(timeline.startFrame(), 1);
+        QTest::keyClick(&timeline, Qt::Key_Right, Qt::ShiftModifier);
+        QCOMPARE(timeline.startFrame(), 31);
+        QVERIFY(!timeline.isWhole());
+        QCOMPARE(moved.last().first().toInt(), 31);
+        // Down: the end handle; it shows the last frame kept.
+        QTest::keyClick(&timeline, Qt::Key_Down);
+        QCOMPARE(timeline.selectedHandle(), TrimTimeline::Handle::End);
+        QTest::keyClick(&timeline, Qt::Key_Left, Qt::ShiftModifier);
+        QCOMPARE(timeline.endFrame(), 270);
+        QCOMPARE(moved.last().first().toInt(), 269);
+        // The handles never cross: at least one frame stays.
+        timeline.setRange(100, 50);
+        QCOMPARE(timeline.startFrame(), 100);
+        QCOMPARE(timeline.endFrame(), 101);
+        timeline.setRange(-5, 1000);
+        QVERIFY(timeline.isWhole());
+
+        // Dragging the end handle with the mouse.
+        timeline.setRange(0, 300);
+        const int endX = timeline.width() - 6; // the handle sits at the right end
+        QTest::mousePress(&timeline, Qt::LeftButton, {}, QPoint(endX, 30));
+        QCOMPARE(timeline.selectedHandle(), TrimTimeline::Handle::End);
+        QMouseEvent move(QEvent::MouseMove, QPointF(timeline.width() / 2.0, 30), timeline.mapToGlobal(QPointF(timeline.width() / 2.0, 30)),
+                         Qt::NoButton, Qt::LeftButton, Qt::NoModifier);
+        QCoreApplication::sendEvent(&timeline, &move);
+        QTest::mouseRelease(&timeline, Qt::LeftButton, {}, QPoint(timeline.width() / 2, 30));
+        QVERIFY(qAbs(timeline.endFrame() - 150) <= 2);
+    }
+
+    void trimmerKeepsThePart()
+    {
+        QTemporaryDir dir;
+        const QString input = dir.filePath(QStringLiteral("in.mp4"));
+        const QString output = dir.filePath(QStringLiteral("out.mp4"));
+        QVERIFY(makeVideo(input, 3));
+        VideoTrimmer trimmer;
+        trimmer.setVideoCodec(testCodec());
+        QSignalSpy finished(&trimmer, &VideoTrimmer::finished);
+        QSignalSpy failed(&trimmer, &VideoTrimmer::failed);
+        QSignalSpy progress(&trimmer, &VideoTrimmer::progress);
+        // The green second only.
+        trimmer.start(input, output, 1000, 2000);
+        QVERIFY(finished.wait(20000));
+        QCOMPARE(failed.count(), 0);
+        QVERIFY(progress.count() > 1);
+        const qint64 duration = durationOf(output);
+        QVERIFY2(duration > 900 && duration < 1100, qPrintable(QString::number(duration)));
+        const auto [first, last] = firstAndLastColour(output);
+        QCOMPARE(dominant(first), 'g');
+        QCOMPARE(dominant(last), 'g');
+    }
+
+    void trimmerFailsOnABrokenFile()
+    {
+        QTemporaryDir dir;
+        const QString input = dir.filePath(QStringLiteral("broken.mp4"));
+        QFile file(input);
+        QVERIFY(file.open(QIODevice::WriteOnly));
+        file.write("not a video");
+        file.close();
+        VideoTrimmer trimmer;
+        trimmer.setVideoCodec(testCodec());
+        QSignalSpy failed(&trimmer, &VideoTrimmer::failed);
+        trimmer.start(input, dir.filePath(QStringLiteral("out.mp4")), 0, 1000);
+        QVERIFY(failed.wait(10000));
+        QVERIFY(!QFile::exists(dir.filePath(QStringLiteral("out.mp4"))));
+    }
+
+    void trimWindowSavesThePart()
+    {
+        QTemporaryDir dir;
+        const QString recording = dir.filePath(QStringLiteral("rec.mp4"));
+        QVERIFY(makeVideo(recording, 3));
+        auto *window = new TrimWindow(recording, QStringLiteral("Test"));
+        window->setAttribute(Qt::WA_DeleteOnClose);
+        window->setVideoCodec(testCodec());
+        QSignalSpy saved(window, &TrimWindow::saved);
+        window->show();
+        QTRY_VERIFY_WITH_TIMEOUT(window->isLoaded(), 5000);
+        QTRY_VERIFY_WITH_TIMEOUT(!window->currentFrame().isNull(), 5000);
+        QCOMPARE(window->timeline()->frameCount(), 90);
+        // The icons are in the resources (play, save).
+        QVERIFY(!window->findChild<QToolButton *>()->icon().pixmap(20).isNull());
+
+        // From 2 s to the end: the blue second.
+        window->timeline()->setRange(60, 90);
+        QTRY_COMPARE_WITH_TIMEOUT(dominant(window->currentFrame().pixelColor(80, 60)), 'r', 2000);
+        emit window->timeline()->handleMoved(60); // as a drag would: shows that frame
+        QTRY_COMPARE_WITH_TIMEOUT(dominant(window->currentFrame().pixelColor(80, 60)), 'b', 5000);
+        window->findChild<QPushButton *>(QStringLiteral("save"))->click();
+        QVERIFY(saved.wait(20000));
+        const QString path = saved.first().first().toString();
+        QVERIFY(path != recording);
+        QVERIFY(QFile::exists(path));
+        const qint64 duration = durationOf(path);
+        QVERIFY2(duration > 900 && duration < 1100, qPrintable(QString::number(duration)));
+        // The window closed and deleted the untrimmed recording; the part stays.
+        QTRY_VERIFY(!QFile::exists(recording));
+        QVERIFY(QFile::exists(path));
+    }
+
+    void trimWindowSavesWholeOrDiscards()
+    {
+        QTemporaryDir dir;
+        const QString recording = dir.filePath(QStringLiteral("rec.mp4"));
+        QVERIFY(makeVideo(recording, 1));
+
+        auto *window = new TrimWindow(recording, QString());
+        window->setAttribute(Qt::WA_DeleteOnClose);
+        QSignalSpy saved(window, &TrimWindow::saved);
+        window->show();
+        QTRY_VERIFY_WITH_TIMEOUT(window->isLoaded(), 5000);
+        window->findChild<QPushButton *>(QStringLiteral("saveWhole"))->click();
+        QCOMPARE(saved.count(), 1);
+        QCOMPARE(saved.first().first().toString(), recording);
+        QTest::qWait(50);
+        QVERIFY(QFile::exists(recording)); // handed over, not deleted
+
+        window = new TrimWindow(recording, QString());
+        window->setAttribute(Qt::WA_DeleteOnClose);
+        QSignalSpy discarded(window, &TrimWindow::discarded);
+        window->show();
+        QTRY_VERIFY_WITH_TIMEOUT(window->isLoaded(), 5000);
+        window->findChild<QPushButton *>(QStringLiteral("discard"))->click();
+        QCOMPARE(discarded.count(), 1);
+        QTRY_VERIFY(!QFile::exists(recording));
     }
 
     void overlayForVideoHasNoRegion()

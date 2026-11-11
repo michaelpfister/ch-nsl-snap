@@ -98,9 +98,13 @@ private:
     void stopRecording();
     void onRecordingFinished(const RecordingController::Result &result);
     void onRecordingEnded(bool showWindow);
-    // Moves the finished video from its temporary file into the save
-    // folder (F-41); returns the path, or an empty string and the error.
-    QString saveVideo(const RecordingController::Result &result, QString *error);
+    // The video to keep (the whole recording or a trimmed part, F-51):
+    // into the save folder, with a note in the status bar or the tray.
+    // `note` goes before it, e.g. that the limit was reached.
+    void keepVideo(const QString &path, const QString &title, const QString &note);
+    // Moves a finished video from its temporary file into the save folder
+    // (F-41); returns the path, or an empty string and the error.
+    QString saveVideo(const QString &temporary, const QString &title, QString *error);
     // Ends the command-line request, if one is running.
     void finishRequest(CommandLine::Outcome outcome, const QString &detail = QString());
 

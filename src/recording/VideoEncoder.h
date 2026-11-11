@@ -5,7 +5,7 @@
 #include <QObject>
 #include <QString>
 
-#include <optional>
+#include <deque>
 
 class QMediaCaptureSession;
 class QMediaRecorder;
@@ -46,6 +46,12 @@ public:
     // pile of frames in memory.
     void addFrame(const QImage &frame, qint64 timestamp);
 
+    // Trimming (F-51): every frame counts, so waiting frames queue up
+    // instead of replacing each other. The caller keeps the queue short
+    // (queuedFrames(), frameSent()).
+    void setKeepAllFrames(bool keep) { m_keepAll = keep; }
+    int queuedFrames() const { return int(m_queue.size()); }
+
     // Ends the file; finished() comes when it is complete on disk.
     void finish();
 
@@ -54,6 +60,8 @@ public:
     int framesWritten() const { return m_written; }
 
 signals:
+    // A waiting frame went to the encoder.
+    void frameSent();
     void finished();
     void failed(const QString &message);
 
@@ -73,7 +81,8 @@ private:
     QMediaRecorder *m_recorder = nullptr;
     QVideoFrameInput *m_input = nullptr;
     QSize m_size;
-    std::optional<Frame> m_pending;
+    std::deque<Frame> m_queue; // frames waiting for room in the input
+    bool m_keepAll = false;
     bool m_running = false;
     bool m_finishing = false;
     int m_written = 0;

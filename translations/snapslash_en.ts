@@ -702,16 +702,20 @@ Ctrl+S saves straight into the folder from the settings</translation>
         <translation>Save video</translation>
     </message>
     <message>
-        <source>Video gespeichert (%1): %2</source>
-        <translation>Video saved (%1): %2</translation>
-    </message>
-    <message>
-        <source>Die Höchstdauer von 10 Minuten ist erreicht. </source>
-        <translation>The maximum length of 10 minutes was reached. </translation>
-    </message>
-    <message>
         <source>Video gespeichert</source>
         <translation>Video saved</translation>
+    </message>
+    <message>
+        <source>Die Höchstdauer von 10 Minuten ist erreicht.</source>
+        <translation>The maximum length of 10 minutes was reached.</translation>
+    </message>
+    <message>
+        <source>Video verworfen.</source>
+        <translation>Video discarded.</translation>
+    </message>
+    <message>
+        <source>Video gespeichert: %1</source>
+        <translation>Video saved: %1</translation>
     </message>
 </context>
 <context>
@@ -1360,6 +1364,80 @@ Ctrl+S saves straight into the folder from the settings</translation>
     </message>
 </context>
 <context>
+    <name>TrimTimeline</name>
+    <message>
+        <source>Zeitleiste: Anfang und Ende des Videos</source>
+        <translation>Timeline: start and end of the video</translation>
+    </message>
+</context>
+<context>
+    <name>TrimWindow</name>
+    <message>
+        <source>Video zuschneiden</source>
+        <translation>Trim video</translation>
+    </message>
+    <message>
+        <source>Video zuschneiden – %1</source>
+        <translation>Trim video – %1</translation>
+    </message>
+    <message>
+        <source>Abspielen / Anhalten (Leertaste)</source>
+        <translation>Play / pause (Space)</translation>
+    </message>
+    <message>
+        <source>Abspielen / Anhalten</source>
+        <translation>Play / pause</translation>
+    </message>
+    <message>
+        <source>Griffe ziehen oder Pfeiltasten: 1 Bild, mit Shift 1 s · Pfeil hoch/runter: anderer Griff · Leertaste: Abspielen</source>
+        <translation>Drag the handles or use the arrow keys: 1 frame, with Shift 1 s · Up/Down: other handle · Space: play</translation>
+    </message>
+    <message>
+        <source>Verwerfen</source>
+        <translation>Discard</translation>
+    </message>
+    <message>
+        <source>Die Aufnahme löschen</source>
+        <translation>Delete the recording</translation>
+    </message>
+    <message>
+        <source>Ganz speichern</source>
+        <translation>Save whole</translation>
+    </message>
+    <message>
+        <source>Die ganze Aufnahme speichern, ohne zu schneiden</source>
+        <translation>Save the whole recording without trimming</translation>
+    </message>
+    <message>
+        <source>Speichern</source>
+        <translation>Save</translation>
+    </message>
+    <message>
+        <source>Nur den Teil zwischen den Griffen speichern</source>
+        <translation>Save only the part between the handles</translation>
+    </message>
+    <message>
+        <source>Behalten: %1 bis %2 (%3)</source>
+        <translation>Keep: %1 to %2 (%3)</translation>
+    </message>
+    <message>
+        <source>Ausschnitt speichern</source>
+        <translation>Save part</translation>
+    </message>
+    <message>
+        <source>Der Ausschnitt konnte nicht gespeichert werden: %1</source>
+        <translation>The part could not be saved: %1</translation>
+    </message>
+    <message>
+        <source>Video verwerfen</source>
+        <translation>Discard video</translation>
+    </message>
+    <message>
+        <source>Die Aufnahme ist nicht gespeichert. Verwerfen?</source>
+        <translation>The recording is not saved. Discard it?</translation>
+    </message>
+</context>
+<context>
     <name>UnsupportedBackend</name>
     <message>
         <source>Aufnehmen wird auf dieser Plattform noch nicht unterstützt.</source>
@@ -1575,6 +1653,21 @@ On GNOME, then install the extension again (`scripts/dev-install.sh`) and log ou
     <message>
         <source>Das Video konnte nicht geschrieben werden.</source>
         <translation>The video could not be written.</translation>
+    </message>
+</context>
+<context>
+    <name>VideoTrimmer</name>
+    <message>
+        <source>Die Aufnahme lässt sich nicht lesen.</source>
+        <translation>The recording cannot be read.</translation>
+    </message>
+    <message>
+        <source>Im gewählten Ausschnitt ist kein Bild.</source>
+        <translation>The chosen part has no frame.</translation>
+    </message>
+    <message>
+        <source>Der Ausschnitt konnte nicht geschrieben werden.</source>
+        <translation>The part could not be written.</translation>
     </message>
 </context>
 <context>

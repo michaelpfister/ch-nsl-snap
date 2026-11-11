@@ -40,7 +40,7 @@ void VideoEncoder::start(const QString &path, const QSize &size)
         return;
     m_size = size;
     m_written = 0;
-    m_pending.reset();
+    m_queue.clear();
     m_finishing = false;
 
     // Without a format given here the input takes it from the first frame
@@ -82,9 +82,13 @@ void VideoEncoder::addFrame(const QImage &frame, qint64 timestamp)
     if (!m_running || m_finishing || frame.size() != m_size)
         return;
     Frame next{frame, timestamp};
-    // Earlier frames still wait: the newest replaces the waiting one.
-    if (m_pending || !send(next))
-        m_pending = std::move(next);
+    if (m_queue.empty() && send(next))
+        return;
+    // Earlier frames still wait: while recording, the newest replaces the
+    // waiting one; while trimming, it queues up.
+    if (!m_keepAll)
+        m_queue.clear();
+    m_queue.push_back(std::move(next));
 }
 
 bool VideoEncoder::send(const Frame &frame)
@@ -100,9 +104,14 @@ bool VideoEncoder::send(const Frame &frame)
 
 void VideoEncoder::sendPending()
 {
-    if (m_pending && send(*m_pending))
-        m_pending.reset();
-    if (m_finishing && !m_pending && m_recorder->recorderState() == QMediaRecorder::RecordingState)
+    bool sent = false;
+    while (!m_queue.empty() && send(m_queue.front())) {
+        m_queue.pop_front();
+        sent = true;
+    }
+    if (sent)
+        emit frameSent();
+    if (m_finishing && m_queue.empty() && m_recorder->recorderState() == QMediaRecorder::RecordingState)
         m_recorder->stop();
 }
 
@@ -111,11 +120,8 @@ void VideoEncoder::finish()
     if (!m_running || m_finishing)
         return;
     m_finishing = true;
-    // Stops once the waiting frame is in (sendPending).
-    if (m_pending && send(*m_pending))
-        m_pending.reset();
-    if (!m_pending)
-        m_recorder->stop();
+    // Stops once the waiting frames are in (sendPending).
+    sendPending();
 }
 
 void VideoEncoder::fail(const QString &message)

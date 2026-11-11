@@ -106,10 +106,16 @@ add_library(nsl_snap_core STATIC
     src/recording/RecordingController.h
     src/recording/RecordingIndicator.cpp
     src/recording/RecordingIndicator.h
+    src/recording/TrimTimeline.cpp
+    src/recording/TrimTimeline.h
+    src/recording/TrimWindow.cpp
+    src/recording/TrimWindow.h
     src/recording/VideoEncoder.cpp
     src/recording/VideoEncoder.h
     src/recording/VideoFrames.cpp
     src/recording/VideoFrames.h
+    src/recording/VideoTrimmer.cpp
+    src/recording/VideoTrimmer.h
     src/ui/ColorPopup.cpp
     src/ui/ColorPopup.h
     src/ui/ColorWheel.cpp

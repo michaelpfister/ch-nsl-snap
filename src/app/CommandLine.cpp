@@ -19,14 +19,14 @@ void addOptions(QCommandLineParser &parser)
         "to the save folder from the settings and its path printed. If Snapslash is\n"
         "already running, the running app does the capture.\n"
         "A --record option records a video (MP4, at most 10 minutes); the same command\n"
-        "again, or the indicator on the screen, stops it and saves the video."));
+        "again, or the indicator on the screen, stops it and saves the whole video."));
     parser.addOptions({
         {QStringLiteral("capture-window"), QStringLiteral("Pick a window and capture it.")},
         {QStringLiteral("capture-region"), QStringLiteral("Select a region and capture it.")},
         {QStringLiteral("capture-screen"), QStringLiteral("Pick a monitor (Enter: all) and capture it.")},
         {QStringLiteral("record-window"), QStringLiteral("Pick a window and record a video of it (Hyprland so far).")},
         {QStringLiteral("record-screen"), QStringLiteral("Pick a monitor (Enter: all) and record a video of it.")},
-        {QStringLiteral("open"), QStringLiteral("Show the capture in the editor instead of saving it.")},
+        {QStringLiteral("open"), QStringLiteral("Show the capture in the editor (a video: in the trim window) instead of saving it.")},
         {QStringLiteral("delay"), QStringLiteral("Count down <seconds> before the capture (0-60)."),
          QStringLiteral("seconds"), QStringLiteral("0")},
     });

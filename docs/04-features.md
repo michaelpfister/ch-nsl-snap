@@ -76,8 +76,8 @@ Added on 2026-11-11 after issue #17, for short tutorial videos (D-039).
 
 | ID | Feature | Hyprland | Windows | GNOME | Effort | Status |
 |---|---|---|---|---|---|---|
-| F-50 | **Video recording** of one window or one monitor (or all monitors), with the mouse pointer, without audio | ✓ (window only on Hyprland; Sway & co.: screen) | ✓ | ◐ Ext., spike first (Q-27) | L | **Step 1 done on Hyprland and wlroots desktops** (2026-11-11, D-039): "Video" in the top bar and the tray, `--record-window` / `--record-screen`, pick on the frozen screen, countdown, indicator with time and stop, limit of 10 minutes, MP4 into the save folder. Next: trimming (F-51), then Windows, GNOME and the portal; macOS with its backend. |
-| F-51 | **Trim** a recording: cut off the start and the end before saving | ✓ | ✓ | ✓ | M | Planned, the next step of F-50; until then the whole recording is saved. |
+| F-50 | **Video recording** of one window or one monitor (or all monitors), with the mouse pointer, without audio | ✓ (window only on Hyprland; Sway & co.: screen) | ✓ | ◐ Ext., spike first (Q-27) | L | **Step 1 done on Hyprland and wlroots desktops** (2026-11-11, D-039): "Video" in the top bar and the tray, `--record-window` / `--record-screen`, pick on the frozen screen, countdown, indicator with time and stop, limit of 10 minutes, MP4 into the save folder. Trimming (F-51) done too. Next: Windows, then GNOME and the portal; macOS with its backend. |
+| F-51 | **Trim** a recording: cut off the start and the end before saving | ✓ | ✓ | ✓ | M | **Done** (2026-11-11, D-039): after every recording, except from the command line without `--open`. |
 
 ### F-50 Video recording
 
@@ -95,9 +95,9 @@ Added on 2026-11-11 after issue #17, for short tutorial videos (D-039).
 ### F-51 Trim
 
 - Preview of the recording with play/pause, a timeline with two handles for start and end, the current position as time, and the frame under the handle while dragging.
-- Arrow keys move the selected handle by one frame, Shift + arrow keys by one second; Space plays and pauses.
+- Arrow keys move the selected handle by one frame, Shift + arrow keys by one second, Up and Down select the other handle; Space plays and pauses, Enter saves. Playing stops at the end handle.
 - "Speichern" writes only the chosen range, "Verwerfen" deletes the recording, "Ganz speichern" skips the trimming. The untrimmed recording stays in a temporary folder until the window is closed.
-- How exactly the cut is made (re-encode, or cut at key frames) is decided in phase 1 (Q-29).
+- The part is encoded anew, exact to the frame (Q-29); a progress bar shows how far it is. Closing the window without a choice asks whether to discard the recording.
 
 ## Keyboard shortcuts
 

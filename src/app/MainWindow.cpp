@@ -19,7 +19,7 @@
 #include "editor/TextItem.h"
 #include "imaging/WindowImage.h"
 #include "recording/RecordingBackend.h"
-#include "recording/RecordingIndicator.h"
+#include "recording/TrimWindow.h"
 #include "ui/Icons.h"
 #include "ui/Theme.h"
 #include "update/UpdateChecker.h"
@@ -1201,42 +1201,74 @@ void MainWindow::stopRecording()
 
 void MainWindow::onRecordingFinished(const RecordingController::Result &result)
 {
+    onRecordingEnded(false);
+    QString note;
+    if (result.limitReached)
+        note = tr("Die Höchstdauer von 10 Minuten ist erreicht.");
+    else if (!result.endReason.isEmpty())
+        note = result.endReason;
+
+    // From the command line without --open: saved whole, no trimming (D-039).
+    if (m_request && !m_request->request.open) {
+        if (!m_hiddenBeforeCapture)
+            showEditor();
+        keepVideo(result.path, result.title, note);
+        return;
+    }
+
+    // The trim window (F-51); the editor comes back once it is closed.
+    auto *trim = new TrimWindow(result.path, result.title, this);
+    trim->setAttribute(Qt::WA_DeleteOnClose);
+    const bool showAfterwards = !m_hiddenBeforeCapture;
+    connect(trim, &TrimWindow::saved, this, [this, title = result.title, note, showAfterwards](const QString &path) {
+        if (showAfterwards)
+            showEditor();
+        keepVideo(path, title, note);
+    });
+    connect(trim, &TrimWindow::discarded, this, [this, showAfterwards] {
+        if (showAfterwards)
+            showEditor();
+        statusBar()->showMessage(tr("Video verworfen."), 4000);
+        finishRequest(CommandLine::Outcome::Cancelled);
+    });
+    trim->show();
+    trim->raise();
+    trim->activateWindow();
+}
+
+void MainWindow::keepVideo(const QString &path, const QString &title, const QString &note)
+{
     QString error;
-    const QString path = saveVideo(result, &error);
-    // Back as it was: the editor if it was open, else only the tray.
-    onRecordingEnded(!m_hiddenBeforeCapture);
-    if (path.isEmpty()) {
+    const QString saved = saveVideo(path, title, &error);
+    if (saved.isEmpty()) {
         QMessageBox::warning(isVisible() ? this : nullptr, tr("Video speichern"), error);
         finishRequest(CommandLine::Outcome::Failed, error);
         return;
     }
-    m_savedPath = path;
-    QString note = tr("Video gespeichert (%1): %2").arg(RecordingIndicator::formatTime(result.durationMs), path);
-    if (result.limitReached)
-        note = tr("Die Höchstdauer von 10 Minuten ist erreicht. ") + note;
-    else if (!result.endReason.isEmpty())
-        note = result.endReason + QLatin1Char(' ') + note;
-    statusBar()->showMessage(note, 8000);
+    m_savedPath = saved;
+    QString text = tr("Video gespeichert: %1").arg(saved);
+    if (!note.isEmpty())
+        text = note + QLatin1Char(' ') + text;
+    statusBar()->showMessage(text, 8000);
     if (m_tray && !isVisible())
-        m_tray->showMessage(tr("Video gespeichert"), note);
-    finishRequest(CommandLine::Outcome::Saved, path);
+        m_tray->showMessage(tr("Video gespeichert"), text);
+    finishRequest(CommandLine::Outcome::Saved, saved);
 }
 
-QString MainWindow::saveVideo(const RecordingController::Result &result, QString *error)
+QString MainWindow::saveVideo(const QString &temporary, const QString &title, QString *error)
 {
-    // Trimming (F-51) follows; until then the whole video is saved.
     const QString folder = Settings::saveFolder();
     QDir().mkpath(folder);
-    const QString path = QDir(folder).filePath(FileNames::fromPattern(
-        Settings::fileNamePattern(), result.title, QDateTime::currentDateTime(), QStringLiteral("mp4")));
+    const QString path = QDir(folder).filePath(
+        FileNames::fromPattern(Settings::fileNamePattern(), title, QDateTime::currentDateTime(), QStringLiteral("mp4")));
     QFile::remove(path);
     // rename() fails across file systems (/tmp on its own): then copy.
-    if (!QFile::rename(result.path, path)) {
-        if (!QFile::copy(result.path, path)) {
+    if (!QFile::rename(temporary, path)) {
+        if (!QFile::copy(temporary, path)) {
             *error = tr("«%1» konnte nicht gespeichert werden.").arg(path);
             return {};
         }
-        QFile::remove(result.path);
+        QFile::remove(temporary);
     }
     return path;
 }
