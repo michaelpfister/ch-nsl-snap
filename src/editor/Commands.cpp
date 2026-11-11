@@ -11,14 +11,8 @@
 
 #include <QCoreApplication>
 
-namespace {
-
-QString tr(const char *text)
-{
-    return QCoreApplication::translate("Commands", text);
-}
-
-} // namespace
+// Not in a QObject: translated in the context "Commands". The full call (not a
+// helper) lets lupdate find the texts for translations/snapslash_en.ts.
 
 // --- Add ---------------------------------------------------------------
 
@@ -59,7 +53,7 @@ void AddItemsCommand::undo()
 // --- Remove ------------------------------------------------------------
 
 RemoveItemsCommand::RemoveItemsCommand(EditorScene *scene, const QList<QGraphicsItem *> &items)
-    : QUndoCommand(items.size() == 1 ? tr("Objekt löschen") : tr("Objekte löschen"))
+    : QUndoCommand(items.size() == 1 ? QCoreApplication::translate("Commands", "Objekt löschen") : QCoreApplication::translate("Commands", "Objekte löschen"))
     , m_scene(scene)
     , m_items(items)
 {
@@ -93,7 +87,7 @@ void RemoveItemsCommand::undo()
 // --- Move --------------------------------------------------------------
 
 MoveItemsCommand::MoveItemsCommand(const QList<Move> &moves)
-    : QUndoCommand(tr("Verschieben"))
+    : QUndoCommand(QCoreApplication::translate("Commands", "Verschieben"))
     , m_moves(moves)
 {
 }
@@ -113,7 +107,7 @@ void MoveItemsCommand::undo()
 // --- Frame rectangle ---------------------------------------------------
 
 SetRectCommand::SetRectCommand(RectItem *item, const QRectF &from, const QRectF &to)
-    : QUndoCommand(tr("Grösse ändern"))
+    : QUndoCommand(QCoreApplication::translate("Commands", "Grösse ändern"))
     , m_item(item)
     , m_from(from)
     , m_to(to)
@@ -133,7 +127,7 @@ void SetRectCommand::undo()
 // --- Frame style -------------------------------------------------------
 
 SetFrameStyleCommand::SetFrameStyleCommand(const QList<FrameItem *> &frames, const FrameStyle &style)
-    : QUndoCommand(tr("Darstellung ändern"))
+    : QUndoCommand(QCoreApplication::translate("Commands", "Darstellung ändern"))
     , m_frames(frames)
     , m_after(style)
 {
@@ -165,7 +159,7 @@ bool SetFrameStyleCommand::mergeWith(const QUndoCommand *other)
 // --- Dim background ----------------------------------------------------
 
 SetDimCommand::SetDimCommand(EditorScene *scene, const DimSettings &settings)
-    : QUndoCommand(tr("Hintergrund abdunkeln"))
+    : QUndoCommand(QCoreApplication::translate("Commands", "Hintergrund abdunkeln"))
     , m_scene(scene)
     , m_before(scene->dimSettings())
     , m_after(settings)
@@ -192,10 +186,36 @@ bool SetDimCommand::mergeWith(const QUndoCommand *other)
     return true;
 }
 
+// --- First number ---------------------------------------------------------
+
+SetFirstNumberCommand::SetFirstNumberCommand(EditorScene *scene, int number)
+    : QUndoCommand(QCoreApplication::translate("Commands", "Erste Nummer ändern"))
+    , m_scene(scene)
+    , m_before(scene->firstNumber())
+    , m_after(number)
+{
+}
+
+void SetFirstNumberCommand::redo()
+{
+    m_scene->setFirstNumber(m_after);
+}
+
+void SetFirstNumberCommand::undo()
+{
+    m_scene->setFirstNumber(m_before);
+}
+
+bool SetFirstNumberCommand::mergeWith(const QUndoCommand *other)
+{
+    m_after = static_cast<const SetFirstNumberCommand *>(other)->m_after;
+    return true;
+}
+
 // --- Reorder ------------------------------------------------------------
 
 ReorderItemsCommand::ReorderItemsCommand(EditorScene *scene, int from, int to)
-    : QUndoCommand(tr("Reihenfolge ändern"))
+    : QUndoCommand(QCoreApplication::translate("Commands", "Reihenfolge ändern"))
     , m_scene(scene)
     , m_items(scene->annotations())
 {
@@ -229,7 +249,7 @@ void ReorderItemsCommand::undo()
 // --- Pixelate style ----------------------------------------------------
 
 SetRedactStyleCommand::SetRedactStyleCommand(const QList<RedactItem *> &items, const RedactStyle &style)
-    : QUndoCommand(tr("Verpixeln ändern"))
+    : QUndoCommand(QCoreApplication::translate("Commands", "Verpixeln ändern"))
     , m_items(items)
     , m_after(style)
 {
@@ -252,7 +272,7 @@ void SetRedactStyleCommand::undo()
 // --- Replaced text -----------------------------------------------------
 
 SetReplaceStyleCommand::SetReplaceStyleCommand(ReplaceItem *item, const ReplaceStyle &style)
-    : QUndoCommand(tr("Text ändern"))
+    : QUndoCommand(QCoreApplication::translate("Commands", "Text ändern"))
     , m_item(item)
     , m_before(item->style())
     , m_after(style)
@@ -281,7 +301,7 @@ bool SetReplaceStyleCommand::mergeWith(const QUndoCommand *other)
 // --- Free text ---------------------------------------------------------
 
 SetTextStyleCommand::SetTextStyleCommand(const QList<TextItem *> &items, const TextStyle &look)
-    : QUndoCommand(tr("Text formatieren"))
+    : QUndoCommand(QCoreApplication::translate("Commands", "Text formatieren"))
     , m_items(items)
     , m_look(look)
 {
@@ -314,7 +334,7 @@ bool SetTextStyleCommand::mergeWith(const QUndoCommand *other)
 }
 
 EditTextCommand::EditTextCommand(TextItem *item, const QString &fromText, const QPointF &fromPos)
-    : QUndoCommand(tr("Text ändern"))
+    : QUndoCommand(QCoreApplication::translate("Commands", "Text ändern"))
     , m_item(item)
     , m_fromText(fromText)
     , m_toText(item->style().text)
@@ -342,7 +362,7 @@ void EditTextCommand::undo()
 // --- Arrow and marker --------------------------------------------------
 
 SetArrowLineCommand::SetArrowLineCommand(ArrowItem *item, const QLineF &from, const QLineF &to)
-    : QUndoCommand(tr("Pfeil ändern"))
+    : QUndoCommand(QCoreApplication::translate("Commands", "Pfeil ändern"))
     , m_item(item)
     , m_from(from)
     , m_to(to)
@@ -360,7 +380,7 @@ void SetArrowLineCommand::undo()
 }
 
 SetArrowStyleCommand::SetArrowStyleCommand(const QList<ArrowItem *> &items, const ArrowStyle &style)
-    : QUndoCommand(tr("Pfeil formatieren"))
+    : QUndoCommand(QCoreApplication::translate("Commands", "Pfeil formatieren"))
     , m_items(items)
     , m_after(style)
 {
@@ -390,7 +410,7 @@ bool SetArrowStyleCommand::mergeWith(const QUndoCommand *other)
 }
 
 SetMarkerStyleCommand::SetMarkerStyleCommand(const QList<MarkerItem *> &items, const MarkerStyle &style)
-    : QUndoCommand(tr("Marker formatieren"))
+    : QUndoCommand(QCoreApplication::translate("Commands", "Marker formatieren"))
     , m_items(items)
     , m_after(style)
 {
@@ -422,7 +442,7 @@ bool SetMarkerStyleCommand::mergeWith(const QUndoCommand *other)
 // --- Crop --------------------------------------------------------------
 
 SetCropCommand::SetCropCommand(EditorScene *scene, const QRect &crop)
-    : QUndoCommand(tr("Zuschneiden"))
+    : QUndoCommand(QCoreApplication::translate("Commands", "Zuschneiden"))
     , m_scene(scene)
     , m_before(scene->cropRect())
     , m_after(crop)

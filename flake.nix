@@ -1,7 +1,7 @@
 # NixOS: `nix run github:michaelpfister/ch-nsl-snap`, or `nix build` in a
 # checkout (docs/07-development-setup.md, "NixOS").
 {
-  description = "NSL Snap: screenshot tool for clean window captures";
+  description = "Snapslash: screenshot tool for clean window captures";
 
   inputs.nixpkgs.url = "github:NixOS/nixpkgs/nixos-unstable";
 
@@ -16,14 +16,14 @@
     in
     {
       packages = forAllSystems (pkgs: rec {
-        nsl-snap = pkgs.callPackage ./nix/package.nix { };
-        default = nsl-snap;
+        snapslash = pkgs.callPackage ./nix/package.nix { };
+        default = snapslash;
       });
 
       # The build tools and libraries, for working on the code.
       devShells = forAllSystems (pkgs: {
         default = pkgs.mkShell {
-          inputsFrom = [ self.packages.${pkgs.stdenv.hostPlatform.system}.nsl-snap ];
+          inputsFrom = [ self.packages.${pkgs.stdenv.hostPlatform.system}.snapslash ];
         };
       });
     };

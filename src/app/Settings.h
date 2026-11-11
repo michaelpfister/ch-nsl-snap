@@ -8,13 +8,18 @@
 #include "editor/TextStyle.h"
 
 #include <QColor>
+#include <QDateTime>
 #include <QKeySequence>
 #include <QList>
 #include <QString>
 
-// User settings, stored with QSettings (~/.config/netslash.ch/NSL Snap.conf
+// User settings, stored with QSettings (~/.config/netslash.ch/Snapslash.conf
 // on Linux, the registry on Windows, a plist on macOS).
 namespace Settings {
+
+// Copies the settings stored under the former app name "NSL Snap" (D-036),
+// once: only when there are none under the current name yet.
+void migrateFromFormerName();
 
 // Shows extra controls, e.g. the dim strength and blur sliders (F-27).
 bool advancedMode();
@@ -41,6 +46,28 @@ void setCloseToTray(bool enabled);
 // Whether the "still running in the tray" message was shown once.
 bool trayHintShown();
 void setTrayHintShown(bool shown);
+
+// Numbered frames (F-24): whether a new image goes on with the numbers
+// where the previous one stopped, instead of starting at 1 (default off).
+bool continueNumbering();
+void setContinueNumbering(bool enabled);
+
+// Language of the user interface (D-038): "de", "en", or "" to follow the
+// system. Applies at the next start.
+QString language();
+void setLanguage(const QString &language);
+
+// Updates (F-49, D-037): ask GitHub at start, at most once a day; offer
+// pre-releases too. The time of the last check, and the newest version
+// found then that is newer than the installed one ("" if none).
+bool checkForUpdates();
+void setCheckForUpdates(bool enabled);
+bool offerPrereleases();
+void setOfferPrereleases(bool enabled);
+QDateTime lastUpdateCheck();
+void setLastUpdateCheck(const QDateTime &time);
+QString availableUpdate();
+void setAvailableUpdate(const QString &version);
 
 // Global hotkeys (F-42): the key of each action; GlobalHotkeys::defaultKey
 // until changed, an empty sequence when switched off.

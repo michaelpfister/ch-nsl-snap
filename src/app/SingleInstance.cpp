@@ -86,7 +86,7 @@ std::optional<SingleInstance::Answer> SingleInstance::forward(const QStringList 
     // No timeout: the user may take as long as they like to pick.
     while (!socket.canReadLine()) {
         if (!socket.waitForReadyRead(-1))
-            return Answer{CommandLine::Outcome::Failed, QStringLiteral("The running NSL Snap closed the connection.")};
+            return Answer{CommandLine::Outcome::Failed, QStringLiteral("The running Snapslash closed the connection.")};
     }
     const QJsonObject answer = QJsonDocument::fromJson(socket.readLine()).object();
     return Answer{outcomeFromName(answer.value(kOutcome).toString()), answer.value(kDetail).toString()};
@@ -135,5 +135,5 @@ void SingleInstance::onRequest(QLocalSocket *socket)
     if (m_handler)
         m_handler(arguments, reply);
     else
-        reply({CommandLine::Outcome::Failed, QStringLiteral("NSL Snap is not ready yet.")});
+        reply({CommandLine::Outcome::Failed, QStringLiteral("Snapslash is not ready yet.")});
 }

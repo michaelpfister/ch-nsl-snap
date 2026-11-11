@@ -2,11 +2,17 @@
 
 #include "app/FileNames.h"
 #include "app/GlobalHotkeys.h"
+#include "app/Language.h"
 #include "app/Settings.h"
+#include "update/UpdateChecker.h"
+#include "update/UpdateInstaller.h"
+#include "ui/Placement.h"
 
 #include <QButtonGroup>
 #include <QCheckBox>
+#include <QComboBox>
 #include <QRadioButton>
+#include <QScrollArea>
 #include <QDateTime>
 #include <QDialogButtonBox>
 #include <QDir>
@@ -17,10 +23,13 @@
 #include <QKeySequenceEdit>
 #include <QLabel>
 #include <QLineEdit>
+#include <QLocale>
 #include <QMessageBox>
 #include <QPushButton>
 #include <QSystemTrayIcon>
 #include <QTabWidget>
+
+#include <algorithm>
 #include <QVBoxLayout>
 
 SettingsDialog::SettingsDialog(GlobalHotkeys *hotkeys, QWidget *parent)
@@ -35,17 +44,52 @@ SettingsDialog::SettingsDialog(GlobalHotkeys *hotkeys, QWidget *parent)
     outer->setContentsMargins(16, 16, 16, 12);
     auto *tabs = new QTabWidget(this);
     outer->addWidget(tabs);
+    // Each page scrolls, so the dialog fits small or highly scaled screens
+    // (fitIntoScreen below); usually the scroll bar never shows.
     const auto page = [this, tabs](const QString &title) {
         auto *widget = new QWidget(this);
         auto *pageLayout = new QVBoxLayout(widget);
         pageLayout->setContentsMargins(16, 16, 16, 16);
         pageLayout->setSpacing(6);
-        tabs->addTab(widget, title);
+        auto *scroll = new QScrollArea(this);
+        scroll->setWidget(widget);
+        scroll->setWidgetResizable(true);
+        scroll->setFrameShape(QFrame::NoFrame);
+        scroll->setHorizontalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
+        // The page's own background shows through, not the scroll area's.
+        scroll->viewport()->setAutoFillBackground(false);
+        widget->setAutoFillBackground(false);
+        tabs->addTab(scroll, title);
         return pageLayout;
     };
 
     // --- Allgemein ---
     QVBoxLayout *layout = page(tr("Allgemein"));
+
+    // Language (D-038): applies at the next start.
+    auto *languageTitle = new QLabel(tr("Sprache"), this);
+    languageTitle->setProperty("role", QStringLiteral("section"));
+    layout->addWidget(languageTitle);
+    auto *language = new QComboBox(this);
+    language->setAccessibleName(tr("Sprache"));
+    // The system's choice names the language it resolves to right now.
+    const QString systemLanguage = Language::resolve(QString(), QLocale::system().uiLanguages());
+    language->addItem(tr("Wie das System (%1)").arg(Language::nativeName(systemLanguage)), QString());
+    for (const QString &code : Language::available())
+        language->addItem(Language::nativeName(code), code);
+    language->setCurrentIndex(std::max(0, language->findData(Settings::language())));
+    auto *languageRow = new QHBoxLayout;
+    languageRow->addWidget(language);
+    languageRow->addStretch(1);
+    layout->addLayout(languageRow);
+    auto *languageHint = new QLabel(tr("Gilt nach einem Neustart von Snapslash."), this);
+    languageHint->setProperty("role", QStringLiteral("hint"));
+    languageHint->setWordWrap(true);
+    layout->addWidget(languageHint);
+    connect(language, &QComboBox::currentIndexChanged, this,
+            [language] { Settings::setLanguage(language->currentData().toString()); });
+    layout->addSpacing(16);
+
 
     m_advanced = new QCheckBox(tr("Erweiterter Modus"), this);
     m_advanced->setChecked(Settings::advancedMode());
@@ -182,6 +226,16 @@ SettingsDialog::SettingsDialog(GlobalHotkeys *hotkeys, QWidget *parent)
     });
     layout->addStretch(1);
 
+    // --- Updates (F-49, D-037) ---
+    createUpdatePage(page(tr("Updates")));
+    // The list of versions loads when the tab is opened, if automatic
+    // checks are allowed; otherwise only with "Jetzt suchen".
+    const int updateTab = tabs->count() - 1;
+    connect(tabs, &QTabWidget::currentChanged, this, [this, updateTab](int index) {
+        if (index == updateTab && m_releases.isEmpty() && Settings::checkForUpdates())
+            checkForUpdates();
+    });
+
     auto *buttons = new QDialogButtonBox(QDialogButtonBox::Close, this);
     buttons->button(QDialogButtonBox::Close)->setText(tr("Schliessen"));
     connect(buttons, &QDialogButtonBox::rejected, this, &QDialog::reject);
@@ -191,6 +245,20 @@ SettingsDialog::SettingsDialog(GlobalHotkeys *hotkeys, QWidget *parent)
         Settings::setAdvancedMode(enabled);
         emit advancedModeChanged(enabled);
     });
+
+    // A scroll area asks only for a small size, so the pages' own sizes
+    // decide how large the dialog wants to be; then it is limited to the
+    // screen, so its title bar stays reachable.
+    int pageHeight = 0;
+    int pageWidth = 0;
+    for (int i = 0; i < tabs->count(); ++i) {
+        const QSize hint = static_cast<QScrollArea *>(tabs->widget(i))->widget()->sizeHint();
+        pageHeight = std::max(pageHeight, hint.height());
+        pageWidth = std::max(pageWidth, hint.width());
+    }
+    const QSize chrome = sizeHint() - tabs->currentWidget()->sizeHint();
+    resize(QSize(std::max(minimumWidth(), pageWidth + chrome.width()), pageHeight + chrome.height()).expandedTo(minimumSize()));
+    fitIntoScreen(this);
 }
 
 SettingsDialog::~SettingsDialog()
@@ -201,7 +269,7 @@ SettingsDialog::~SettingsDialog()
 
 void SettingsDialog::createHotkeyPage(QVBoxLayout *layout)
 {
-    auto *intro = new QLabel(tr("Diese Tasten nehmen auf, auch wenn NSL Snap im Infobereich läuft oder ein anderes "
+    auto *intro = new QLabel(tr("Diese Tasten nehmen auf, auch wenn Snapslash im Infobereich läuft oder ein anderes "
                                 "Programm aktiv ist. Ein eingestellter Timer gilt auch hier."), this);
     intro->setProperty("role", QStringLiteral("hint"));
     intro->setWordWrap(true);
@@ -250,7 +318,7 @@ void SettingsDialog::createHotkeyPage(QVBoxLayout *layout)
     // Windows' own use of Print (D-035): a note with the way out.
     layout->addSpacing(12);
     auto *printNote = new QLabel(tr("Windows öffnet mit der Druck-Taste das Snipping Tool, deshalb erreicht die "
-                                    "Taste NSL Snap nicht. Abhilfe: in den Windows-Einstellungen unter "
+                                    "Taste Snapslash nicht. Abhilfe: in den Windows-Einstellungen unter "
                                     "«Barrierefreiheit › Tastatur» den Schalter zur Druck-Taste ausschalten."), this);
     printNote->setProperty("role", QStringLiteral("warning"));
     printNote->setWordWrap(true);
@@ -298,4 +366,143 @@ void SettingsDialog::createHotkeyPage(QVBoxLayout *layout)
             editing = editing || (now && (now == edit || edit->isAncestorOf(now)));
         m_hotkeys->setSuspended(editing);
     });
+}
+
+void SettingsDialog::createUpdatePage(QVBoxLayout *layout)
+{
+    m_updates = new UpdateChecker(this);
+
+    auto *versionTitle = new QLabel(tr("Version"), this);
+    versionTitle->setProperty("role", QStringLiteral("section"));
+    layout->addWidget(versionTitle);
+    QString kind;
+    switch (Releases::installation()) {
+    case Releases::Installation::PortableWindows: kind = tr("portable Windows-Version"); break;
+    case Releases::Installation::Nix: kind = tr("über Nix installiert"); break;
+    case Releases::Installation::Other: kind = tr("selbst gebaut"); break;
+    }
+    layout->addWidget(new QLabel(tr("Snapslash %1 · %2").arg(Version::current().toString(), kind), this));
+    layout->addSpacing(16);
+
+    auto *checkTitle = new QLabel(tr("Nach Updates suchen"), this);
+    checkTitle->setProperty("role", QStringLiteral("section"));
+    layout->addWidget(checkTitle);
+    auto *automatic = new QCheckBox(tr("Beim Start automatisch suchen, höchstens einmal pro Tag"), this);
+    automatic->setChecked(Settings::checkForUpdates());
+    layout->addWidget(automatic);
+    auto *prereleases = new QCheckBox(tr("Auch Vorabversionen anbieten"), this);
+    prereleases->setChecked(Settings::offerPrereleases());
+    layout->addWidget(prereleases);
+    auto *privacy = new QLabel(tr("Die App fragt dazu GitHub nach den veröffentlichten Versionen von Snapslash. "
+                                  "Übertragen wird nur diese Anfrage, keine Aufnahmen und keine Einstellungen."), this);
+    privacy->setProperty("role", QStringLiteral("hint"));
+    privacy->setWordWrap(true);
+    layout->addWidget(privacy);
+    layout->addSpacing(4);
+    auto *checkRow = new QHBoxLayout;
+    m_checkButton = new QPushButton(tr("Jetzt suchen"), this);
+    m_checkButton->setProperty("role", QStringLiteral("secondary"));
+    m_updateStatus = new QLabel(this);
+    m_updateStatus->setProperty("role", QStringLiteral("hint"));
+    m_updateStatus->setWordWrap(true);
+    checkRow->addWidget(m_checkButton);
+    checkRow->addWidget(m_updateStatus, 1);
+    layout->addLayout(checkRow);
+    layout->addSpacing(16);
+
+    // Downgrade: any published version, in case a new one misbehaves.
+    auto *otherTitle = new QLabel(tr("Andere Version installieren"), this);
+    otherTitle->setProperty("role", QStringLiteral("section"));
+    layout->addWidget(otherTitle);
+    auto *otherHint = new QLabel(tr("Falls eine neue Version Probleme macht, lässt sich hier eine frühere wieder "
+                                    "installieren. Die Einstellungen bleiben erhalten."), this);
+    otherHint->setProperty("role", QStringLiteral("hint"));
+    otherHint->setWordWrap(true);
+    layout->addWidget(otherHint);
+    auto *versionRow = new QHBoxLayout;
+    m_versions = new QComboBox(this);
+    m_versions->setAccessibleName(tr("Version"));
+    m_versions->setEnabled(false);
+    m_versions->addItem(tr("Noch nicht geladen"));
+    m_installVersion = new QPushButton(UpdateInstaller::isSupported() ? tr("Installieren …") : tr("Anleitung …"), this);
+    m_installVersion->setProperty("role", QStringLiteral("secondary"));
+    m_installVersion->setEnabled(false);
+    versionRow->addWidget(m_versions, 1);
+    versionRow->addWidget(m_installVersion);
+    layout->addLayout(versionRow);
+    layout->addStretch(1);
+
+    connect(automatic, &QCheckBox::toggled, this, [](bool enabled) { Settings::setCheckForUpdates(enabled); });
+    connect(prereleases, &QCheckBox::toggled, this, [this](bool enabled) {
+        Settings::setOfferPrereleases(enabled);
+        if (!m_releases.isEmpty()) {
+            fillVersions();
+            emit releasesLoaded(m_releases); // the update button follows
+        }
+    });
+    connect(m_checkButton, &QPushButton::clicked, this, &SettingsDialog::checkForUpdates);
+    connect(m_installVersion, &QPushButton::clicked, this, [this] {
+        const int index = m_versions->currentData().toInt();
+        const QList<Releases::Release> offered =
+            Releases::offered(m_releases, Settings::offerPrereleases(), Version::current());
+        if (index >= 0 && index < offered.size())
+            emit installRequested(offered[index]);
+    });
+    connect(m_updates, &UpdateChecker::finished, this, [this](const QList<Releases::Release> &releases) {
+        m_releases = releases;
+        m_checkButton->setEnabled(true);
+        Settings::setLastUpdateCheck(QDateTime::currentDateTimeUtc());
+        fillVersions();
+        emit releasesLoaded(releases);
+    });
+    connect(m_updates, &UpdateChecker::failed, this, [this](const QString &message) {
+        m_checkButton->setEnabled(true);
+        m_updateStatus->setText(message);
+    });
+}
+
+void SettingsDialog::checkForUpdates()
+{
+    m_checkButton->setEnabled(false);
+    m_updateStatus->setText(tr("Wird gesucht …"));
+    m_updates->check();
+}
+
+void SettingsDialog::fillVersions()
+{
+    const Version installed = Version::current();
+    const bool prereleases = Settings::offerPrereleases();
+    const std::optional<Releases::Release> newer = Releases::newerThan(m_releases, installed, prereleases);
+    if (m_releases.isEmpty())
+        m_updateStatus->setText(tr("Es ist noch keine Version veröffentlicht."));
+    else if (newer)
+        m_updateStatus->setText(tr("Version %1 ist verfügbar.").arg(newer->version.toString()));
+    else
+        m_updateStatus->setText(tr("Snapslash ist auf dem neusten Stand."));
+
+    // Item data: the index in the offered list, newest first.
+    m_versions->clear();
+    const QList<Releases::Release> offered = Releases::offered(m_releases, prereleases, installed);
+    int current = -1;
+    for (int i = 0; i < offered.size(); ++i) {
+        const Releases::Release &release = offered[i];
+        QString text = release.version.toString();
+        if (release.published.isValid())
+            text += QStringLiteral(" · ") + release.published.toLocalTime().date().toString(QStringLiteral("d.M.yyyy"));
+        if (release.version == installed) {
+            text += tr(" (installiert)");
+            current = i;
+        } else if (release.prerelease) {
+            text += tr(" (Vorabversion)");
+        }
+        m_versions->addItem(text, i);
+    }
+    // Preselect the version just below the installed one: the usual reason
+    // to come here is to go back one step.
+    if (current >= 0 && current + 1 < offered.size())
+        m_versions->setCurrentIndex(current + 1);
+    if (offered.isEmpty())
+        m_versions->addItem(tr("Keine Versionen veröffentlicht"));
+    m_versions->setEnabled(!offered.isEmpty());
+    m_installVersion->setEnabled(!offered.isEmpty());
 }

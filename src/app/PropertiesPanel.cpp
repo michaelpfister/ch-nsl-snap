@@ -1,5 +1,7 @@
 #include "app/PropertiesPanel.h"
 
+#include "editor/EditorScene.h"
+
 #include "app/ColorRow.h"
 #include "app/Settings.h"
 #include "editor/ReplaceItem.h"
@@ -207,8 +209,46 @@ PropertiesPanel::PropertiesPanel(QWidget *parent)
     m_badge->addItem(tr("Ohne Nummer"), int(BadgePosition::None));
     m_badge->setAccessibleName(tr("Nummer"));
     m_badge->setFocusPolicy(Qt::NoFocus);
-    connect(m_badge, &QComboBox::activated, this, [this] { emit frameStyleChanged(frameStyle()); });
+    connect(m_badge, &QComboBox::activated, this, [this] {
+        updateFirstNumberRow();
+        emit frameStyleChanged(frameStyle());
+    });
     frameLayout->addWidget(m_badge);
+
+    // The number the numbering starts from (F-24), for instructions whose
+    // numbers continue from one screenshot to the next. It belongs to the
+    // image, not to the frame style.
+    m_firstNumberRow = new QWidget(this);
+    auto *firstNumberColumn = new QVBoxLayout(m_firstNumberRow);
+    firstNumberColumn->setContentsMargins(0, 4, 0, 0);
+    firstNumberColumn->setSpacing(6);
+    auto *firstNumberLayout = new QHBoxLayout;
+    firstNumberColumn->addLayout(firstNumberLayout);
+    auto *firstNumberLabel = new QLabel(tr("Beginnt bei"), m_firstNumberRow);
+    firstNumberLabel->setProperty("role", QStringLiteral("muted"));
+    m_firstNumber = new QSpinBox(m_firstNumberRow);
+    m_firstNumber->setRange(1, EditorScene::kMaxFirstNumber);
+    m_firstNumber->setAccessibleName(tr("Erste Nummer"));
+    m_firstNumber->setToolTip(tr("Die Nummerierung in diesem Bild beginnt mit dieser Zahl, zum Beispiel "
+                                 "4, wenn das vorherige Bild der Anleitung bis 3 ging."));
+    firstNumberLayout->addWidget(firstNumberLabel);
+    firstNumberLayout->addStretch(1);
+    firstNumberLayout->addWidget(m_firstNumber);
+    // Off: every new image starts at 1. On: it goes on where this one ends.
+    m_continueNumbering = new QCheckBox(tr("Beim nächsten Bild weiterzählen"), m_firstNumberRow);
+    m_continueNumbering->setToolTip(tr("Das nächste aufgenommene oder geöffnete Bild beginnt mit der Nummer "
+                                       "nach der höchsten in diesem Bild."));
+    m_continueNumbering->setFocusPolicy(Qt::NoFocus);
+    firstNumberColumn->addWidget(m_continueNumbering);
+    frameLayout->addWidget(m_firstNumberRow);
+    connect(m_firstNumber, &QSpinBox::valueChanged, this, [this](int number) {
+        if (!m_updating)
+            emit firstNumberChanged(number);
+    });
+    connect(m_continueNumbering, &QCheckBox::toggled, this, [this](bool enabled) {
+        if (!m_updating)
+            emit continueNumberingChanged(enabled);
+    });
     layout->addWidget(m_frameSection);
 
     // Pixelate / blur properties (F-26).
@@ -553,6 +593,27 @@ void PropertiesPanel::setFrameStyle(const FrameStyle &style)
     (style.rounded ? m_rounded : m_square)->setChecked(true);
     m_badge->setCurrentIndex(m_badge->findData(int(style.badge)));
     m_updating = false;
+    updateFirstNumberRow();
+}
+
+void PropertiesPanel::setFirstNumber(int number)
+{
+    m_updating = true;
+    m_firstNumber->setValue(number);
+    m_updating = false;
+}
+
+void PropertiesPanel::setContinueNumbering(bool enabled)
+{
+    m_updating = true;
+    m_continueNumbering->setChecked(enabled);
+    m_updating = false;
+}
+
+void PropertiesPanel::updateFirstNumberRow()
+{
+    // Only where numbers are drawn.
+    m_firstNumberRow->setVisible(BadgePosition(m_badge->currentData().toInt()) != BadgePosition::None);
 }
 
 RedactStyle PropertiesPanel::redactStyle() const

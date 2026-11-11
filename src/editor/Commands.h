@@ -116,6 +116,24 @@ private:
     DimSettings m_after;
 };
 
+// Sets the number the numbered frames start from (F-24). Steps of the
+// spin box in a row merge into one undo step.
+class SetFirstNumberCommand : public QUndoCommand
+{
+public:
+    SetFirstNumberCommand(EditorScene *scene, int number);
+    void redo() override;
+    void undo() override;
+
+    int id() const override { return 8; }
+    bool mergeWith(const QUndoCommand *other) override;
+
+private:
+    EditorScene *m_scene;
+    int m_before;
+    int m_after;
+};
+
 // Changes the order of the annotations, and with it the numbers of the
 // numbered frames (F-24, Q-18): the item at `from` in
 // EditorScene::annotations() moves to `to`.

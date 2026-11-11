@@ -1,13 +1,13 @@
 # Project documentation
 
-Concept, decisions and rules for **NSL Snap** (working title): a screenshot tool for **Windows**, **macOS** and **Linux (GNOME or Hyprland on Wayland)**, inspired by [WinSnap](https://www.ntwind.com/software/winsnap.html). Its key feature is capturing a single window cleanly: only that window, with clean edges and transparent rounded corners. No shadow is added; the instruction pages do that via CSS.
+Concept, decisions and rules for **Snapslash** (D-036): a screenshot tool for **Windows**, **macOS** and **Linux (GNOME or Hyprland on Wayland)**, inspired by [WinSnap](https://www.ntwind.com/software/winsnap.html). Its key feature is capturing a single window cleanly: only that window, with clean edges and transparent rounded corners. No shadow is added; the instruction pages do that via CSS.
 
 These files record **why** the tool is built the way it is. The code says how it works; this says which alternatives were rejected and on what grounds. Anyone wanting to change a decision a year from now should be able to read here what argued against it at the time.
 
 ## Conventions
 
 - Documentation, code, identifiers and commit messages are in **English**.
-- The user interface is in **German (Switzerland)**: no "ß" (assumption, see Q-02).
+- The user interface is in **German (Switzerland)**, no "ß", and **English** (D-038); the texts in the code are German, English is a translation.
 
 ## Reading order
 

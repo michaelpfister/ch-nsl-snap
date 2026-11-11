@@ -50,6 +50,22 @@ private slots:
     }
 
 
+    void settingsMoveFromTheFormerName()
+    {
+        // D-036: settings stored as "NSL Snap" are copied once.
+        QSettings former(QCoreApplication::organizationName(), QStringLiteral("NSL Snap"));
+        former.setValue(QStringLiteral("save/folder"), QStringLiteral("/tmp/Alt"));
+        former.sync();
+        Settings::migrateFromFormerName();
+        QCOMPARE(Settings::saveFolder(), QStringLiteral("/tmp/Alt"));
+
+        // Not again once there are settings under the current name.
+        Settings::setSaveFolder(QStringLiteral("/tmp/Neu"));
+        Settings::migrateFromFormerName();
+        QCOMPARE(Settings::saveFolder(), QStringLiteral("/tmp/Neu"));
+        former.clear();
+    }
+
     void stylesSurviveARestart()
     {
         // Defaults without stored values.

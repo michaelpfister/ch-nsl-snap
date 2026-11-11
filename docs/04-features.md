@@ -36,7 +36,7 @@ All annotations are objects on top of the image: they can be selected, moved, re
 | F-21 | Highlights can be **moved and resized** afterwards | ✓ | ✓ | (in F-20) | Handles on corners and edges. **Done.** Frames stay inside the image when drawn, moved or resized. |
 | F-22 | **Frame colour** per highlight | ✓ | ✓ | S | Preset palette (red, yellow, green, blue, …) plus custom colour; the last used colour is remembered. **Done** (palette 2026-10-25; custom colour 2026-10-26, D-027): eight standard colours including black and white, plus a custom colour from a colour wheel, a hex code or the eyedropper; the same for texts and replaced texts. Since 2026-10-26 (D-029) the styles for new objects survive a restart, and the popup offers the last 8 own colours; both can be reset in the settings. |
 | F-23 | **Square or rounded** frame corners | ✓ | ✓ | S | Per highlight; default configurable. Line width configurable. **Done** (in logical px, D-015). |
-| F-24 | **Numbered callouts**: a highlight with a number badge, numbered automatically 1, 2, 3, … | ✓ | ✓ | M | Like the A–D example, but with numbers. Deleting or reordering renumbers the rest. Badge in the frame colour, placed at a corner of the frame (choosable). Matches step lists in instructions ("1. Klicken Sie auf …"). **Done** (2026-10-25): tool N; numbers follow creation order and survive undo; deleting or switching a number off renumbers the rest; position or "Ohne Nummer" per frame. Reorder by dragging entries in the object list (Q-18), undoable. Near the image edge the number moves to the nearest corner where it is fully visible, and the "Nummer" field offers only such corners; the chosen corner returns when the frame moves away from the edge. |
+| F-24 | **Numbered callouts**: a highlight with a number badge, numbered automatically 1, 2, 3, … | ✓ | ✓ | M | Like the A–D example, but with numbers. Deleting or reordering renumbers the rest. Badge in the frame colour, placed at a corner of the frame (choosable). Matches step lists in instructions ("1. Klicken Sie auf …"). **Done** (2026-10-25): tool N; numbers follow creation order and survive undo; deleting or switching a number off renumbers the rest; position or "Ohne Nummer" per frame. Reorder by dragging entries in the object list (Q-18), undoable. Near the image edge the number moves to the nearest corner where it is fully visible, and the "Nummer" field offers only such corners; the chosen corner returns when the frame moves away from the edge. **First number** (2026-11-05, user feedback): "Beginnt bei" under "Nummer" in the panel sets the number the image starts from (1–999), so an instruction continues its numbering on the next screenshot; per image, undoable; a new image starts at 1 again, or, with "Beim nächsten Bild weiterzählen" (a setting, off by default), after the highest number of the previous image (kept across "Editor leeren", not across a restart); three digits get a smaller font in the badge. |
 | F-25 | **Text**: free text with colour and font size | ✓ | ✓ | M | Editable afterwards; optional background box for legibility. **Done** (2026-10-26, D-026): tool T, click and type on the canvas, double click edits; colour, size, bold and box (none, white, coloured) in the panel; one undo step per edit. |
 | F-26 | **Pixelate or blur** a selected area | ✓ | ✓ | S | Choice per area. Strength adjustable. The export contains only the obscured pixels, never the original. **Done** (2026-10-25, D-018): tool P, Alt for blur; kind and light/medium/strong in the panel; movable, resizable, undoable. |
 | F-27 | **Dim the background**: darken and/or slightly blur everything except the highlights | ✓ | ✓ | M | Like the "Enter code" example: highlights keep full brightness. One global switch with strength sliders; the cut-outs follow the highlight frames automatically. **Done** (2026-10-25, D-016): switch in the tool rail (always 45 %, no blur); while on, three buttons above it for no, light (1 px) and strong (3 px) blur, so the switch never moves. Strength and blur sliders only in the advanced mode (settings, F2). Undoable; transparent window corners stay transparent. |
@@ -68,14 +68,15 @@ Not on the original list, added and confirmed on 2026-10-25 (Q-11).
 | F-44 | Arrows (WinSnap has them) | ✓ | ✓ | **Done** (2026-10-26, D-028): tool A, drag from start to tip, Shift for 45°; both ends draggable; colour and line width. |
 | F-45 | Tray icon | ✓ | ◐ needs the AppIndicator extension (installed on Zorin) | **Done** (2026-10-26, D-030): capture, open the editor, settings and quit from the tray menu; closing or Escape keeps the app in the tray (setting). |
 | F-48 | Command line: `--capture-window`, `--capture-region`, `--capture-screen`, `--open`, `--delay <s>` (issue #13) | ✓ | ✓ | **Done** (2026-10-27, D-034): for key bindings of the desktop (hyprland.conf `bind`, GNOME custom shortcuts, Windows shortcuts). Without `--open` the capture goes straight to the save folder and its path is printed; with `--open` it appears in the editor. A running app does the capture itself. |
+| F-49 | Updates and downgrades from the GitHub releases | ✓ installs itself (portable ZIP) | ◐ hint with the steps (Nix, built from source) | **Done** (2026-11-03, D-037): check at start at most once a day (setting), button "Update x.y.z" in the top bar, settings tab "Updates" with "Jetzt suchen", pre-releases on request, and every published version to install, older ones included. |
 
 ## Video
 
-Added on 2026-11-11 after issue #17, for short tutorial videos (D-036).
+Added on 2026-11-11 after issue #17, for short tutorial videos (D-039).
 
 | ID | Feature | Hyprland | Windows | GNOME | Effort | Status |
 |---|---|---|---|---|---|---|
-| F-50 | **Video recording** of one window or one monitor (or all monitors), with the mouse pointer, without audio | ✓ (window only on Hyprland; Sway & co.: screen) | ✓ | ◐ Ext., spike first (Q-25) | L | Planned. Order: Hyprland, then Windows, then GNOME and the portal; macOS with its backend. |
+| F-50 | **Video recording** of one window or one monitor (or all monitors), with the mouse pointer, without audio | ✓ (window only on Hyprland; Sway & co.: screen) | ✓ | ◐ Ext., spike first (Q-27) | L | Planned. Order: Hyprland, then Windows, then GNOME and the portal; macOS with its backend. |
 | F-51 | **Trim** a recording: cut off the start and the end before saving | ✓ | ✓ | ✓ | M | Planned, part of the first version of F-50. |
 
 ### F-50 Video recording
@@ -87,7 +88,7 @@ Added on 2026-11-11 after issue #17, for short tutorial videos (D-036).
 5. The trim window opens (F-51); "Speichern" writes the MP4 with the naming pattern of F-41 into the save folder, "Verwerfen" deletes it.
 
 - **Format:** MP4 with H.264 only, 30 fps, no audio. The size is the picked window or monitor at the start, in physical pixels (rounded to even numbers, which H.264 needs).
-- **Window resized during the recording:** each frame is scaled into the start size, keeping the aspect ratio; the rest stays black (Q-28).
+- **Window resized during the recording:** each frame is scaled into the start size, keeping the aspect ratio; the rest stays black (Q-30).
 - **Pointer:** visible in the video, as the platform draws it. Images stay without pointer (F-05).
 - **No editor:** videos do not go into the image editor; annotations are not planned for videos.
 
@@ -96,7 +97,7 @@ Added on 2026-11-11 after issue #17, for short tutorial videos (D-036).
 - Preview of the recording with play/pause, a timeline with two handles for start and end, the current position as time, and the frame under the handle while dragging.
 - Arrow keys move the selected handle by one frame, Shift + arrow keys by one second; Space plays and pauses.
 - "Speichern" writes only the chosen range, "Verwerfen" deletes the recording, "Ganz speichern" skips the trimming. The untrimmed recording stays in a temporary folder until the window is closed.
-- How exactly the cut is made (re-encode, or cut at key frames) is decided in phase 1 (Q-27).
+- How exactly the cut is made (re-encode, or cut at key frames) is decided in phase 1 (Q-29).
 
 ## Keyboard shortcuts
 
@@ -115,7 +116,7 @@ Modelled on [WinSnap's shortcuts](https://www.ntwind.com/software/winsnap/shortc
 - **GNOME:** registered by the extension (D-011). GNOME itself uses Print, Shift + Print and Alt + Print for its screenshot UI; the extension takes them over while enabled (Q-14).
 - **Windows:** **Done** (2026-10-27, D-035): `RegisterHotKey`, settings tab "Tastenkürzel" (change, switch off, "Standard", taken keys marked). Windows 11 opens the Snipping Tool on Print by default; the app says so once at start with a button to the Windows setting.
 - **macOS:** Macs have no Print key; the defaults there are still open (Q-16).
-- **Hyprland and other desktops without our extension:** the desktop's own key bindings run the command line (F-48), e.g. `bind = , Print, exec, nsl-snap --capture-region`.
+- **Hyprland and other desktops without our extension:** the desktop's own key bindings run the command line (F-48), e.g. `bind = , Print, exec, snapslash --capture-region`.
 - Not adopted: Ctrl + Print (active application, all its windows) and Ctrl + Shift + Print (multi-object selection), because these capture modes are not in our scope.
 
 ### F-46 Shortcuts in the app
@@ -165,6 +166,6 @@ Not adopted from WinSnap: print (Ctrl + P, Ctrl + Shift + P), thumbnail copy (Ct
 ## Not planned
 
 - Scrolling capture (not possible on Wayland, see 03-platform-capabilities.md).
-- GIF, WebM or other video formats; audio in videos; free regions as video (F-50, D-036).
+- GIF, WebM or other video formats; audio in videos; free regions as video (F-50, D-039).
 - Including the mouse pointer in images (F-05).
 - Shadow, background or margin around captures (former F-43): the instruction pages add the shadow via CSS (D-004).

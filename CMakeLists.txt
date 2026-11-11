@@ -1,9 +1,16 @@
 cmake_minimum_required(VERSION 3.21)
 
-project(NslSnap VERSION 0.1.0 LANGUAGES CXX)
+project(Snapslash VERSION 0.2.0 LANGUAGES CXX)
 
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
+
+# `cmake --install`: the installed program keeps the path to the Qt it was
+# built with (e.g. ~/Qt/6.8.3/gcc_64/lib). CMake would otherwise remove it,
+# and the program would not start, or pick up the distribution's older Qt.
+if(NOT DEFINED CMAKE_INSTALL_RPATH_USE_LINK_PATH)
+    set(CMAKE_INSTALL_RPATH_USE_LINK_PATH ON)
+endif()
 
 # Qt 6.8 LTS, installed separately (docs/07-development-setup.md).
 # Network: QLocalSocket for the single instance and Hyprland's socket.
@@ -11,7 +18,7 @@ set(NSL_QT_COMPONENTS Widgets Svg Network)
 if(LINUX)
     list(APPEND NSL_QT_COMPONENTS DBus)
 endif()
-find_package(Qt6 6.8 REQUIRED COMPONENTS ${NSL_QT_COMPONENTS} Test)
+find_package(Qt6 6.8 REQUIRED COMPONENTS ${NSL_QT_COMPONENTS} Test LinguistTools)
 qt_standard_project_setup()
 
 # Everything except main() lives in a library, so the tests can link it.
@@ -24,6 +31,8 @@ add_library(nsl_snap_core STATIC
     src/app/FileNames.h
     src/app/GlobalHotkeys.cpp
     src/app/GlobalHotkeys.h
+    src/app/Language.cpp
+    src/app/Language.h
     src/app/MainWindow.cpp
     src/app/MainWindow.h
     src/app/PlatformTheme.cpp
@@ -38,7 +47,11 @@ add_library(nsl_snap_core STATIC
     src/app/SingleInstance.h
     src/app/ToolRail.cpp
     src/app/ToolRail.h
+    src/app/UpdateDialog.cpp
+    src/app/UpdateDialog.h
     src/capture/CaptureBackend.cpp
+    src/capture/CaptureHints.cpp
+    src/capture/CaptureHints.h
     src/capture/CaptureBackend.h
     src/capture/CaptureOverlay.cpp
     src/capture/CaptureOverlay.h
@@ -92,11 +105,28 @@ add_library(nsl_snap_core STATIC
     src/ui/ColorWheel.h
     src/ui/Icons.cpp
     src/ui/Icons.h
+    src/ui/Placement.cpp
+    src/ui/Placement.h
     src/ui/Theme.cpp
     src/ui/Theme.h
+    src/update/Releases.cpp
+    src/update/Releases.h
+    src/update/UpdateChecker.cpp
+    src/update/UpdateChecker.h
+    src/update/UpdateInstaller.cpp
+    src/update/UpdateInstaller.h
+    src/update/Version.cpp
+    src/update/Version.h
 )
 target_include_directories(nsl_snap_core PUBLIC src)
-target_compile_definitions(nsl_snap_core PUBLIC NSL_VERSION="${PROJECT_VERSION}")
+# The version the app reports and compares with the releases (D-037). The
+# release workflow sets the suffix for pre-releases (tag v0.3.0-beta.1).
+set(NSL_VERSION_SUFFIX "" CACHE STRING "Pre-release part of the version, e.g. beta.1")
+set(NSL_VERSION "${PROJECT_VERSION}")
+if(NSL_VERSION_SUFFIX)
+    string(APPEND NSL_VERSION "-${NSL_VERSION_SUFFIX}")
+endif()
+target_compile_definitions(nsl_snap_core PUBLIC NSL_VERSION="${NSL_VERSION}")
 target_link_libraries(nsl_snap_core PUBLIC Qt6::Widgets Qt6::Svg Qt6::Network)
 
 # Image processing runs over millions of pixels; keep it fast in debug
@@ -111,6 +141,13 @@ qt_add_resources(nsl_snap_core "icons"
     PREFIX "/icons"
     BASE "resources/icons"
     FILES ${NSL_ICONS}
+)
+
+# The script that swaps the app folder on Windows (UpdateInstaller, D-037).
+qt_add_resources(nsl_snap_core "update"
+    PREFIX "/update"
+    BASE "resources/update"
+    FILES resources/update/swap-folder.ps1
 )
 
 # Platform capture backends (docs/01-architecture.md).
@@ -192,12 +229,39 @@ if(WIN32)
     target_compile_definitions(nsl_snap_core PUBLIC NSL_HAVE_WINDOWS_BACKEND)
 endif()
 
-qt_add_executable(nsl-snap src/main.cpp)
-target_link_libraries(nsl-snap PRIVATE nsl_snap_core)
+# Translations (D-038): the texts in the code are German; lrelease turns
+# translations/*.ts into .qm files in the resources (":/i18n/"), which
+# Language::install() loads. scripts/update-translations.sh refreshes the
+# .ts files from the code with lupdate.
+qt_add_lrelease(TS_FILES translations/snapslash_en.ts QM_FILES_OUTPUT_VARIABLE NSL_QM_FILES)
+qt_add_resources(nsl_snap_core "translations"
+    PREFIX "/i18n"
+    BASE ${CMAKE_CURRENT_BINARY_DIR}
+    FILES ${NSL_QM_FILES}
+)
+
+qt_add_executable(snapslash src/main.cpp)
+if(WIN32)
+    # A GUI program: no console window next to the app (main.cpp borrows the
+    # terminal it was started from, if any). The resource file gives the
+    # .exe its icon in Explorer and the taskbar (D-036).
+    set_target_properties(snapslash PROPERTIES WIN32_EXECUTABLE TRUE)
+    target_sources(snapslash PRIVATE resources/windows/snapslash.rc)
+endif()
+target_link_libraries(snapslash PRIVATE nsl_snap_core)
 
 # `cmake --install`, used by packages (e.g. the Nix package in nix/).
 include(GNUInstallDirs)
-install(TARGETS nsl-snap RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR})
+install(TARGETS snapslash RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR})
+if(LINUX)
+    # Desktop entry and icon, so launchers list the app (D-036). The icon
+    # name matches the app id (QGuiApplication::desktopFileName in main.cpp).
+    install(FILES resources/ch.netslash.Snapslash.desktop
+        DESTINATION ${CMAKE_INSTALL_DATADIR}/applications)
+    install(FILES resources/icons/logo.svg
+        DESTINATION ${CMAKE_INSTALL_DATADIR}/icons/hicolor/scalable/apps
+        RENAME ch.netslash.Snapslash.svg)
+endif()
 
 enable_testing()
 add_subdirectory(tests)

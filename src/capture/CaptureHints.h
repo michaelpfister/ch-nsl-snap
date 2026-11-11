@@ -1,0 +1,23 @@
+#pragma once
+
+#include <QString>
+#include <QVariantMap>
+
+// The hints along the top of the capture overlay and under the countdown,
+// in the app's language (D-038). The app's own overlay draws them; the GNOME
+// extension gets them with every capture, so it holds no texts of its own.
+namespace CaptureHints {
+
+QString window();
+QString screens(); // with more than one monitor
+QString screen();  // with one monitor
+QString regionFirstCorner();
+QString regionSecondCorner();
+QString regionDrag();
+QString countdown();
+
+// All of them for the extension's Capture option "hints" (a{sv} of strings), keyed as
+// overlay.js and countdown.js expect.
+QVariantMap forExtension();
+
+} // namespace CaptureHints

@@ -1,6 +1,6 @@
 # Development setup
 
-How to set up a machine to build NSL Snap (D-013: C++20, Qt 6.8 LTS, CMake). Linux (Ubuntu/Zorin and NixOS) and Windows are described; macOS follows when its backend is built.
+How to set up a machine to build Snapslash (D-013: C++20, Qt 6.8 LTS, CMake). Linux (Ubuntu/Zorin and NixOS) and Windows are described; macOS follows when its backend is built.
 
 ## Linux (Zorin OS 18 / Ubuntu 24.04, GNOME 46)
 
@@ -38,7 +38,7 @@ python3 -m venv ~/Qt/aqt-venv
 cmake -S . -B build -G Ninja -DCMAKE_PREFIX_PATH=$HOME/Qt/6.8.3/gcc_64 -DCMAKE_BUILD_TYPE=Debug
 cmake --build build
 ctest --test-dir build --output-on-failure
-./build/nsl-snap
+./build/snapslash
 ```
 
 ### Continuous integration
@@ -67,7 +67,7 @@ See [06-poc-gnome-window-capture.md](06-poc-gnome-window-capture.md): `scripts/d
 A minimal Qt program built with this setup reported:
 
 - Qt 6.8.3, platform plugin `wayland`
-- NSL Snap extension reachable over D-Bus, `Version` = 1
+- Snapslash extension reachable over D-Bus, `Version` = 1
 - WebP supported
 - No missing libraries for the Wayland and X11 platform plugins
 
@@ -80,7 +80,7 @@ sudo apt install sway grim wtype
 export XDG_RUNTIME_DIR=$(mktemp -d) && chmod 700 $XDG_RUNTIME_DIR
 WLR_BACKENDS=headless WLR_HEADLESS_OUTPUTS=2 WLR_LIBINPUT_NO_DEVICES=1 WLR_RENDERER=pixman dbus-run-session -- sway &
 export WAYLAND_DISPLAY=wayland-1 QT_QPA_PLATFORM=wayland
-./build/nsl-snap &
+./build/snapslash &
 wtype -k Shift_L -M ctrl -k 5 -m ctrl   # region capture; arrow keys and Enter select
 grim screen.png                          # what the compositor shows
 ```
@@ -90,29 +90,75 @@ grim screen.png                          # what the compositor shows
 - Headless Sway has no pointer; wlrctl's virtual pointer did not reach the app. Use the keyboard (D-023).
 - The portal backend (D-032) needs `xdg-desktop-portal`, `xdg-desktop-portal-wlr`, `pipewire` and an Access portal such as `xdg-desktop-portal-gtk`, plus `~/.config/xdg-desktop-portal/sway-portals.conf` with `[preferred]`, `default=wlr;gtk`.
 
+### Translations
+
+The texts in the code are German; English is in `translations/snapslash_en.ts` (D-038). After adding or changing a text:
+
+```bash
+scripts/update-translations.sh
+```
+
+The new texts appear in the file as `type="unfinished"`: translate them in Qt Linguist (`~/Qt/6.8.3/gcc_64/bin/linguist translations/snapslash_en.ts`) or directly in the file, then commit it with the change. CI fails while the file is out of date or a text is untranslated. To try the English interface: settings, "Allgemein", "Sprache", then restart the app.
+
+## Installing on Linux
+
+For using Snapslash rather than working on it, on a Linux without Nix (Ubuntu, Zorin OS, …). There is no package for these distributions yet: build a release from source and install it for your user. System packages and Qt as in steps 1 and 2 above, then:
+
+```bash
+git clone https://github.com/michaelpfister/ch-nsl-snap.git ~/snapslash
+cd ~/snapslash
+git checkout v0.2.0-beta.4
+cmake -S . -B build -G Ninja -DCMAKE_PREFIX_PATH=$HOME/Qt/6.8.3/gcc_64 -DCMAKE_BUILD_TYPE=Release -DNSL_VERSION_SUFFIX=beta.4
+cmake --build build
+cmake --install build --prefix ~/.local
+scripts/dev-install.sh
+```
+
+- `NSL_VERSION_SUFFIX` is the part of the tag after the `-` (`beta.4`); leave it out for a release without one. The app then reports the version it was built from, which its update check compares with the releases (D-037).
+- `cmake --install` puts `snapslash` into `~/.local/bin`, the desktop entry and the icon into `~/.local/share`, so the app shows up among the applications with its quick actions (D-036). The installed program keeps the path to Qt in `~/Qt` (`CMAKE_INSTALL_RPATH_USE_LINK_PATH`, on by default).
+- `scripts/dev-install.sh` links the GNOME extension from the checkout, so keep the folder. Log out and in again afterwards: GNOME Shell only loads new extensions at login. A login also puts `~/.local/bin` on the `PATH` if the folder did not exist before.
+- Another version later: the same steps with its tag; the app's settings tab "Updates" shows them for the chosen version.
+
 ## NixOS (Hyprland)
 
 The repository is a Nix flake (`flake.nix`, `nix/package.nix`). It builds with nixpkgs' own Qt (6.8 or later; tested with 6.12 on 2026-10-27), with LayerShellQt, and wraps the binary with the GTK schema paths (D-033):
 
 ```bash
 nix run github:michaelpfister/ch-nsl-snap        # or, in a checkout:
-nix build && ./result/bin/nsl-snap
+nix build && ./result/bin/snapslash
 nix develop                                      # shell with all build tools, then cmake as above
 ```
 
-In a NixOS configuration: add the flake as an input and `inputs.nsl-snap.packages.${pkgs.system}.default` to `environment.systemPackages`.
+In a NixOS configuration: add the flake as an input and `inputs.snapslash.packages.${pkgs.system}.default` to `environment.systemPackages`.
 
 Hyprland settings that matter (hyprland.conf):
 
-- With `ecosystem { enforce_permissions = true }` (off by default) Hyprland asks at the first capture, or a rule allows it: `permission = .*nsl-snap.*, screencopy, allow` (a regular expression on the binary's path; on NixOS the binary is `/nix/store/…-nsl-snap-…/bin/.nsl-snap-wrapped`). Newer Hyprland versions with the Lua configuration write `hl.permission({ binary = ".*nsl-snap.*", type = "screencopy", mode = "allow" })`. Rules are read at Hyprland's start only.
-- Keys for capturing, through the command line (F-48, D-034; `nsl-snap --help` lists the options):
+- With `ecosystem { enforce_permissions = true }` (off by default) Hyprland asks at the first capture, or a rule allows it: `permission = .*snapslash.*, screencopy, allow` (a regular expression on the binary's path; on NixOS the binary is `/nix/store/…-snapslash-…/bin/.snapslash-wrapped`). Newer Hyprland versions with the Lua configuration write `hl.permission({ binary = ".*snapslash.*", type = "screencopy", mode = "allow" })`. Rules are read at Hyprland's start only.
+- Keys for capturing, through the command line (F-48, D-034; `snapslash --help` lists the options):
 
   ```
-  exec-once = nsl-snap                                  # optional: keep it in the tray
-  bind = , Print, exec, nsl-snap --capture-region       # region, saved to the save folder
-  bind = SHIFT, Print, exec, nsl-snap --capture-screen
-  bind = ALT, Print, exec, nsl-snap --capture-window --open   # window, into the editor
+  exec-once = snapslash                                  # optional: keep it in the tray
+  bind = , Print, exec, snapslash --capture-region       # region, saved to the save folder
+  bind = SHIFT, Print, exec, snapslash --capture-screen
+  bind = ALT, Print, exec, snapslash --capture-window --open   # window, into the editor
   ```
+
+## Releasing
+
+A release is a version tag; `.github/workflows/release.yml` does the rest (D-037):
+
+1. Set the version in `CMakeLists.txt` (`project(Snapslash VERSION 0.2.0 ...)`) and in `nix/package.nix` (`version = "0.2.0";`). For a pre-release `nix/package.nix` carries the whole version (`"0.3.0-beta.1"`), CMake only the numbers (`0.3.0`).
+2. Commit, merge into `main`, then tag that commit and push the tag:
+
+   ```bash
+   git tag v0.2.0
+   git push origin v0.2.0
+   ```
+
+3. The workflow checks the tag against both versions, builds the Windows ZIPs (x64, ARM64), writes `SHA256SUMS.txt` and creates the release with notes generated from the merged pull requests. A tag with `-` (`v0.3.0-beta.1`) becomes a pre-release, which the app offers only with the setting "Auch Vorabversionen anbieten".
+4. Edit the notes on GitHub if needed: the app shows them in its update dialog (Markdown).
+
+To try an update before the first real one: release a pre-release, start the ZIP of an older pre-release, and enable pre-releases in the settings.
 
 ## Windows 11 (x64 and ARM64)
 
@@ -147,8 +193,8 @@ cmake -S . -B build -G Ninja -DCMAKE_PREFIX_PATH=C:\Qt\6.8.3\msvc2022_arm64 -DCM
 cmake --build build
 set PATH=C:\Qt\6.8.3\msvc2022_arm64\bin;%PATH%
 ctest --test-dir build --output-on-failure
-build\nsl-snap.exe
+build\snapslash.exe
 ```
 
-The `PATH` line lets the app and the tests find the Qt DLLs. The tests draw offscreen; on Windows that platform looks for fonts in Qt's own `lib\fonts` folder, which Qt does not ship, so `ctest` points `QT_QPA_FONTDIR` to `C:\Windows\Fonts` (`tests/CMakeLists.txt`). Set it yourself when starting a test program directly. Alternatively `windeployqt build\nsl-snap.exe` copies them next to the executable, so it also starts with a double click. The Qt DLLs in `build` then look for plugins there and find only `platforms\qwindows`, so the offscreen tests stop with a "no Qt platform plugin" dialog; set `QT_PLUGIN_PATH=C:\Qt\6.8.3\msvc2022_arm64\plugins` before `ctest`.
+The `PATH` line lets the app and the tests find the Qt DLLs. The tests draw offscreen; on Windows that platform looks for fonts in Qt's own `lib\fonts` folder, which Qt does not ship, so `ctest` points `QT_QPA_FONTDIR` to `C:\Windows\Fonts` (`tests/CMakeLists.txt`). Set it yourself when starting a test program directly. Alternatively `windeployqt build\snapslash.exe` copies them next to the executable, so it also starts with a double click. The Qt DLLs in `build` then look for plugins there and find only `platforms\qwindows`, so the offscreen tests stop with a "no Qt platform plugin" dialog; set `QT_PLUGIN_PATH=C:\Qt\6.8.3\msvc2022_arm64\plugins` before `ctest`.
 

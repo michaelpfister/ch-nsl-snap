@@ -55,6 +55,17 @@ jobs:
           QT_QPA_PLATFORM: offscreen
         run: ctest --test-dir build --output-on-failure
 
+      # Every text in the code has its English translation (D-038): lupdate
+      # must not change translations/snapslash_en.ts, and nothing in it may
+      # be unfinished (tst_language checks that).
+      - name: Translations up to date
+        run: |
+          LUPDATE="$QT_ROOT_DIR/bin/lupdate" scripts/update-translations.sh
+          git diff --exit-code translations/ || {
+            echo "::error::translations/snapslash_en.ts is out of date: run scripts/update-translations.sh, translate the new texts and commit the file"
+            exit 1
+          }
+
   # No capture backend on Windows yet; this checks that the editor builds
   # and its tests pass with MSVC on both Windows architectures.
   windows:

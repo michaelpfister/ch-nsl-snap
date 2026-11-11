@@ -1,0 +1,32 @@
+[Desktop Entry]
+Type=Application
+Name=Snapslash
+GenericName=Bildschirmfoto
+GenericName[en]=Screenshot tool
+Comment=Fenster, Bereiche und Bildschirme aufnehmen und beschriften
+Comment[en]=Capture and annotate windows, regions and screens
+Exec=snapslash
+Icon=ch.netslash.Snapslash
+Terminal=false
+StartupNotify=true
+StartupWMClass=snapslash
+SingleMainWindow=true
+Categories=Graphics;
+Keywords=Screenshot;Bildschirmfoto;Aufnahme;Fenster;Bereich;
+Keywords[en]=Screenshot;Capture;Window;Region;Screen;
+Actions=capture-window;capture-region;capture-screen;
+
+[Desktop Action capture-window]
+Name=Fenster aufnehmen
+Name[en]=Capture window
+Exec=snapslash --capture-window --open
+
+[Desktop Action capture-region]
+Name=Bereich aufnehmen
+Name[en]=Capture region
+Exec=snapslash --capture-region --open
+
+[Desktop Action capture-screen]
+Name=Bildschirm aufnehmen
+Name[en]=Capture screen
+Exec=snapslash --capture-screen --open

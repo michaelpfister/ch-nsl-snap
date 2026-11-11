@@ -6,6 +6,7 @@
 #include "app/Settings.h"
 #include "app/SettingsDialog.h"
 #include "app/ToolRail.h"
+#include "app/UpdateDialog.h"
 #include "capture/CaptureBackend.h"
 #include "editor/ArrowItem.h"
 #include "editor/Commands.h"
@@ -19,6 +20,8 @@
 #include "imaging/WindowImage.h"
 #include "ui/Icons.h"
 #include "ui/Theme.h"
+#include "update/UpdateChecker.h"
+#include "update/UpdateInstaller.h"
 
 #include <QAction>
 #include <QCloseEvent>
@@ -51,6 +54,7 @@
 #include <QUrl>
 
 #include <algorithm>
+#include <utility>
 
 #ifdef NSL_HAVE_GNOME_BACKEND
 #include <QDBusConnection>
@@ -105,7 +109,7 @@ MainWindow::MainWindow(QWidget *parent)
     , m_properties(new PropertiesPanel(this))
     , m_capture(createCaptureBackend())
 {
-    setWindowTitle(QStringLiteral("NSL Snap"));
+    setWindowTitle(QStringLiteral("Snapslash"));
     resize(1280, 800);
 
     // Layout: top bar above [tool rail | editor | properties].
@@ -140,6 +144,15 @@ MainWindow::MainWindow(QWidget *parent)
     connect(scene, &EditorScene::annotationsChanged, this, &MainWindow::updateObjectList);
     connect(m_undoStack, &QUndoStack::indexChanged, this, &MainWindow::onSelectionChanged);
     connect(m_properties, &PropertiesPanel::frameStyleChanged, this, &MainWindow::onFrameStyleChanged);
+    // The first number of the numbering (F-24): the panel changes it through
+    // an undo step; the scene's value (undo, a new image) shows in the panel.
+    connect(m_properties, &PropertiesPanel::firstNumberChanged, this, [this](int number) {
+        m_undoStack->push(new SetFirstNumberCommand(m_view->editorScene(), number));
+    });
+    connect(m_view->editorScene(), &EditorScene::firstNumberChanged, m_properties, &PropertiesPanel::setFirstNumber);
+    m_properties->setContinueNumbering(Settings::continueNumbering());
+    connect(m_properties, &PropertiesPanel::continueNumberingChanged, this,
+            [](bool enabled) { Settings::setContinueNumbering(enabled); });
     connect(m_properties, &PropertiesPanel::redactStyleChanged, this, &MainWindow::onRedactStyleChanged);
     connect(m_properties, &PropertiesPanel::replaceStyleChanged, this, &MainWindow::onReplaceStyleChanged);
     connect(m_properties, &PropertiesPanel::textStyleChanged, this, &MainWindow::onTextStyleChanged);
@@ -262,6 +275,16 @@ MainWindow::MainWindow(QWidget *parent)
     createTrayIcon();
     createShortcuts();
     createGlobalHotkeys();
+
+    m_updates = new UpdateChecker(this);
+    connect(m_updates, &UpdateChecker::finished, this, &MainWindow::onReleasesLoaded);
+    connect(m_updates, &UpdateChecker::failed, this, [this](const QString &message) {
+        // At start a failed check stays silent; after a click it is said.
+        if (std::exchange(m_openUpdateWhenLoaded, false))
+            QMessageBox::warning(this, tr("Update"), message);
+    });
+    // A few seconds after start, so it never slows down the first capture.
+    QTimer::singleShot(5000, this, &MainWindow::checkForUpdatesAtStart);
     onToolChanged(m_toolRail->currentTool());
     updateActions();
     updateZoomLabel();
@@ -285,13 +308,8 @@ QWidget *MainWindow::createTopBar()
     layout->setContentsMargins(12, 8, 12, 8);
     layout->setSpacing(12);
 
-    // Logo and name.
-    m_logo = new QLabel(bar);
-    auto *name = new QLabel(QStringLiteral("NSL Snap"), bar);
-    name->setObjectName(QStringLiteral("AppName"));
-    layout->addWidget(m_logo);
-    layout->addWidget(name);
-    layout->addSpacing(8);
+    // No logo or name here: the window's title bar (or the desktop's header)
+    // already shows both (D-036).
 
     // Capture modes (F-01–F-03). The highlighted one is the last used mode.
     auto *modes = new QFrame(bar);
@@ -395,6 +413,12 @@ QWidget *MainWindow::createTopBar()
     zoomLayout->addWidget(m_fitButton);
     layout->addWidget(zoom);
 
+    // Shown once a check found a newer version (F-49).
+    m_updateButton = textButton(QString(), QStringLiteral("secondary"), bar);
+    m_updateButton->setVisible(false);
+    connect(m_updateButton, &QPushButton::clicked, this, &MainWindow::openAvailableUpdate);
+    layout->addWidget(m_updateButton);
+
     m_settingsButton = iconButton(tr("Einstellungen (F2)"), bar);
     connect(m_settingsButton, &QToolButton::clicked, this, &MainWindow::showSettings);
     layout->addWidget(m_settingsButton);
@@ -469,7 +493,7 @@ void MainWindow::createTrayIcon()
     if (!QSystemTrayIcon::isSystemTrayAvailable())
         return;
     m_tray = new QSystemTrayIcon(QIcon(QStringLiteral(":/icons/logo.svg")), this);
-    m_tray->setToolTip(tr("NSL Snap"));
+    m_tray->setToolTip(tr("Snapslash"));
     auto *menu = new QMenu(this);
     menu->addAction(tr("Fenster aufnehmen"), this, &MainWindow::captureWindow);
     menu->addAction(tr("Bereich aufnehmen"), this, &MainWindow::captureRegion);
@@ -528,10 +552,10 @@ void MainWindow::showPrintKeyHint()
 
     QMessageBox box(QMessageBox::Information, tr("Druck-Taste"),
                     tr("Windows öffnet mit der Druck-Taste das Snipping Tool, deshalb erreicht die Taste "
-                       "NSL Snap nicht."), QMessageBox::NoButton, this);
-    box.setInformativeText(tr("Damit die Druck-Taste mit NSL Snap aufnimmt, in den Windows-Einstellungen unter "
+                       "Snapslash nicht."), QMessageBox::NoButton, this);
+    box.setInformativeText(tr("Damit die Druck-Taste mit Snapslash aufnimmt, in den Windows-Einstellungen unter "
                               "«Barrierefreiheit › Tastatur» den Schalter zur Druck-Taste ausschalten. "
-                              "Die Tastenkürzel lassen sich auch in den Einstellungen von NSL Snap ändern."));
+                              "Die Tastenkürzel lassen sich auch in den Einstellungen von Snapslash ändern."));
     QPushButton *open = box.addButton(tr("Windows-Einstellung öffnen"), QMessageBox::AcceptRole);
     box.addButton(tr("Später"), QMessageBox::RejectRole);
     box.setDefaultButton(open);
@@ -554,7 +578,7 @@ bool MainWindow::hideToTray()
     hide();
     // Once, so nobody wonders where the app went.
     if (!Settings::trayHintShown()) {
-        m_tray->showMessage(tr("NSL Snap läuft weiter"),
+        m_tray->showMessage(tr("Snapslash läuft weiter"),
                             tr("Aufnehmen und Öffnen über das Symbol im Infobereich. "
                                "Beenden ebenfalls dort; das Verhalten lässt sich in den Einstellungen ändern."));
         Settings::setTrayHintShown(true);
@@ -567,7 +591,7 @@ void MainWindow::quit()
     // Unsaved work is not lost without a question.
     if (hasUnsavedChanges()) {
         showEditor();
-        if (!confirmDiscard(tr("NSL Snap beenden"), tr("Trotzdem beenden?")))
+        if (!confirmDiscard(tr("Snapslash beenden"), tr("Trotzdem beenden?")))
             return;
     }
     m_quitting = true;
@@ -581,7 +605,7 @@ void MainWindow::closeEvent(QCloseEvent *event)
         event->ignore();
         return;
     }
-    if (!m_quitting && hasUnsavedChanges() && !confirmDiscard(tr("NSL Snap beenden"), tr("Trotzdem beenden?"))) {
+    if (!m_quitting && hasUnsavedChanges() && !confirmDiscard(tr("Snapslash beenden"), tr("Trotzdem beenden?"))) {
         event->ignore();
         return;
     }
@@ -615,9 +639,6 @@ void MainWindow::keyPressEvent(QKeyEvent *event)
 
 void MainWindow::applyTheme(const Theme &theme)
 {
-    QIcon logo(QStringLiteral(":/icons/logo.svg"));
-    m_logo->setPixmap(logo.pixmap(QSize(26, 26)));
-
     // Segment buttons: muted when off, full text colour when on.
     m_windowButton->setIcon(Icons::toggleIcon(QStringLiteral("window"), theme.muted, theme.text));
     m_regionButton->setIcon(Icons::toggleIcon(QStringLiteral("region"), theme.muted, theme.text));
@@ -1135,8 +1156,13 @@ void MainWindow::loadImageFile(const QString &path)
 void MainWindow::setImage(const QImage &image, double scale, const QString &name, const QString &source)
 {
     // A new image starts a new document: older undo steps no longer apply.
+    rememberNextNumber();
     m_undoStack->clear();
     m_view->setImage(image, scale);
+    // Numbered from 1, or on from the previous image (F-24); a fresh
+    // document, so not an undo step.
+    if (Settings::continueNumbering())
+        m_view->editorScene()->setFirstNumber(m_nextFirstNumber);
     m_imageName = name;
     m_imageSource = source;
     m_savedPath.clear();
@@ -1144,6 +1170,15 @@ void MainWindow::setImage(const QImage &image, double scale, const QString &name
     updateImageInfo();
     updateActions();
     updateZoomLabel();
+}
+
+void MainWindow::rememberNextNumber()
+{
+    // Only an image that is still there tells where its numbers ended;
+    // after "Editor leeren" the number from before stays.
+    const EditorScene *scene = m_view->editorScene();
+    if (scene->hasImage())
+        m_nextFirstNumber = scene->nextFirstNumber();
 }
 
 void MainWindow::updateImageInfo()
@@ -1296,12 +1331,89 @@ void MainWindow::copyFilePath()
 void MainWindow::showSettings()
 {
     SettingsDialog dialog(m_hotkeys, this);
+    connect(&dialog, &SettingsDialog::releasesLoaded, this, &MainWindow::onReleasesLoaded);
+    connect(&dialog, &SettingsDialog::installRequested, this,
+            [this, &dialog](const Releases::Release &release) { showUpdate(release, &dialog); });
     connect(&dialog, &SettingsDialog::advancedModeChanged, m_properties, &PropertiesPanel::setAdvancedMode);
     connect(&dialog, &SettingsDialog::stylesReset, this, [this] {
         loadDefaultStyles();
         onSelectionChanged(); // the panel shows the defaults again
     });
     dialog.exec();
+}
+
+void MainWindow::checkForUpdatesAtStart()
+{
+    if (!Settings::checkForUpdates())
+        return;
+    // Known from an earlier check: show it now, without asking GitHub again.
+    showUpdateButton(Settings::availableUpdate());
+    if (UpdateChecker::isDue(Settings::lastUpdateCheck(), QDateTime::currentDateTimeUtc()))
+        m_updates->check();
+}
+
+void MainWindow::onReleasesLoaded(const QList<Releases::Release> &releases)
+{
+    Settings::setLastUpdateCheck(QDateTime::currentDateTimeUtc());
+    m_availableUpdate = Releases::newerThan(releases, Version::current(), Settings::offerPrereleases());
+    const QString version = m_availableUpdate ? m_availableUpdate->version.toString() : QString();
+    const bool isNew = !version.isEmpty() && version != Settings::availableUpdate();
+    Settings::setAvailableUpdate(version);
+    showUpdateButton(version);
+    // While the app waits in the tray, the tray says it, once per version.
+    if (isNew && m_tray && !isVisible())
+        m_tray->showMessage(tr("Update verfügbar"), tr("Snapslash %1 ist verfügbar.").arg(version));
+    if (std::exchange(m_openUpdateWhenLoaded, false)) {
+        if (m_availableUpdate)
+            showUpdate(*m_availableUpdate, this);
+        else
+            QMessageBox::information(this, tr("Update"), tr("Snapslash ist auf dem neusten Stand."));
+    }
+}
+
+void MainWindow::showUpdateButton(const QString &version)
+{
+    // A stored version that is no longer newer (installed in the meantime)
+    // shows nothing.
+    const std::optional<Version> parsed = Version::parse(version);
+    const bool show = parsed && *parsed > Version::current();
+    m_updateButton->setVisible(show);
+    if (show) {
+        m_updateButton->setText(tr("Update %1").arg(parsed->toString()));
+        m_updateButton->setToolTip(tr("Snapslash %1 ist verfügbar: anzeigen und installieren").arg(parsed->toString()));
+    }
+}
+
+void MainWindow::openAvailableUpdate()
+{
+    if (m_availableUpdate) {
+        showUpdate(*m_availableUpdate, this);
+        return;
+    }
+    // Only the version number is known from an earlier start: fetch the rest.
+    m_openUpdateWhenLoaded = true;
+    m_updates->check();
+}
+
+void MainWindow::showUpdate(const Releases::Release &release, QWidget *parent)
+{
+    UpdateDialog dialog(release, parent);
+    if (dialog.exec() != QDialog::Accepted || !dialog.readyToSwap())
+        return;
+    // The new version is unpacked; the swap needs the app to quit.
+    if (hasUnsavedChanges()) {
+        showEditor();
+        if (!confirmDiscard(tr("Neu starten"), tr("Trotzdem neu starten?"))) {
+            dialog.installer()->discard();
+            return;
+        }
+    }
+    if (!dialog.installer()->startSwap(QCoreApplication::applicationPid())) {
+        QMessageBox::warning(this, tr("Update"), tr("Das Update liess sich nicht starten (PowerShell fehlt)."));
+        return;
+    }
+    m_quitting = true;
+    QApplication::quit();
 }
 
 void MainWindow::clearEditor()
@@ -1311,6 +1423,7 @@ void MainWindow::clearEditor()
     // Only unsaved work needs a question (F-10).
     if (hasUnsavedChanges() && !confirmDiscard(tr("Editor leeren"), tr("Trotzdem leeren?")))
         return;
+    rememberNextNumber();
     m_undoStack->clear();
     m_view->clear();
     m_imageName.clear();

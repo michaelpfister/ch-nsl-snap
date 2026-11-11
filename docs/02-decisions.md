@@ -57,10 +57,11 @@ Each entry: context, decision, rationale, consequences. Entries marked **(assump
 **Decision:** `Capture` (formerly `PickWindow`, D-021) returns the PNG as a byte array over D-Bus. Saving, naming and copying to the clipboard is the app's job.
 **Rationale:** Keeps the extension small and free of settings. Even a 4K window as PNG stays far below D-Bus message limits.
 
-## D-007 Identifiers (assumption)
+## D-007 Identifiers
 
-**Decision:** Extension UUID `nsl-snap@netslash.ch`, D-Bus name `ch.netslash.Snap.Shell`, interface `ch.netslash.Snap1`, object path `/ch/netslash/Snap`.
-**Consequences:** Renaming the product later (Q-03) does not require changing these, but it is cheaper before the first public release.
+**Decision:** App id `ch.netslash.Snapslash` (desktop entry, icon name, `QGuiApplication::desktopFileName`) and command `snapslash` (D-036). The internal identifiers keep the working title: extension UUID `nsl-snap@netslash.ch`, its settings schema `org.gnome.shell.extensions.nsl-snap`, D-Bus name `ch.netslash.Snap.Shell`, interface `ch.netslash.Snap1`, object path `/ch/netslash/Snap`, and the app's local socket `ch.netslash.Snap.sock` (D-034).
+**Rationale:** Users never see the internal ones. A new extension UUID means installing the extension again, logging out and in, and losing its settings.
+**Consequences:** Renaming them stays possible until the extension is published (Q-06); the app and the extension then change together.
 
 ## D-008 PoC client in Python
 
@@ -103,7 +104,7 @@ Each entry: context, decision, rationale, consequences. Entries marked **(assump
 - The extension grows from a picker to a small capture UI, but still contains no editing logic.
 - A screen capture started from the app needs one click (or Enter); started by Shift + Print it needs none.
 - Window captures still contain no popup menus or tooltips: they are separate surfaces (Q-07). With region capture they are included.
-- The pointer is never composited into images (F-05). Videos show it (D-036).
+- The pointer is never composited into images (F-05). Videos show it (D-039).
 
 ## D-012 Object-based editor with a command stack
 
@@ -340,7 +341,7 @@ Each entry: context, decision, rationale, consequences. Entries marked **(assump
 **Decision:**
 - **Feedback:** buttons get darker while pressed; after copying or saving, the button shows a check mark and "Kopiert" / "Gespeichert" in green for 1.6 s, with the same width, plus the message in the status bar.
 - **Saving:** the "Speichern" button (and Ctrl+Shift+S) opens the save dialog with the folder and a name from the pattern filled in; it starts in the folder of the last save of the session, else in the folder from the settings. **Ctrl+S** keeps saving directly into the folder from the settings, like WinSnap (F-46).
-- **Settings** (now in tabs: Allgemein, Speichern, Farben und Stile): save folder (default `~/Pictures/NSL Snap`) and file name pattern with `{Datum}`, `{Zeit}` and `{Titel}` (default `{Datum}_{Zeit}_{Titel}`, as before) with a live example. Characters that are not allowed in file names on any platform become `_` (`FileNames`).
+- **Settings** (now in tabs: Allgemein, Speichern, Farben und Stile): save folder (default `~/Pictures/Snapslash`) and file name pattern with `{Datum}`, `{Zeit}` and `{Titel}` (default `{Datum}_{Zeit}_{Titel}`, as before) with a live example. Characters that are not allowed in file names on any platform become `_` (`FileNames`).
 - **Clearing:** a bin button in the top bar next to undo/redo (Ctrl+Delete as before). It asks only if the image was neither saved nor copied since the last change (undo stack clean state); opened files count as saved. Quitting asks the same way.
 - **Tray icon** (F-45): menu with the three capture modes, "Editor öffnen", "Einstellungen" and "Beenden"; a click opens the editor. Closing the window or Escape (with nothing left to cancel) hides it to the tray, once with a notice; a setting turns this off. A capture started from the tray and cancelled leaves the window hidden. Without a tray (GNOME without the AppIndicator extension) the app behaves as before.
 **Rationale:** Visible confirmation is what makes the two most used buttons trustworthy; the dialog is the expected behaviour of a "Speichern" button, while the shortcut stays fast for experienced users.
@@ -362,7 +363,7 @@ Each entry: context, decision, rationale, consequences. Entries marked **(assump
 - ext-image-copy-capture (the newer, compositor-neutral protocol): not yet offered by every Hyprland version in use; worth a look later (Q-22).
 - Window capture on other wlroots desktops: they offer no window list to apps.
 **Consequences:**
-- Hyprland with `ecosystem:enforce_permissions = true` asks once whether NSL Snap may capture (`screencopy`), or needs a `permission` rule for its binary; a refused permission gives a black picture with "permission denied".
+- Hyprland with `ecosystem:enforce_permissions = true` asks once whether Snapslash may capture (`screencopy`), or needs a `permission` rule for its binary; a refused permission gives a black picture with "permission denied".
 - Tested in a headless Sway (2026-10-27): freeze of two monitors with scales 1 and 2, region and screen capture through the overlay with keyboard input, the countdown, Escape. Hyprland's window list and window export have unit tests with recorded `hyprctl` output; on a real Hyprland (NixOS, Nix package from the flake) a user reported that everything works, saving included (2026-10-27, issue #11, Q-21).
 - Rotated monitors (output transform) are not handled yet (Q-23).
 
@@ -392,6 +393,7 @@ Each entry: context, decision, rationale, consequences. Entries marked **(assump
 **Rejected:** D-Bus activation and a D-Bus interface for the app: not on Windows and macOS, and a socket gives the same with less code. A second process per capture: two tray icons, two editors.
 **Consequences:**
 - Qt's own GUI options (`-platform` and the like) are not accepted on the command line; use the environment variables (`QT_QPA_PLATFORM`).
+- On Windows `snapslash.exe` is a GUI program, so no console window opens next to the app. Started from a terminal it attaches to that terminal for its output; `cmd` and PowerShell do not wait for a GUI program, so the output arrives after the prompt, and scripts that need the exit code use `start /wait` or `Start-Process -Wait`.
 - Tested in a headless Sway (2026-10-27): save without a running app (path printed, exit 0, process ends), hand-over to a running app with an image in the editor (image untouched), `--open` into the running editor and as first start, Escape (exit 1), a second capture while one runs (exit 2).
 
 ## D-035 Global hotkeys on Windows: RegisterHotKey, a note about the Print key, taken keys shown in the settings
@@ -413,7 +415,60 @@ Each entry: context, decision, rationale, consequences. Entries marked **(assump
 - Hotkeys work only while the app runs (tray, F-45); starting with Windows is a separate step (packaging).
 - Tested: key conversion, registration, a taken key, suspending (`tests/tst_hotkeys.cpp`). The key presses themselves, the note and Alt + Print by hand.
 
-## D-036 Video recording: window or screen as MP4/H.264, picked on the frozen screen, with trimming
+## D-036 Name Snapslash, logo and desktop entry
+
+**Context:** "NSL Snap" was a working title (Q-03). Issue #16: the Nix package has neither a desktop entry nor an icon, so the app is missing from the application launcher.
+**Decision:**
+- Name **Snapslash**: the snap of the capture and the slash of netslash. Command `snapslash`, Nix package `snapslash`, app id `ch.netslash.Snapslash` (D-007). The repository keeps its name.
+- **Logo:** two frame corners joined by a slash, white on coral (`#F2614E`) in a rounded square (`resources/icons/logo.svg`). It is the tray icon, the window icon, the desktop icon and, on Windows, the icon of `snapslash.exe` (`resources/windows/snapslash.ico`, the logo at 16 to 256 pixels, through `snapslash.rc`). The top bar shows neither logo nor name, since the window's title bar or the desktop's header already does (feedback on 0.2.0-beta.1, 2026-11-04).
+- **Desktop entry** `resources/ch.netslash.Snapslash.desktop`, with actions for window, region and screen capture (each with `--open`, so the capture appears in the editor). On Linux `cmake --install` puts it into `share/applications` and the logo into `share/icons/hicolor/scalable/apps/ch.netslash.Snapslash.svg`, so every package built with CMake has both, the Nix package included.
+- QSettings stores the settings under the app name; settings stored under "NSL Snap" are copied once at the first start with the new name (`Settings::migrateFromFormerName`).
+**Rationale:** Checked on 2026-11-03: no trademark "Snapslash" in Swissreg, EUIPO or the WIPO Global Brand Database; on GitHub only two small, inactive projects of that name; snapslash.ch, .app and .io were free, snapslash.com is taken.
+**Rejected:** "Slashframe" (an active open-source project uses the name; its logo is the one adopted here), "Slashot" (hard to pronounce), "Netshot" (an existing network tool), "Slashcut", "Slashpane".
+**Consequences:**
+- The default save folder becomes `~/Pictures/Snapslash`; a folder chosen in the settings stays.
+- Hyprland configurations change `nsl-snap` to `snapslash` in their `bind` and `permission` lines (docs/07-development-setup.md).
+- "Snap" is also a mark of Snap Inc. (Snapchat); this matters only for a trademark application of our own.
+
+## D-037 Updates and downgrades from the GitHub releases
+
+**Context:** The repository is public. Users should learn about new versions, and be able to go back to an earlier one when a new version breaks something. Until now there were no releases and no packages.
+**Decision:**
+- **Releases:** pushing a tag `v1.2.3` (or `v1.2.3-beta.1`, a pre-release) runs `.github/workflows/release.yml`: it checks the tag against `project(... VERSION)` and `nix/package.nix`, builds a portable ZIP per Windows architecture (`snapslash-<version>-windows-<x64|arm64>.zip`: a folder `Snapslash` with `snapslash.exe`, the Qt files from windeployqt, the C++ runtime DLLs and the marker `snapslash-portable.txt`), writes `SHA256SUMS.txt` and creates the GitHub release with generated notes. The pre-release part reaches the app through `NSL_VERSION_SUFFIX`.
+- **Check** (`src/update/UpdateChecker`): one unauthenticated request to `api.github.com/repos/michaelpfister/ch-nsl-snap/releases`, five seconds after start, at most once a day; setting "Beim Start automatisch suchen" (on by default). Versions compare after Semantic Versioning (`Version`); drafts and tags that are no version are ignored. Pre-releases only with the setting "Auch Vorabversionen anbieten" (off by default). A newer version shows the button "Update x.y.z" in the top bar, and once a message in the tray while the window is hidden. A failed automatic check stays silent.
+- **What an update does depends on the installation** (`Releases::installation`):
+  - *Portable Windows* (the marker file next to the program): the app downloads the ZIP for the CPU it was built for, checks its SHA-256 (GitHub's asset digest, else `SHA256SUMS.txt`; without a checksum nothing is installed), unpacks it with Windows' `tar.exe` next to its folder, asks about unsaved work and quits. A hidden PowerShell script (`resources/update/swap-folder.ps1`) waits for the app to end, moves the folder to `Snapslash.old`, moves the new one in, starts it and deletes the old one; if a step fails it puts the old folder back and starts it. A log goes to `%TEMP%\snapslash-update.log`.
+  - *Nix* (`/nix/store`): the dialog shows the commands that pin the flake to the release's tag; Nix itself replaces the package.
+  - *Built from source, or a copy without the marker*: the dialog shows the steps (`git checkout <tag>` and build; on GNOME install the extension again and log in anew), or the download on Windows.
+- **Downgrade:** the settings tab "Updates" lists every offered release, newest first, with the version below the installed one preselected. Installing an older version is the same path as an update. Settings stay: an older version ignores keys it does not know, and they apply again after the next update.
+**Rationale:** GitHub's releases are where the code already is, need no server of our own, and answer without an account. A portable folder can replace itself without administrator rights; an installer would need them for `Program Files` and a second program to maintain. Swapping whole folders keeps no files of the old version behind (Qt plugins of another version would break the app). Nix and source builds have their own update mechanism, which the app must not get in the way of.
+**Rejected:** an installer (Inno Setup, MSIX) for now; replacing files one by one inside the running folder; checking on every start; telling the user about pre-releases by default; a self-update for Linux (AppImage), as long as the Linux users install through Nix or from source.
+**Consequences:**
+- The checksum comes from the same release as the ZIP: it protects against broken downloads, not against a compromised GitHub account. A signature of our own (minisign) or code signing would close that (Q-25).
+- Without code signing, Windows SmartScreen warns when the downloaded ZIP's program is started the first time.
+- The portable folder must be writable by the user (not `Program Files`); otherwise the update says so and the ZIP from the release page is the way.
+- The GNOME extension is not part of any release yet; a downgrade of the app on GNOME may need the extension of the same version (the app checks the extension's API version, D-021).
+- Tested: versions, the release list, checksums, the installation kinds, a rejected checksum (`tests/tst_update.cpp`); on Windows CI the whole path from ZIP to swapped folder with the real `tar.exe` and PowerShell. The download from GitHub and the restart by hand after the first release.
+
+## D-038 German and English, chosen in the settings
+
+**Context:** Snapslash is public; Q-02 assumed a German interface only. Users asked for English (2026-11-04).
+**Decision:**
+- **The texts in the code stay German** (`tr()`, or `QCoreApplication::translate()` with a named context outside a QObject). English is a Qt Linguist translation, `translations/snapslash_en.ts`; CMake builds it into the resources (`qt_add_lrelease`, `:/i18n/snapslash_en.qm`).
+- **Setting** "Sprache" in the tab "Allgemein": "Wie das System (…)" (default), "Deutsch", "English". The system's preferred languages decide by default (the first of German and English in the list; neither: English). A change applies at the next start, because the widgets take their texts when they are built.
+- `Language::install()` loads the translation at start, before any window, and sets the default `QLocale` to de_CH or en_GB, so dates and sizes follow the interface. For German it also loads Qt's own German texts (message box buttons, context menus): windeployqt puts them next to the program (`--translations de`), on Linux they come from Qt's folder.
+- **The GNOME extension holds no texts any more:** the app sends the overlay's hints and the countdown's text with each capture (`hints`, API version 6, `src/capture/CaptureHints`); the app's own overlay draws the same texts. An extension older than version 6 ignores them and stays German; one without them from the app (the PoC client) falls back to German.
+- **File name placeholders** work in both languages: `{Datum}`, `{Zeit}`, `{Titel}` and `{Date}`, `{Time}`, `{Title}`. The default pattern is the one of the interface's language.
+- The desktop entry has English names (`[en]`), which follow the desktop's language, not the setting.
+- `scripts/update-translations.sh` runs lupdate over all of `src/`, the Windows-only files included. CI runs it and fails if the file changes; `tst_language` fails if a text is untranslated or a translation lost a placeholder.
+**Rationale:** Writing the texts in English and translating to German would have meant rewriting 330 texts that were reviewed in German. Qt Linguist is Qt's own way, needs no runtime library, and keeps the translation next to the code. A restart for a language change is common in desktop apps and avoids rebuilding every window.
+**Rejected:** switching language without a restart (every widget would need a `retranslateUi`); a language list beyond German and English for now (more `.ts` files can be added later); translations inside the extension.
+**Consequences:**
+- Every new or changed text needs its English translation in the same pull request.
+- The Nix package needs `qttools` for lrelease; Qt's own German texts (a few buttons) may stay English there.
+- Command-line help (`--help`) stays English, as before (D-034).
+
+## D-039 Video recording: window or screen as MP4/H.264, picked on the frozen screen, with trimming
 
 **Context:** Issue #17 asks for short tutorial videos. The requester wants a picked window or a whole screen, with the mouse pointer visible, without audio (2026-11-04). Video was "not planned" until now (04-features.md). Decided on 2026-11-11: H.264 only, 30 fps, at most 10 minutes, trimming in the first version, Hyprland first, then Windows.
 **Decision:**
@@ -423,7 +478,7 @@ Each entry: context, decision, rationale, consequences. Entries marked **(assump
 - **Backends, in this order:**
   1. **Hyprland and other wlroots desktops:** the same protocols as the freeze (D-031), but as a stream: wlr-screencopy for a monitor, hyprland-toplevel-export for a window, each with the pointer (`overlay_cursor`), one copy per frame into shared memory. Window recording on Hyprland only.
   2. **Windows:** Windows.Graphics.Capture (D-022) as a continuous frame pool, `IsCursorCaptureEnabled = true`, `IsBorderRequired = false` where Windows allows it. The indicator is excluded with `SetWindowDisplayAffinity(WDA_EXCLUDEFROMCAPTURE)`.
-  3. **GNOME:** after the pick, the extension opens a Mutter screen cast of the window or monitor (pointer embedded) and hands the app only the PipeWire stream; the app reads it with libpipewire. The extension writes no files and encodes nothing (D-006). Whether Mutter allows this from the Shell is checked in a spike first (Q-25).
+  3. **GNOME:** after the pick, the extension opens a Mutter screen cast of the window or monitor (pointer embedded) and hands the app only the PipeWire stream; the app reads it with libpipewire. The extension writes no files and encodes nothing (D-006). Whether Mutter allows this from the Shell is checked in a spike first (Q-27).
   4. **Other Wayland desktops:** the ScreenCast portal with its own dialog, read with the same PipeWire code. For a video, which is rarer than a screenshot, the dialog is acceptable.
   5. **macOS:** `SCStream` with `showsCursor`, together with the macOS backend (D-002).
 - **Command line** (F-48): `--record-window`, `--record-screen`; the same command while a recording runs stops it (via the socket of D-034). Without `--open` the trim window is skipped and the whole video is saved.
@@ -439,6 +494,6 @@ Each entry: context, decision, rationale, consequences. Entries marked **(assump
 - GIF: large files and poor colours for screen content.
 **Consequences:**
 - The app depends on Qt Multimedia (and on Linux on libpipewire for GNOME and the portal). Qt Multimedia must be installed with aqt next to Qt 6.8.3.
-- Whether Qt's FFmpeg build has an H.264 encoder on every Linux machine (software or VA-API) is open (Q-26).
+- Whether Qt's FFmpeg build has an H.264 encoder on every Linux machine (software or VA-API) is open (Q-28).
 - F-05 now applies to images only.
 - Hyprland window recording can only be tested on a real Hyprland (the requester); a headless Sway covers screen recording.

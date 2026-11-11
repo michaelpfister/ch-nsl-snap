@@ -12,7 +12,7 @@
 
 namespace {
 
-// Hyprland may first ask the user whether NSL Snap may capture the screen
+// Hyprland may first ask the user whether Snapslash may capture the screen
 // (ecosystem:enforce_permissions); give them time to answer.
 constexpr int kFreezeTimeoutMs = 20000;
 // Up to this many image pixels the picture counts as the window itself.
@@ -109,7 +109,7 @@ void WaylandBackend::freezeAndPick(CaptureOverlay::Mode mode)
     for (qsizetype i = 0; i < screens.size(); ++i) {
         if (pictures.screens[i].isNull()) {
             emit failed(tr("Der Bildschirm konnte nicht aufgenommen werden. Unter Hyprland mit "
-                           "«ecosystem:enforce_permissions» braucht NSL Snap die Berechtigung «screencopy»."));
+                           "«ecosystem:enforce_permissions» braucht Snapslash die Berechtigung «screencopy»."));
             return;
         }
         logical << screens[i]->geometry();

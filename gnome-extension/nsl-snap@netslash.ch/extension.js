@@ -1,4 +1,4 @@
-// NSL Snap capture backend for GNOME Shell (docs/01-architecture.md).
+// Snapslash capture backend for GNOME Shell (docs/01-architecture.md).
 //
 // Exports ch.netslash.Snap1 on the session bus. Every capture freezes the
 // screen and then requires the user to select on the frozen picture, so no
@@ -12,7 +12,7 @@ import Shell from 'gi://Shell';
 import {Extension} from 'resource:///org/gnome/shell/extensions/extension.js';
 
 import {countdown} from './countdown.js';
-import {Mode, RegionSelect, freeze, select} from './overlay.js';
+import {DEFAULT_HINTS, Mode, RegionSelect, freeze, select} from './overlay.js';
 
 Gio._promisify(Shell.Screenshot, 'composite_to_stream');
 Gio._promisify(Shell.Screenshot.prototype, 'screenshot_stage_to_content');
@@ -24,7 +24,8 @@ const ERROR_PREFIX = 'ch.netslash.Snap1.Error';
 // 3: region by two clicks or a drag (region-select), with a magnifier.
 // 4: screen mode (F-01).
 // 5: delay with a countdown (F-04).
-const API_VERSION = 5;
+// 6: hints, the overlay's texts in the app's language (D-038).
+const API_VERSION = 6;
 
 const IFACE_XML = `
 <node>
@@ -42,6 +43,10 @@ const IFACE_XML = `
         delay (u): seconds of countdown before the freeze (F-04); 0 (default)
                   freezes at once. Escape or a click on the countdown
                   cancels.
+        hints (a{sv}): the texts of the overlay and the countdown, in the
+                  app's language (D-038): window, screens, screen,
+                  region-first, region-second, region-drag, countdown.
+                  Missing ones are shown in German.
       png:  the capture as PNG with alpha channel.
       info: mode ("window", "region" or "screen"), scale, width, height
             (image px); screen: one monitor or all (rect, pixels as region);
@@ -195,7 +200,7 @@ class SnapService {
             if (e instanceof CaptureError) {
                 invocation.return_dbus_error(e.dbusName, e.message);
             } else {
-                logError(e, 'NSL Snap: capture failed');
+                logError(e, 'Snapslash: capture failed');
                 invocation.return_dbus_error(`${ERROR_PREFIX}.Failed`, e.message);
             }
         }
@@ -208,6 +213,11 @@ class SnapService {
         const crop = options.crop ?? 'frame';
         const how = options['region-select'] ?? RegionSelect.CLICKS;
         const delay = options.delay ?? 0;
+        const hints = {...DEFAULT_HINTS};
+        for (const [key, text] of Object.entries(options.hints ?? {})) {
+            if (key in DEFAULT_HINTS && typeof text === 'string')
+                hints[key] = text;
+        }
         if (!Object.values(Mode).includes(mode))
             throw new CaptureError('InvalidArgs', `Unknown mode "${mode}"`);
         if (crop !== 'frame' && crop !== 'buffer')
@@ -222,7 +232,7 @@ class SnapService {
             // After the countdown, if any: the countdown is gone before the
             // freeze (F-04).
             if (delay > 0) {
-                this._countdown = countdown(delay, this._settings);
+                this._countdown = countdown(delay, this._settings, hints.countdown);
                 const go = await this._countdown.promise;
                 this._countdown = null;
                 if (!go)
@@ -230,7 +240,7 @@ class SnapService {
             }
             // Freeze first, then select on the frozen picture (D-011).
             const frozen = await freeze();
-            this._selection = select(frozen, mode, how);
+            this._selection = select(frozen, mode, how, hints);
             const result = await this._selection.promise;
             this._selection = null;
             if (!result)

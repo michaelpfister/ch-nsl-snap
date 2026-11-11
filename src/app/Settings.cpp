@@ -2,6 +2,7 @@
 
 #include "app/FileNames.h"
 
+#include <QCoreApplication>
 #include <QSettings>
 
 #include <algorithm>
@@ -12,6 +13,18 @@ namespace {
 const char *const kAdvancedMode = "editor/advancedMode";
 const char *const kRegionByDragging = "capture/regionByDragging";
 const char *const kCaptureDelay = "capture/delay";
+}
+
+void migrateFromFormerName()
+{
+    // QSettings() uses the organisation and application name set in main().
+    QSettings current;
+    if (!current.allKeys().isEmpty())
+        return;
+    const QSettings former(QCoreApplication::organizationName(), QStringLiteral("NSL Snap"));
+    const QStringList keys = former.allKeys();
+    for (const QString &key : keys)
+        current.setValue(key, former.value(key));
 }
 
 bool advancedMode()
@@ -84,6 +97,66 @@ bool trayHintShown()
 void setTrayHintShown(bool shown)
 {
     QSettings().setValue("tray/hintShown", shown);
+}
+
+bool continueNumbering()
+{
+    return QSettings().value("editor/continueNumbering", false).toBool();
+}
+
+void setContinueNumbering(bool enabled)
+{
+    QSettings().setValue("editor/continueNumbering", enabled);
+}
+
+QString language()
+{
+    return QSettings().value("ui/language").toString();
+}
+
+void setLanguage(const QString &language)
+{
+    QSettings().setValue("ui/language", language);
+}
+
+bool checkForUpdates()
+{
+    return QSettings().value("updates/check", true).toBool();
+}
+
+void setCheckForUpdates(bool enabled)
+{
+    QSettings().setValue("updates/check", enabled);
+}
+
+bool offerPrereleases()
+{
+    return QSettings().value("updates/prereleases", false).toBool();
+}
+
+void setOfferPrereleases(bool enabled)
+{
+    QSettings().setValue("updates/prereleases", enabled);
+}
+
+QDateTime lastUpdateCheck()
+{
+    return QSettings().value("updates/lastCheck").toDateTime();
+}
+
+void setLastUpdateCheck(const QDateTime &time)
+{
+    QSettings().setValue("updates/lastCheck", time);
+}
+
+QString availableUpdate()
+{
+    return QSettings().value("updates/available").toString();
+}
+
+void setAvailableUpdate(const QString &version)
+{
+    QSettings().setValue("updates/available", version);
 }
 
 namespace {

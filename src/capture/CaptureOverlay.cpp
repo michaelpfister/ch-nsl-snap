@@ -1,5 +1,6 @@
 #include "capture/CaptureOverlay.h"
 
+#include "capture/CaptureHints.h"
 #include "capture/PickGeometry.h"
 #ifdef NSL_HAVE_WAYLAND_BACKEND
 #include "capture/wayland/LayerShell.h"
@@ -254,17 +255,17 @@ private:
         QString text;
         const RegionSelector &selector = m_overlay->region();
         if (m_overlay->mode() == CaptureOverlay::Mode::Window)
-            text = tr("Fenster anklicken · R: Bereich · S: Bildschirm · Esc: Abbrechen");
+            text = CaptureHints::window();
         else if (m_overlay->mode() == CaptureOverlay::Mode::Screen)
             text = m_overlay->m_screens.size() > 1
-                ? tr("Bildschirm anklicken · Enter: alle Bildschirme · W: Fenster · R: Bereich · Esc: Abbrechen")
-                : tr("Klicken oder Enter: Bildschirm aufnehmen · W: Fenster · R: Bereich · Esc: Abbrechen");
+                ? CaptureHints::screens()
+                : CaptureHints::screen();
         else if (selector.hasStart())
-            text = tr("Gegenüberliegende Ecke anklicken · Rücktaste: neu beginnen · Esc: Abbrechen");
+            text = CaptureHints::regionSecondCorner();
         else if (selector.mode() == RegionSelector::Mode::Drag)
-            text = tr("Bereich aufziehen · Pfeiltasten und Enter: pixelgenau · W: Fenster · Esc: Abbrechen");
+            text = CaptureHints::regionDrag();
         else
-            text = tr("Erste Ecke anklicken · Pfeiltasten: 1 Pixel · W: Fenster · Esc: Abbrechen");
+            text = CaptureHints::regionFirstCorner();
 
         painter.save();
         QFont font = painter.font();

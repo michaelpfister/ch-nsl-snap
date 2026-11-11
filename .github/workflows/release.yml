@@ -1,0 +1,161 @@
+# Publishes a release when a version tag is pushed (D-037,
+# docs/07-development-setup.md, "Releasing"):
+#   git tag v0.2.0 && git push origin v0.2.0
+# A tag with a pre-release part (v0.3.0-beta.1) becomes a pre-release.
+# The app's update check reads these releases; the Windows ZIPs are what the
+# portable version installs, for updates and downgrades alike.
+
+name: Release
+
+on:
+  push:
+    tags: ['v*']
+
+permissions:
+  contents: read
+
+jobs:
+  version:
+    name: Check the version
+    runs-on: ubuntu-24.04
+    outputs:
+      version: ${{ steps.check.outputs.version }}
+      suffix: ${{ steps.check.outputs.suffix }}
+      prerelease: ${{ steps.check.outputs.prerelease }}
+    steps:
+      - uses: actions/checkout@v4
+      # The tag must match project(... VERSION) in CMakeLists.txt and the
+      # Nix package, so the app reports the version it is released as.
+      - id: check
+        shell: bash
+        run: |
+          tag="${GITHUB_REF_NAME}"
+          if [[ ! "$tag" =~ ^v(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)(-([0-9A-Za-z.-]+))?$ ]]; then
+            echo "::error::Tag $tag is not a version (v1.2.3 or v1.2.3-beta.1)"; exit 1
+          fi
+          core="${BASH_REMATCH[1]}.${BASH_REMATCH[2]}.${BASH_REMATCH[3]}"
+          suffix="${BASH_REMATCH[5]}"
+          cmake_version=$(sed -n 's/^project(Snapslash VERSION \([0-9.]*\).*/\1/p' CMakeLists.txt)
+          nix_version=$(sed -n 's/^  version = "\(.*\)";/\1/p' nix/package.nix)
+          if [[ "$cmake_version" != "$core" ]]; then
+            echo "::error::CMakeLists.txt has version $cmake_version, the tag $tag"; exit 1
+          fi
+          if [[ "$nix_version" != "${tag#v}" ]]; then
+            echo "::error::nix/package.nix has version $nix_version, the tag $tag"; exit 1
+          fi
+          echo "version=${tag#v}" >> "$GITHUB_OUTPUT"
+          echo "suffix=$suffix" >> "$GITHUB_OUTPUT"
+          echo "prerelease=$([[ -n "$suffix" ]] && echo true || echo false)" >> "$GITHUB_OUTPUT"
+
+  windows:
+    name: Windows ${{ matrix.arch }} package
+    needs: version
+    runs-on: ${{ matrix.runner }}
+    strategy:
+      matrix:
+        include:
+          - arch: x64
+            runner: windows-2022
+            aqt-host: windows
+            aqt-arch: win64_msvc2022_64
+            qt-dir: msvc2022_64
+          - arch: arm64
+            runner: windows-11-arm
+            aqt-host: windows_arm64
+            aqt-arch: win64_msvc2022_arm64
+            qt-dir: msvc2022_arm64
+    env:
+      QT_DIR: C:\Qt\6.8.3\${{ matrix.qt-dir }}
+      PACKAGE: snapslash-${{ needs.version.outputs.version }}-windows-${{ matrix.arch }}.zip
+    defaults:
+      run:
+        shell: pwsh
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      # The same Qt and cache as the CI workflow.
+      - name: Cache Qt
+        id: qt-cache
+        uses: actions/cache@v4
+        with:
+          path: C:\Qt\6.8.3\${{ matrix.qt-dir }}
+          key: qt-6.8.3-${{ matrix.aqt-arch }}-v1
+
+      - name: Install Qt
+        if: steps.qt-cache.outputs.cache-hit != 'true'
+        run: |
+          python -m pip install aqtinstall
+          python -m aqt install-qt ${{ matrix.aqt-host }} desktop 6.8.3 ${{ matrix.aqt-arch }} -m qtimageformats -O C:\Qt
+
+      - uses: ilammy/msvc-dev-cmd@v1
+        with:
+          arch: ${{ matrix.arch }}
+
+      - name: Build
+        run: |
+          cmake -S . -B build -G Ninja -DCMAKE_PREFIX_PATH="$env:QT_DIR" -DCMAKE_BUILD_TYPE=Release `
+            -DNSL_VERSION_SUFFIX="${{ needs.version.outputs.suffix }}"
+          cmake --build build --target snapslash
+
+      # The folder the ZIP holds: Snapslash\snapslash.exe with the Qt DLLs,
+      # plugins and Qt's German texts next to it (windeployqt), the C++ runtime, and the marker that
+      # tells the app it may replace this folder (Releases::portableMarkerName).
+      - name: Package
+        run: |
+          $folder = "package\Snapslash"
+          New-Item -ItemType Directory -Force $folder | Out-Null
+          Copy-Item build\snapslash.exe $folder
+          # Qt's own German texts (message box buttons and the like) in
+          # translations\qt_de.qm; English needs none (D-038).
+          & "$env:QT_DIR\bin\windeployqt.exe" --release --translations de --no-compiler-runtime "$folder\snapslash.exe"
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          # The C++ runtime as DLLs, so the folder runs without an installer.
+          # Its folder carries the toolset in its name (Microsoft.VC143.CRT
+          # with Visual Studio 2022, a newer one on runners with VS 2026).
+          $crt = Get-ChildItem "$env:VCToolsRedistDir\${{ matrix.arch }}" -Directory -Filter 'Microsoft.VC*.CRT' |
+            Sort-Object Name -Descending | Select-Object -First 1
+          if (-not $crt) { Write-Error "No C++ runtime in $env:VCToolsRedistDir\${{ matrix.arch }}"; exit 1 }
+          Write-Host "C++ runtime from $($crt.FullName)"
+          Copy-Item "$($crt.FullName)\*.dll" $folder
+          Set-Content -Path "$folder\snapslash-portable.txt" -Encoding ascii -Value @(
+            "Snapslash ${{ needs.version.outputs.version }}, portable version for Windows ${{ matrix.arch }}.",
+            "Updates and other versions: Einstellungen > Updates. Keep this file: without it the app",
+            "does not replace its own folder.")
+          # Windows' own tar, the same that unpacks it in the app.
+          & "$env:SystemRoot\System32\tar.exe" -a -cf $env:PACKAGE -C package Snapslash
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: windows-${{ matrix.arch }}
+          path: ${{ env.PACKAGE }}
+          if-no-files-found: error
+
+  publish:
+    name: Publish the release
+    needs: [version, windows]
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          path: dist
+          merge-multiple: true
+
+      # Checksums for the app (it also reads GitHub's own digests).
+      - name: Checksums
+        working-directory: dist
+        run: sha256sum *.zip > SHA256SUMS.txt && cat SHA256SUMS.txt
+
+      - name: Create the release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          flags=(--generate-notes --title "Snapslash ${{ needs.version.outputs.version }}" --verify-tag)
+          if [[ "${{ needs.version.outputs.prerelease }}" == "true" ]]; then flags+=(--prerelease); fi
+          gh release create "$GITHUB_REF_NAME" --repo "$GITHUB_REPOSITORY" "${flags[@]}" dist/*

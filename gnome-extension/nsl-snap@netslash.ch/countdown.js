@@ -21,14 +21,14 @@ const SETTLE_MS = 150;
 
 const CountdownDisplay = GObject.registerClass(
 class CountdownDisplay extends St.BoxLayout {
-    _init(onClick) {
+    _init(hint, onClick) {
         super._init({style_class: 'nsl-snap-countdown', vertical: true, reactive: true});
         this._onClick = onClick;
         this._number = new St.Label({style_class: 'nsl-snap-countdown-number', x_align: Clutter.ActorAlign.CENTER});
         this.add_child(this._number);
         this.add_child(new St.Label({
             style_class: 'nsl-snap-countdown-hint', x_align: Clutter.ActorAlign.CENTER,
-            text: 'Esc oder Klick: Abbrechen',
+            text: hint,
         }));
     }
 
@@ -54,15 +54,16 @@ class CountdownDisplay extends St.BoxLayout {
  *
  * @param {number} seconds - the delay
  * @param {Gio.Settings} settings - the extension's settings (keybinding)
+ * @param {string} hint - the text under the number, from the app (D-038)
  * @returns {{promise: Promise<boolean>, cancel: Function}}
  */
-export function countdown(seconds, settings) {
+export function countdown(seconds, settings, hint) {
     let finish;
     const promise = new Promise(resolve => {
         let left = seconds;
         let timer = 0;
         let done = false;
-        const display = new CountdownDisplay(() => finish(false));
+        const display = new CountdownDisplay(hint, () => finish(false));
         Main.layoutManager.uiGroup.add_child(display);
         display.show(left);
         Main.wm.addKeybinding(KEYBINDING, settings, Meta.KeyBindingFlags.IGNORE_AUTOREPEAT,

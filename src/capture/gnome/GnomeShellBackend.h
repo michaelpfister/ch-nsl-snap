@@ -4,7 +4,7 @@
 
 #include <QVariantMap>
 
-// Talks to the NSL Snap GNOME Shell extension over D-Bus
+// Talks to the Snapslash GNOME Shell extension over D-Bus
 // (gnome-extension/nsl-snap@netslash.ch, docs/02-decisions.md D-003).
 class GnomeShellBackend : public CaptureBackend
 {

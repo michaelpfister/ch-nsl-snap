@@ -1,5 +1,6 @@
 #include "app/FileNames.h"
 
+#include <QCoreApplication>
 #include <QDir>
 #include <QRegularExpression>
 #include <QStandardPaths>
@@ -24,7 +25,8 @@ QString slug(const QString &text)
 
 QString defaultPattern()
 {
-    return QStringLiteral("{Datum}_{Zeit}_{Titel}");
+    // The placeholders in the UI's language; both sets work (fromPattern).
+    return QCoreApplication::translate("FileNames", "{Datum}_{Zeit}_{Titel}");
 }
 
 QString fromPattern(const QString &pattern, const QString &title, const QDateTime &time)
@@ -33,6 +35,10 @@ QString fromPattern(const QString &pattern, const QString &title, const QDateTim
     name.replace(QStringLiteral("{Datum}"), time.toString(QStringLiteral("yyyy-MM-dd")), Qt::CaseInsensitive);
     name.replace(QStringLiteral("{Zeit}"), time.toString(QStringLiteral("HH-mm-ss")), Qt::CaseInsensitive);
     name.replace(QStringLiteral("{Titel}"), slug(title).left(60), Qt::CaseInsensitive);
+    // The English placeholders (D-038), so a pattern works in either language.
+    name.replace(QStringLiteral("{Date}"), time.toString(QStringLiteral("yyyy-MM-dd")), Qt::CaseInsensitive);
+    name.replace(QStringLiteral("{Time}"), time.toString(QStringLiteral("HH-mm-ss")), Qt::CaseInsensitive);
+    name.replace(QStringLiteral("{Title}"), slug(title).left(60), Qt::CaseInsensitive);
     name = slug(name);
     if (name.endsWith(QStringLiteral(".png"), Qt::CaseInsensitive))
         name.chop(4);
@@ -44,7 +50,7 @@ QString fromPattern(const QString &pattern, const QString &title, const QDateTim
 QString defaultFolder()
 {
     const QString pictures = QStandardPaths::writableLocation(QStandardPaths::PicturesLocation);
-    return QDir(pictures.isEmpty() ? QDir::homePath() : pictures).filePath(QStringLiteral("NSL Snap"));
+    return QDir(pictures.isEmpty() ? QDir::homePath() : pictures).filePath(QStringLiteral("Snapslash"));
 }
 
 } // namespace FileNames
