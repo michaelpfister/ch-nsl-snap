@@ -227,6 +227,65 @@ private slots:
         }
     }
 
+    void countdownPlacement()
+    {
+        // F-04: the corners kMargin inside the work area, the middle of the
+        // whole monitor.
+        const QRect screen(0, 0, 1920, 1080);
+        const QRect work(0, 32, 1920, 1000); // a panel at the top, a dock at the bottom
+        const QSize size(220, 140);
+        const int m = CountdownOptions::kMargin;
+        QCOMPARE(CountdownOptions::place(CountdownPosition::TopLeft, screen, work, size), QPoint(m, 32 + m));
+        QCOMPARE(CountdownOptions::place(CountdownPosition::TopRight, screen, work, size), QPoint(1920 - m - 220, 32 + m));
+        QCOMPARE(CountdownOptions::place(CountdownPosition::BottomLeft, screen, work, size), QPoint(m, 1032 - m - 140));
+        QCOMPARE(CountdownOptions::place(CountdownPosition::BottomRight, screen, work, size),
+                 QPoint(1920 - m - 220, 1032 - m - 140));
+        QCOMPARE(CountdownOptions::place(CountdownPosition::Center, screen, work, size), QPoint(850, 470));
+        // A second monitor to the right.
+        QCOMPARE(CountdownOptions::place(CountdownPosition::TopLeft, QRect(1920, 0, 1280, 720), QRect(1920, 0, 1280, 720),
+                                         size),
+                 QPoint(1920 + m, m));
+        // The keys for the settings and the extension go both ways.
+        for (CountdownPosition position : {CountdownPosition::TopLeft, CountdownPosition::TopRight, CountdownPosition::Center,
+                                           CountdownPosition::BottomLeft, CountdownPosition::BottomRight})
+            QCOMPARE(CountdownOptions::positionFromKey(CountdownOptions::positionKey(position)), position);
+        QCOMPARE(CountdownOptions::positionKey(CountdownPosition::BottomRight), QStringLiteral("bottom-right"));
+        QCOMPARE(CountdownOptions::positionFromKey(QStringLiteral("nonsense")), CountdownPosition::Center);
+    }
+
+    void countdownGoesToItsCorner()
+    {
+        QScreen *screen = QGuiApplication::primaryScreen();
+        Countdown countdown;
+        countdown.setTickInterval(5000);
+        countdown.setOptions({CountdownPosition::BottomRight, true});
+        countdown.start(5);
+        QCOMPARE(countdown.pos(), CountdownOptions::place(CountdownPosition::BottomRight, screen->geometry(),
+                                                          screen->availableGeometry(), countdown.size()));
+        countdown.cancel();
+    }
+
+    void countdownClickThrough()
+    {
+        // Clicks off: on Windows clicks go through and only Escape cancels;
+        // without a global Escape (Wayland) the click must still cancel.
+        Countdown countdown;
+        countdown.setTickInterval(5000);
+        QSignalSpy cancelled(&countdown, &Countdown::cancelled);
+        countdown.setOptions({CountdownPosition::Center, false});
+        QCOMPARE(countdown.options().clickCancels, !Countdown::hasGlobalEscape());
+        countdown.start(5);
+        QVERIFY(QTest::qWaitForWindowExposed(&countdown));
+        QTest::mouseClick(&countdown, Qt::LeftButton, {}, QPoint(50, 50));
+        if (Countdown::hasGlobalEscape()) {
+            QCOMPARE(cancelled.count(), 0);
+            QVERIFY(countdown.testAttribute(Qt::WA_TransparentForMouseEvents));
+            QVERIFY(countdown.windowFlags().testFlag(Qt::WindowTransparentForInput));
+            QTest::keyClick(&countdown, Qt::Key_Escape);
+        }
+        QCOMPARE(cancelled.count(), 1);
+    }
+
     void magnifierIsDrawn()
     {
         // A picture with one white pixel: in the magnifier it becomes a big square.

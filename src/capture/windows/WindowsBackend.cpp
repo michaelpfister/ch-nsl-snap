@@ -135,6 +135,7 @@ void WindowsBackend::start(CaptureOverlay::Mode mode, bool activeWindow)
     }
     // The countdown first (F-04); it is off the screen before the freeze.
     m_countdown = new Countdown;
+    m_countdown->setOptions(countdownOptions());
     connect(m_countdown, &Countdown::finished, this, [this, mode, activeWindow] {
         m_countdown->deleteLater();
         m_countdown = nullptr;

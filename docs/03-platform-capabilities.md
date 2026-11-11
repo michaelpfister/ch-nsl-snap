@@ -39,7 +39,7 @@ macOS (ScreenCaptureKit, macOS 14+) supports everything in the Windows column ex
 - Hyprland's permission system (`ecosystem:enforce_permissions`, off by default) asks before the first capture or needs a `permission = <binary>, screencopy, allow` rule; on NixOS the binary path is in the Nix store.
 - No stacking order in Hyprland's window list; the app approximates it (D-031).
 - Without LayerShellQt the overlay is a full-screen window; compositors may animate it.
-- Global keys: apps get none; captures are bound to keys in hyprland.conf through the command line (D-034). The countdown is cancelled by clicking it, not with Escape.
+- Global keys: apps get none; captures are bound to keys in hyprland.conf through the command line (D-034). The countdown is cancelled by clicking it, not with Escape; so the click cannot be switched off there (D-040), but the countdown can be moved to a corner.
 
 ## Known limits on GNOME / Wayland
 

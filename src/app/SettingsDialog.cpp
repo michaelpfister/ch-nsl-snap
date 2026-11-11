@@ -1,5 +1,6 @@
 #include "app/SettingsDialog.h"
 
+#include "app/CountdownPositionPicker.h"
 #include "app/FileNames.h"
 #include "app/GlobalHotkeys.h"
 #include "app/Language.h"
@@ -32,7 +33,7 @@
 #include <algorithm>
 #include <QVBoxLayout>
 
-SettingsDialog::SettingsDialog(GlobalHotkeys *hotkeys, QWidget *parent)
+SettingsDialog::SettingsDialog(GlobalHotkeys *hotkeys, bool countdownHasEscape, QWidget *parent)
     : QDialog(parent)
     , m_hotkeys(hotkeys)
 {
@@ -123,6 +124,9 @@ SettingsDialog::SettingsDialog(GlobalHotkeys *hotkeys, QWidget *parent)
     connect(drag, &QRadioButton::toggled, this, [](bool enabled) { Settings::setRegionByDragging(enabled); });
     layout->addSpacing(16);
 
+    createCountdownSection(layout, countdownHasEscape);
+    layout->addSpacing(16);
+
     // Tray icon (F-45).
     auto *trayTitle = new QLabel(tr("Infobereich"), this);
     trayTitle->setProperty("role", QStringLiteral("section"));
@@ -194,6 +198,26 @@ SettingsDialog::SettingsDialog(GlobalHotkeys *hotkeys, QWidget *parent)
     saveHint->setProperty("role", QStringLiteral("hint"));
     saveHint->setWordWrap(true);
     layout->addWidget(saveHint);
+    layout->addSpacing(16);
+
+    // Series of captures (F-52).
+    auto *seriesTitle = new QLabel(tr("Serienaufnahme"), this);
+    seriesTitle->setProperty("role", QStringLiteral("section"));
+    layout->addWidget(seriesTitle);
+    auto *series = new QCheckBox(tr("Jede Aufnahme sofort in diesem Ordner speichern"), this);
+    series->setChecked(Settings::autoSaveCaptures());
+    layout->addWidget(series);
+    auto *seriesHint = new QLabel(tr("So lassen sich mehrere Aufnahmen hintereinander machen: Sie öffnen sich nicht "
+                                     "im Editor, sondern erscheinen in der Liste «Letzte Aufnahmen» unten im Fenster. "
+                                     "Ein Klick darauf öffnet eine Aufnahme im Editor."), this);
+    seriesHint->setProperty("role", QStringLiteral("hint"));
+    seriesHint->setWordWrap(true);
+    seriesHint->setContentsMargins(26, 0, 0, 0);
+    layout->addWidget(seriesHint);
+    connect(series, &QCheckBox::toggled, this, [this](bool enabled) {
+        Settings::setAutoSaveCaptures(enabled);
+        emit autoSaveChanged(enabled);
+    });
 
     layout->addStretch(1);
 
@@ -265,6 +289,53 @@ SettingsDialog::~SettingsDialog()
 {
     if (m_hotkeys)
         m_hotkeys->setSuspended(false);
+}
+
+void SettingsDialog::createCountdownSection(QVBoxLayout *layout, bool hasEscape)
+{
+    auto *title = new QLabel(tr("Countdown des Timers"), this);
+    title->setProperty("role", QStringLiteral("section"));
+    layout->addWidget(title);
+
+    // Where it appears: the drawn monitor, with the chosen place beside it.
+    const CountdownOptions options = Settings::countdownOptions();
+    auto *picker = new CountdownPositionPicker(this);
+    picker->setPosition(options.position);
+    auto *positionName = new QLabel(CountdownPositionPicker::positionName(options.position), this);
+    auto *positionHint = new QLabel(tr("Ort der Anzeige auf dem Hauptbildschirm. Punkt anklicken, um ihn zu ändern."), this);
+    positionHint->setProperty("role", QStringLiteral("hint"));
+    positionHint->setWordWrap(true);
+    auto *text = new QVBoxLayout;
+    text->setSpacing(4);
+    text->addStretch(1);
+    text->addWidget(positionName);
+    text->addWidget(positionHint);
+    text->addStretch(1);
+    auto *row = new QHBoxLayout;
+    row->setSpacing(16);
+    row->addWidget(picker);
+    row->addLayout(text, 1);
+    layout->addLayout(row);
+    connect(picker, &CountdownPositionPicker::positionChanged, this, [positionName](CountdownPosition position) {
+        Settings::setCountdownPosition(position);
+        positionName->setText(CountdownPositionPicker::positionName(position));
+    });
+    layout->addSpacing(6);
+
+    // The click: off, clicks go through it and only Escape cancels.
+    auto *click = new QCheckBox(tr("Klick auf den Countdown bricht die Aufnahme ab"), this);
+    click->setChecked(hasEscape ? options.clickCancels : true);
+    click->setEnabled(hasEscape);
+    layout->addWidget(click);
+    auto *clickHint = new QLabel(hasEscape ? tr("Ausgeschaltet gehen Klicks durch den Countdown hindurch, "
+                                                "zum Beispiel auf einen Knopf darunter; abbrechen dann nur mit Esc.")
+                                           : tr("Auf diesem Desktop erreicht Esc den Countdown nicht, daher bricht "
+                                                "ein Klick immer ab."), this);
+    clickHint->setProperty("role", QStringLiteral("hint"));
+    clickHint->setWordWrap(true);
+    clickHint->setContentsMargins(26, 0, 0, 0);
+    layout->addWidget(clickHint);
+    connect(click, &QCheckBox::toggled, this, [](bool enabled) { Settings::setCountdownClickCancels(enabled); });
 }
 
 void SettingsDialog::createHotkeyPage(QVBoxLayout *layout)

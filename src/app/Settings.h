@@ -1,6 +1,7 @@
 #pragma once
 
 #include "app/GlobalHotkeys.h"
+#include "capture/CountdownOptions.h"
 #include "editor/ArrowStyle.h"
 #include "editor/FrameStyle.h"
 #include "editor/MarkerStyle.h"
@@ -12,6 +13,7 @@
 #include <QKeySequence>
 #include <QList>
 #include <QString>
+#include <QStringList>
 
 // User settings, stored with QSettings (~/.config/netslash.ch/Snapslash.conf
 // on Linux, the registry on Windows, a plist on macOS).
@@ -33,12 +35,34 @@ void setCaptureDelay(int seconds);
 bool regionByDragging();
 void setRegionByDragging(bool enabled);
 
+// The countdown of the timer (F-04): where it appears, and whether a click
+// on it cancels (else clicks go through it and only Escape cancels).
+CountdownOptions countdownOptions();
+void setCountdownPosition(CountdownPosition position);
+void setCountdownClickCancels(bool enabled);
+
 // Saving (F-41): the folder for Ctrl+S and the save dialog, and the
 // pattern for file names (FileNames).
 QString saveFolder();
 void setSaveFolder(const QString &folder);
 QString fileNamePattern();
 void setFileNamePattern(const QString &pattern);
+
+// Series of captures (F-52): every capture goes straight into the save
+// folder, without opening in the editor, so the next one can follow.
+bool autoSaveCaptures();
+void setAutoSaveCaptures(bool enabled);
+
+// The list of recent captures at the bottom of the window (F-52): the
+// saved files, newest first, at most kMaxRecentCaptures; and whether the
+// list is pinned open.
+constexpr int kMaxRecentCaptures = 30;
+QStringList recentCaptures();
+void setRecentCaptures(const QStringList &paths);
+// Puts `path` first; it moves up if it is already in the list.
+void addRecentCapture(const QString &path);
+bool recentCapturesPinned();
+void setRecentCapturesPinned(bool pinned);
 
 // Tray icon (F-45): closing the window keeps the app running in the tray.
 bool closeToTray();

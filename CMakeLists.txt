@@ -26,6 +26,8 @@ qt_standard_project_setup()
 add_library(nsl_snap_core STATIC
     src/app/ColorRow.cpp
     src/app/ColorRow.h
+    src/app/CountdownPositionPicker.cpp
+    src/app/CountdownPositionPicker.h
     src/app/CommandLine.cpp
     src/app/CommandLine.h
     src/app/FileNames.cpp
@@ -40,6 +42,8 @@ add_library(nsl_snap_core STATIC
     src/app/PlatformTheme.h
     src/app/PropertiesPanel.cpp
     src/app/PropertiesPanel.h
+    src/app/RecentCaptures.cpp
+    src/app/RecentCaptures.h
     src/app/Settings.cpp
     src/app/Settings.h
     src/app/SettingsDialog.cpp
@@ -58,6 +62,8 @@ add_library(nsl_snap_core STATIC
     src/capture/CaptureOverlay.h
     src/capture/CaptureResult.h
     src/capture/Countdown.cpp
+    src/capture/CountdownOptions.cpp
+    src/capture/CountdownOptions.h
     src/capture/Countdown.h
     src/capture/PickGeometry.cpp
     src/capture/PickGeometry.h
