@@ -3,6 +3,7 @@
 #include "capture/Countdown.h"
 #include "capture/PickGeometry.h"
 #include "capture/wayland/WaylandFreeze.h"
+#include "recording/VideoFrames.h"
 
 #include <QGuiApplication>
 #include <QScreen>
@@ -57,10 +58,29 @@ void WaylandBackend::captureScreen()
     start(CaptureOverlay::Mode::Screen);
 }
 
+bool WaylandBackend::canPickWindowsForVideo() const
+{
+    return HyprlandIpc::isRunning() && WaylandFreeze::canCaptureWindows();
+}
+
+void WaylandBackend::pickForVideo(bool window)
+{
+    if (m_overlay || m_countdown)
+        return;
+    if (!isAvailable()) {
+        emit failed(unavailableReason());
+        return;
+    }
+    m_forVideo = true;
+    // On Sway & co. there are no windows to pick: the monitors instead.
+    freezeAndPick(window && canPickWindowsForVideo() ? CaptureOverlay::Mode::Window : CaptureOverlay::Mode::Screen);
+}
+
 void WaylandBackend::start(CaptureOverlay::Mode mode)
 {
     if (m_overlay || m_countdown)
         return;
+    m_forVideo = false;
     if (!isAvailable()) {
         emit failed(unavailableReason());
         return;
@@ -147,11 +167,16 @@ void WaylandBackend::freezeAndPick(CaptureOverlay::Mode mode)
 
     m_overlay = new CaptureOverlay(m_screens, frames, mode,
                                    regionByDragging() ? RegionSelector::Mode::Drag : RegionSelector::Mode::Clicks, this);
+    m_overlay->setForVideo(m_forVideo);
     connect(m_overlay, &CaptureOverlay::windowPicked, this, &WaylandBackend::onWindowPicked);
     connect(m_overlay, &CaptureOverlay::regionSelected, this,
             [this](const QRect &rect) { deliverPart(rect, CaptureResult::Kind::Region); });
-    connect(m_overlay, &CaptureOverlay::screenSelected, this,
-            [this](const QRect &rect) { deliverPart(rect, CaptureResult::Kind::Screen); });
+    connect(m_overlay, &CaptureOverlay::screenSelected, this, [this](const QRect &rect) {
+        if (m_forVideo)
+            deliverVideoScreens(rect);
+        else
+            deliverPart(rect, CaptureResult::Kind::Screen);
+    });
     connect(m_overlay, &CaptureOverlay::cancelled, this, [this] {
         finish();
         emit cancelled();
@@ -197,6 +222,23 @@ void WaylandBackend::onWindowPicked(int index)
     const double scale = m_windowScales[index];
     finish();
 
+    if (m_forVideo) {
+        // The stream starts after the countdown; the frozen picture only
+        // tells where the window sits inside its surface.
+        const QRect frame = VideoFrames::toPixels(frameInPicture(picture, window.rect.size(), scale), scale,
+                                                  picture.size());
+        VideoPick pick;
+        pick.window = true;
+        pick.handle = window.handle;
+        pick.title = window.title;
+        pick.size = frame.isEmpty() ? picture.size() : frame.size();
+        if (!frame.isEmpty())
+            pick.margins = QMargins(frame.left(), frame.top(), picture.width() - frame.right() - 1,
+                                    picture.height() - frame.bottom() - 1);
+        emit videoPicked(pick);
+        return;
+    }
+
     CaptureResult result;
     result.kind = CaptureResult::Kind::Window;
     result.image = picture;
@@ -222,6 +264,25 @@ void WaylandBackend::deliverPart(const QRect &native, CaptureResult::Kind kind)
     result.scale = scale;
     result.regionRect = native;
     emit captured(result);
+}
+
+void WaylandBackend::deliverVideoScreens(const QRect &native)
+{
+    // One monitor, or all of them (Enter): those inside the rectangle.
+    VideoPick pick;
+    for (const CaptureOverlay::Screen &screen : std::as_const(m_screens)) {
+        if (!native.contains(screen.native))
+            continue;
+        pick.screens << screen.screen;
+        pick.native << screen.native;
+    }
+    pick.size = native.size();
+    finish();
+    if (pick.screens.isEmpty()) {
+        emit cancelled();
+        return;
+    }
+    emit videoPicked(pick);
 }
 
 void WaylandBackend::finish()

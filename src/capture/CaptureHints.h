@@ -15,6 +15,10 @@ QString regionFirstCorner();
 QString regionSecondCorner();
 QString regionDrag();
 QString countdown();
+// Picking for a video (F-50): no region.
+QString videoWindow();
+QString videoScreens();
+QString videoScreen();
 
 // All of them for the extension's Capture option "hints" (a{sv} of strings), keyed as
 // overlay.js and countdown.js expect.

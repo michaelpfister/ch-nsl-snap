@@ -43,6 +43,11 @@ public:
     // short: the compositor answers within a frame or two.
     bool dispatchUntil(const std::function<bool()> &done, int timeoutMs);
 
+    // Handles the events that arrived for our queue, without waiting;
+    // for code that polls from a timer (the video stream, F-50). False if
+    // the connection broke.
+    bool dispatchPending();
+
     // Sends the requests made so far and waits until the compositor has
     // handled them; false if the connection broke.
     bool roundtrip();

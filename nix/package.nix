@@ -46,6 +46,8 @@ stdenv.mkDerivation {
     qt6.qtsvg
     qt6.qtwayland
     qt6.qtimageformats
+    # Encoding videos (F-50, D-039), with nixpkgs' FFmpeg.
+    qt6.qtmultimedia
     wayland
     # The capture overlay as a layer surface above all windows (D-031).
     kdePackages.layer-shell-qt

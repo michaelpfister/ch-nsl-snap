@@ -63,9 +63,9 @@ Each backend delivers a **capture result**: a PNG/RGBA image with alpha, plus me
 - `src/capture/portal/PortalBackend` (D-032): the Screenshot portal's picture as the freeze, region and screen in the same overlay.
 - Wayland has only logical coordinates; `PickGeometry::nativeLayout` builds physical "native" ones for the overlay.
 
-### Video recording (planned, D-039)
+### Video recording (D-039, in progress)
 
-- `src/recording/` (planned). The pick reuses the capture overlay; after it, a `RecordingBackend` per platform delivers a stream of `QVideoFrame`s with timestamps instead of one image: frame by frame with wlr-screencopy and hyprland-toplevel-export on Wayland, a continuous Windows.Graphics.Capture frame pool on Windows, a PipeWire stream on GNOME (opened by the extension) and from the ScreenCast portal.
+- `src/recording/`: `RecordingBackend` (interface and choice per platform), `RecordingController`, `VideoEncoder`, `RecordingIndicator`, `VideoFrames` (sizes, fitting a resized window), `TrimWindow` with `TrimTimeline` and `VideoTrimmer` (F-51, done); `wayland/WaylandRecordingBackend` and `wayland/WaylandStream` for Hyprland and wlroots (step 1, done). The pick reuses the capture overlay; after it, a `RecordingBackend` per platform delivers a stream of `QVideoFrame`s with timestamps instead of one image: frame by frame with wlr-screencopy and hyprland-toplevel-export on Wayland, a continuous Windows.Graphics.Capture frame pool on Windows, a PipeWire stream on GNOME (opened by the extension) and from the ScreenCast portal.
 - Shared: `RecordingController` (countdown, limit of 10 minutes, stop from the indicator, tray, hotkey or command line), `VideoEncoder` (Qt Multimedia, `QMediaRecorder` with `QVideoFrameInput`, MP4/H.264, 30 fps), the recording indicator, the trim window (F-51) and saving with the naming pattern.
 - Videos never go through the image editor.
 

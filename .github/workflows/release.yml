@@ -83,13 +83,13 @@ jobs:
         uses: actions/cache@v4
         with:
           path: C:\Qt\6.8.3\${{ matrix.qt-dir }}
-          key: qt-6.8.3-${{ matrix.aqt-arch }}-v1
+          key: qt-6.8.3-${{ matrix.aqt-arch }}-v2 # v2: with qtmultimedia
 
       - name: Install Qt
         if: steps.qt-cache.outputs.cache-hit != 'true'
         run: |
           python -m pip install aqtinstall
-          python -m aqt install-qt ${{ matrix.aqt-host }} desktop 6.8.3 ${{ matrix.aqt-arch }} -m qtimageformats -O C:\Qt
+          python -m aqt install-qt ${{ matrix.aqt-host }} desktop 6.8.3 ${{ matrix.aqt-arch }} -m qtimageformats qtmultimedia -O C:\Qt
 
       - uses: ilammy/msvc-dev-cmd@v1
         with:

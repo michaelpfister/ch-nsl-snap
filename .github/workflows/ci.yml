@@ -34,7 +34,8 @@ jobs:
           host: linux
           target: desktop
           arch: linux_gcc_64
-          modules: qtimageformats
+          # qtmultimedia: encoding videos (F-50, D-039).
+          modules: qtimageformats qtmultimedia
           cache: true
 
       # Warnings fail the build, like the rule for commits.
@@ -104,13 +105,13 @@ jobs:
         uses: actions/cache@v4
         with:
           path: C:\Qt\6.8.3\${{ matrix.qt-dir }}
-          key: qt-6.8.3-${{ matrix.aqt-arch }}-v1
+          key: qt-6.8.3-${{ matrix.aqt-arch }}-v2 # v2: with qtmultimedia
 
       - name: Install Qt
         if: steps.qt-cache.outputs.cache-hit != 'true'
         run: |
           python -m pip install aqtinstall
-          python -m aqt install-qt ${{ matrix.aqt-host }} desktop 6.8.3 ${{ matrix.aqt-arch }} -m qtimageformats -O C:\Qt
+          python -m aqt install-qt ${{ matrix.aqt-host }} desktop 6.8.3 ${{ matrix.aqt-arch }} -m qtimageformats qtmultimedia -O C:\Qt
 
       # The MSVC compiler for the runner's own architecture.
       - uses: ilammy/msvc-dev-cmd@v1

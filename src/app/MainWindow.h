@@ -4,6 +4,7 @@
 #include "app/SingleInstance.h"
 #include "capture/CaptureResult.h"
 #include "editor/Tool.h"
+#include "recording/RecordingController.h"
 #include "update/Releases.h"
 
 #include <QColor>
@@ -23,6 +24,7 @@ class QSystemTrayIcon;
 class QTimer;
 class QToolButton;
 class QUndoStack;
+class RecordingBackend;
 class ToolRail;
 class UpdateChecker;
 struct FrameStyle;
@@ -91,6 +93,18 @@ private:
     // save folder, the editor's image stays as it is. Returns the path, or
     // an empty string and the error in `error`.
     QString saveCapture(const CaptureResult &result, QString *error);
+    // Videos (F-50, D-039). `delay`: -1 for the timer in the top bar.
+    void startRecording(RecordingBackend::Source source, int delay = -1);
+    void stopRecording();
+    void onRecordingFinished(const RecordingController::Result &result);
+    void onRecordingEnded(bool showWindow);
+    // The video to keep (the whole recording or a trimmed part, F-51):
+    // into the save folder, with a note in the status bar or the tray.
+    // `note` goes before it, e.g. that the limit was reached.
+    void keepVideo(const QString &path, const QString &title, const QString &note);
+    // Moves a finished video from its temporary file into the save folder
+    // (F-41); returns the path, or an empty string and the error.
+    QString saveVideo(const QString &temporary, const QString &title, QString *error);
     // Ends the command-line request, if one is running.
     void finishRequest(CommandLine::Outcome outcome, const QString &detail = QString());
 
@@ -156,6 +170,8 @@ private:
     ToolRail *m_toolRail = nullptr;
     PropertiesPanel *m_properties = nullptr;
     std::unique_ptr<CaptureBackend> m_capture;
+    std::unique_ptr<RecordingBackend> m_recordingBackend;
+    RecordingController *m_recording = nullptr;
     GlobalHotkeys *m_hotkeys = nullptr;
     bool m_capturing = false; // from the start until captured/cancelled/failed
     // The mode of the last capture; the overlay can switch it (W, R).
@@ -186,6 +202,9 @@ private:
     QToolButton *m_windowButton = nullptr;
     QToolButton *m_regionButton = nullptr;
     QToolButton *m_screenButton = nullptr;
+    QToolButton *m_videoButton = nullptr;
+    QAction *m_videoWindowAction = nullptr;
+    QAction *m_trayStopVideo = nullptr;
     QLabel *m_timerIcon = nullptr;
     QComboBox *m_timer = nullptr;
     QToolButton *m_undoButton = nullptr;

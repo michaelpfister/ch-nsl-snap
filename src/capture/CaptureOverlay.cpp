@@ -254,8 +254,11 @@ private:
     {
         QString text;
         const RegionSelector &selector = m_overlay->region();
+        const bool video = m_overlay->isForVideo();
         if (m_overlay->mode() == CaptureOverlay::Mode::Window)
-            text = CaptureHints::window();
+            text = video ? CaptureHints::videoWindow() : CaptureHints::window();
+        else if (m_overlay->mode() == CaptureOverlay::Mode::Screen && video)
+            text = m_overlay->m_screens.size() > 1 ? CaptureHints::videoScreens() : CaptureHints::videoScreen();
         else if (m_overlay->mode() == CaptureOverlay::Mode::Screen)
             text = m_overlay->m_screens.size() > 1
                 ? CaptureHints::screens()
@@ -485,7 +488,8 @@ void CaptureOverlay::keyPressed(int key, Qt::KeyboardModifiers modifiers)
             setMode(Mode::Window);
         break;
     case Qt::Key_R:
-        setMode(Mode::Region);
+        if (!m_forVideo) // videos are windows or monitors only (F-50)
+            setMode(Mode::Region);
         break;
     case Qt::Key_S:
         setMode(Mode::Screen);
@@ -501,6 +505,14 @@ void CaptureOverlay::keyPressed(int key, Qt::KeyboardModifiers modifiers)
         return;
     }
     updateAll();
+}
+
+void CaptureOverlay::setForVideo(bool video)
+{
+    m_forVideo = video;
+    // Without windows to pick, a video starts with the monitors.
+    if (video && m_mode == Mode::Region)
+        m_mode = Mode::Screen;
 }
 
 void CaptureOverlay::setMode(Mode mode)

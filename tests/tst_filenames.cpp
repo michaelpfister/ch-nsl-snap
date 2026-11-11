@@ -44,6 +44,11 @@ private slots:
         QCOMPARE(FileNames::fromPattern(QString(), QStringLiteral("Home"), time),
                  QStringLiteral("2026-01-02_03-04-05_Home.png")); // empty pattern: the default
         QCOMPARE(FileNames::fromPattern(QStringLiteral("Bild.png"), QString(), time), QStringLiteral("Bild.png"));
+        // Videos (F-50): the same pattern, another extension.
+        QCOMPARE(FileNames::fromPattern(QStringLiteral("{Titel}"), QStringLiteral("Home"), time, QStringLiteral("mp4")),
+                 QStringLiteral("Home.mp4"));
+        QCOMPARE(FileNames::fromPattern(QStringLiteral("Film.mp4"), QString(), time, QStringLiteral("mp4")),
+                 QStringLiteral("Film.mp4"));
     }
 
     void gtkThemeNeedsItsSchema()

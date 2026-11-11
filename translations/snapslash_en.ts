@@ -38,6 +38,18 @@
         <source>Esc oder Klick: Abbrechen</source>
         <translation>Esc or click: cancel</translation>
     </message>
+    <message>
+        <source>Video: Fenster anklicken · S: Bildschirm · Esc: Abbrechen</source>
+        <translation>Video: click a window · S: screen · Esc: cancel</translation>
+    </message>
+    <message>
+        <source>Video: Bildschirm anklicken · Enter: alle Bildschirme · W: Fenster · Esc: Abbrechen</source>
+        <translation>Video: click a screen · Enter: all screens · W: window · Esc: cancel</translation>
+    </message>
+    <message>
+        <source>Video: klicken oder Enter, um den Bildschirm aufzunehmen · W: Fenster · Esc: Abbrechen</source>
+        <translation>Video: click or Enter to record the screen · W: window · Esc: cancel</translation>
+    </message>
 </context>
 <context>
     <name>ColorPopup</name>
@@ -649,6 +661,62 @@ Ctrl+S saves straight into the folder from the settings</translation>
         <source>Trotzdem leeren?</source>
         <translation>Clear anyway?</translation>
     </message>
+    <message>
+        <source>Videoaufnahme abgebrochen.</source>
+        <translation>Video recording cancelled.</translation>
+    </message>
+    <message>
+        <source>Videoaufnahme fehlgeschlagen</source>
+        <translation>Video recording failed</translation>
+    </message>
+    <message>
+        <source>Video</source>
+        <translation>Video</translation>
+    </message>
+    <message>
+        <source>Video aufnehmen: Fenster oder Bildschirm, mit Mauszeiger, ohne Ton</source>
+        <translation>Record a video: window or screen, with the mouse pointer, without sound</translation>
+    </message>
+    <message>
+        <source>Einzelne Fenster gehen auf diesem Desktop nicht</source>
+        <translation>Single windows are not possible on this desktop</translation>
+    </message>
+    <message>
+        <source>Video: Fenster aufnehmen</source>
+        <translation>Video: record a window</translation>
+    </message>
+    <message>
+        <source>Video: Bildschirm aufnehmen</source>
+        <translation>Video: record a screen</translation>
+    </message>
+    <message>
+        <source>Videoaufnahme beenden</source>
+        <translation>Stop video recording</translation>
+    </message>
+    <message>
+        <source>Videoaufnahme nicht möglich</source>
+        <translation>Video recording not possible</translation>
+    </message>
+    <message>
+        <source>Video speichern</source>
+        <translation>Save video</translation>
+    </message>
+    <message>
+        <source>Video gespeichert</source>
+        <translation>Video saved</translation>
+    </message>
+    <message>
+        <source>Die Höchstdauer von 10 Minuten ist erreicht.</source>
+        <translation>The maximum length of 10 minutes was reached.</translation>
+    </message>
+    <message>
+        <source>Video verworfen.</source>
+        <translation>Video discarded.</translation>
+    </message>
+    <message>
+        <source>Video gespeichert: %1</source>
+        <translation>Video saved: %1</translation>
+    </message>
 </context>
 <context>
     <name>MarkerItem</name>
@@ -905,6 +973,32 @@ Ctrl+S saves straight into the folder from the settings</translation>
     <message>
         <source>Das nächste aufgenommene oder geöffnete Bild beginnt mit der Nummer nach der höchsten in diesem Bild.</source>
         <translation>The next image captured or opened starts with the number after the highest one in this image.</translation>
+    </message>
+</context>
+<context>
+    <name>RecordingController</name>
+    <message>
+        <source>Auf diesem Rechner findet Qt Multimedia keinen H.264-Encoder. Unter Linux braucht es dafür die Hardware-Kodierung der Grafikkarte (VA-API oder NVENC).</source>
+        <translation>Qt Multimedia finds no H.264 encoder on this computer. On Linux this needs the graphics card&apos;s hardware encoding (VA-API or NVENC).</translation>
+    </message>
+    <message>
+        <source>Es kam kein Bild vom Bildschirm an; das Video ist leer.</source>
+        <translation>No picture came from the screen; the video is empty.</translation>
+    </message>
+    <message>
+        <source>Das Video konnte nicht geschrieben werden: %1</source>
+        <translation>The video could not be written: %1</translation>
+    </message>
+</context>
+<context>
+    <name>RecordingIndicator</name>
+    <message>
+        <source>Klicken, um die Videoaufnahme zu beenden</source>
+        <translation>Click to stop the video recording</translation>
+    </message>
+    <message>
+        <source>Videoaufnahme beenden</source>
+        <translation>Stop video recording</translation>
     </message>
 </context>
 <context>
@@ -1270,10 +1364,91 @@ Ctrl+S saves straight into the folder from the settings</translation>
     </message>
 </context>
 <context>
+    <name>TrimTimeline</name>
+    <message>
+        <source>Zeitleiste: Anfang und Ende des Videos</source>
+        <translation>Timeline: start and end of the video</translation>
+    </message>
+</context>
+<context>
+    <name>TrimWindow</name>
+    <message>
+        <source>Video zuschneiden</source>
+        <translation>Trim video</translation>
+    </message>
+    <message>
+        <source>Video zuschneiden – %1</source>
+        <translation>Trim video – %1</translation>
+    </message>
+    <message>
+        <source>Abspielen / Anhalten (Leertaste)</source>
+        <translation>Play / pause (Space)</translation>
+    </message>
+    <message>
+        <source>Abspielen / Anhalten</source>
+        <translation>Play / pause</translation>
+    </message>
+    <message>
+        <source>Griffe ziehen oder Pfeiltasten: 1 Bild, mit Shift 1 s · Pfeil hoch/runter: anderer Griff · Leertaste: Abspielen</source>
+        <translation>Drag the handles or use the arrow keys: 1 frame, with Shift 1 s · Up/Down: other handle · Space: play</translation>
+    </message>
+    <message>
+        <source>Verwerfen</source>
+        <translation>Discard</translation>
+    </message>
+    <message>
+        <source>Die Aufnahme löschen</source>
+        <translation>Delete the recording</translation>
+    </message>
+    <message>
+        <source>Ganz speichern</source>
+        <translation>Save whole</translation>
+    </message>
+    <message>
+        <source>Die ganze Aufnahme speichern, ohne zu schneiden</source>
+        <translation>Save the whole recording without trimming</translation>
+    </message>
+    <message>
+        <source>Speichern</source>
+        <translation>Save</translation>
+    </message>
+    <message>
+        <source>Nur den Teil zwischen den Griffen speichern</source>
+        <translation>Save only the part between the handles</translation>
+    </message>
+    <message>
+        <source>Behalten: %1 bis %2 (%3)</source>
+        <translation>Keep: %1 to %2 (%3)</translation>
+    </message>
+    <message>
+        <source>Ausschnitt speichern</source>
+        <translation>Save part</translation>
+    </message>
+    <message>
+        <source>Der Ausschnitt konnte nicht gespeichert werden: %1</source>
+        <translation>The part could not be saved: %1</translation>
+    </message>
+    <message>
+        <source>Video verwerfen</source>
+        <translation>Discard video</translation>
+    </message>
+    <message>
+        <source>Die Aufnahme ist nicht gespeichert. Verwerfen?</source>
+        <translation>The recording is not saved. Discard it?</translation>
+    </message>
+</context>
+<context>
     <name>UnsupportedBackend</name>
     <message>
         <source>Aufnehmen wird auf dieser Plattform noch nicht unterstützt.</source>
         <translation>Capturing is not supported on this platform yet.</translation>
+    </message>
+</context>
+<context>
+    <name>UnsupportedRecordingBackend</name>
+    <message>
+        <source>Videos lassen sich auf diesem Desktop noch nicht aufnehmen. Zuerst folgen Hyprland und andere wlroots-Desktops, danach Windows und GNOME.</source>
+        <translation>Videos cannot be recorded on this desktop yet. Hyprland and other wlroots desktops come first, then Windows and GNOME.</translation>
     </message>
 </context>
 <context>
@@ -1474,6 +1649,28 @@ On GNOME, then install the extension again (`scripts/dev-install.sh`) and log ou
     </message>
 </context>
 <context>
+    <name>VideoEncoder</name>
+    <message>
+        <source>Das Video konnte nicht geschrieben werden.</source>
+        <translation>The video could not be written.</translation>
+    </message>
+</context>
+<context>
+    <name>VideoTrimmer</name>
+    <message>
+        <source>Die Aufnahme lässt sich nicht lesen.</source>
+        <translation>The recording cannot be read.</translation>
+    </message>
+    <message>
+        <source>Im gewählten Ausschnitt ist kein Bild.</source>
+        <translation>The chosen part has no frame.</translation>
+    </message>
+    <message>
+        <source>Der Ausschnitt konnte nicht geschrieben werden.</source>
+        <translation>The part could not be written.</translation>
+    </message>
+</context>
+<context>
     <name>WaylandBackend</name>
     <message>
         <source>Dieser Wayland-Desktop erlaubt keine Bildschirmaufnahme (wlr-screencopy fehlt).</source>
@@ -1490,6 +1687,29 @@ On GNOME, then install the extension again (`scripts/dev-install.sh`) and log ou
     <message>
         <source>Es wurde kein Fenster gefunden, das aufgenommen werden kann.</source>
         <translation>No window was found that can be captured.</translation>
+    </message>
+</context>
+<context>
+    <name>WaylandRecordingBackend</name>
+    <message>
+        <source>Das Fenster ist nicht mehr da; die Aufnahme wurde beendet.</source>
+        <translation>The window is gone; the recording was stopped.</translation>
+    </message>
+    <message>
+        <source>Der Bildschirm liefert keine Bilder mehr; die Aufnahme wurde beendet.</source>
+        <translation>The screen delivers no more pictures; the recording was stopped.</translation>
+    </message>
+    <message>
+        <source>Einzelne Fenster lassen sich als Video nur unter Hyprland aufnehmen. Ein ganzer Bildschirm geht auch hier.</source>
+        <translation>Videos of single windows are only possible on Hyprland. A whole screen works here too.</translation>
+    </message>
+    <message>
+        <source>Bildschirm</source>
+        <translation>Screen</translation>
+    </message>
+    <message>
+        <source>Die Aufnahme liess sich nicht starten: der Desktop bietet die nötigen Wayland-Protokolle nicht mehr an.</source>
+        <translation>The recording could not start: the desktop no longer offers the Wayland protocols it needs.</translation>
     </message>
 </context>
 <context>

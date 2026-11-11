@@ -18,6 +18,8 @@
 #include "editor/ReplaceItem.h"
 #include "editor/TextItem.h"
 #include "imaging/WindowImage.h"
+#include "recording/RecordingBackend.h"
+#include "recording/TrimWindow.h"
 #include "ui/Icons.h"
 #include "ui/Theme.h"
 #include "update/UpdateChecker.h"
@@ -34,6 +36,7 @@
 #include <QDateTime>
 #include <QDesktopServices>
 #include <QDir>
+#include <QFile>
 #include <QFileDialog>
 #include <QFileInfo>
 #include <QHBoxLayout>
@@ -108,7 +111,10 @@ MainWindow::MainWindow(QWidget *parent)
     , m_toolRail(new ToolRail(this))
     , m_properties(new PropertiesPanel(this))
     , m_capture(createCaptureBackend())
+    , m_recordingBackend(createRecordingBackend())
 {
+    m_recording = new RecordingController(m_recordingBackend.get(), this);
+
     setWindowTitle(QStringLiteral("Snapslash"));
     resize(1280, 800);
 
@@ -262,6 +268,23 @@ MainWindow::MainWindow(QWidget *parent)
         finishRequest(CommandLine::Outcome::Failed, message);
     });
 
+    connect(m_recording, &RecordingController::recordingStarted, this, [this] {
+        if (m_trayStopVideo)
+            m_trayStopVideo->setEnabled(true);
+    });
+    connect(m_recording, &RecordingController::finished, this, &MainWindow::onRecordingFinished);
+    connect(m_recording, &RecordingController::cancelled, this, [this] {
+        onRecordingEnded(!m_hiddenBeforeCapture);
+        statusBar()->showMessage(tr("Videoaufnahme abgebrochen."), 3000);
+        finishRequest(CommandLine::Outcome::Cancelled);
+    });
+    connect(m_recording, &RecordingController::failed, this, [this](const QString &message) {
+        const bool fromCommandLine = m_request.has_value();
+        onRecordingEnded(!(fromCommandLine && m_hiddenBeforeCapture));
+        QMessageBox::warning(isVisible() ? this : nullptr, tr("Videoaufnahme fehlgeschlagen"), message);
+        finishRequest(CommandLine::Outcome::Failed, message);
+    });
+
     // Feedback on Kopieren / Speichern lasts a moment (showDone).
     m_copyFeedback = new QTimer(this);
     m_saveFeedback = new QTimer(this);
@@ -335,6 +358,30 @@ QWidget *MainWindow::createTopBar()
     connect(m_windowButton, &QToolButton::clicked, this, &MainWindow::captureWindow);
     connect(m_regionButton, &QToolButton::clicked, this, &MainWindow::captureRegion);
     connect(m_screenButton, &QToolButton::clicked, this, &MainWindow::captureScreen);
+
+    // Video (F-50): a window or a monitor, chosen in the menu.
+    auto *video = new QFrame(bar);
+    video->setProperty("role", QStringLiteral("segment"));
+    auto *videoLayout = new QHBoxLayout(video);
+    videoLayout->setContentsMargins(3, 3, 3, 3);
+    videoLayout->setSpacing(0);
+    m_videoButton = segmentButton(tr("Video"), video);
+    m_videoButton->setCheckable(false);
+    m_videoButton->setAutoExclusive(false);
+    m_videoButton->setPopupMode(QToolButton::InstantPopup);
+    m_videoButton->setToolTip(tr("Video aufnehmen: Fenster oder Bildschirm, mit Mauszeiger, ohne Ton"));
+    auto *videoMenu = new QMenu(m_videoButton);
+    m_videoWindowAction = videoMenu->addAction(tr("Fenster aufnehmen"), this,
+                                               [this] { startRecording(RecordingBackend::Source::Window); });
+    videoMenu->addAction(tr("Bildschirm aufnehmen"), this, [this] { startRecording(RecordingBackend::Source::Screen); });
+    m_videoButton->setMenu(videoMenu);
+    if (!m_recordingBackend->supportsWindow()) {
+        m_videoWindowAction->setEnabled(false);
+        m_videoWindowAction->setToolTip(tr("Einzelne Fenster gehen auf diesem Desktop nicht"));
+    }
+    videoMenu->setToolTipsVisible(true);
+    videoLayout->addWidget(m_videoButton);
+    layout->addWidget(video);
 
     // Timer (F-04). The countdown itself comes with the overlay.
     m_timerIcon = new QLabel(bar);
@@ -499,6 +546,13 @@ void MainWindow::createTrayIcon()
     menu->addAction(tr("Bereich aufnehmen"), this, &MainWindow::captureRegion);
     menu->addAction(tr("Bildschirm aufnehmen"), this, &MainWindow::captureScreen);
     menu->addSeparator();
+    QAction *videoWindow = menu->addAction(tr("Video: Fenster aufnehmen"), this,
+                                           [this] { startRecording(RecordingBackend::Source::Window); });
+    videoWindow->setEnabled(m_recordingBackend->supportsWindow());
+    menu->addAction(tr("Video: Bildschirm aufnehmen"), this, [this] { startRecording(RecordingBackend::Source::Screen); });
+    m_trayStopVideo = menu->addAction(tr("Videoaufnahme beenden"), this, &MainWindow::stopRecording);
+    m_trayStopVideo->setEnabled(false);
+    menu->addSeparator();
     menu->addAction(tr("Editor öffnen"), this, &MainWindow::showEditor);
     menu->addAction(tr("Einstellungen"), this, [this] {
         showEditor();
@@ -643,6 +697,7 @@ void MainWindow::applyTheme(const Theme &theme)
     m_windowButton->setIcon(Icons::toggleIcon(QStringLiteral("window"), theme.muted, theme.text));
     m_regionButton->setIcon(Icons::toggleIcon(QStringLiteral("region"), theme.muted, theme.text));
     m_screenButton->setIcon(Icons::toggleIcon(QStringLiteral("screen"), theme.muted, theme.text));
+    m_videoButton->setIcon(Icons::icon(QStringLiteral("video"), theme.muted));
     m_timerIcon->setPixmap(Icons::icon(QStringLiteral("timer"), theme.muted).pixmap(QSize(16, 16)));
     m_undoButton->setIcon(Icons::icon(QStringLiteral("undo"), theme.muted));
     m_redoButton->setIcon(Icons::icon(QStringLiteral("redo"), theme.muted));
@@ -1078,6 +1133,23 @@ QString MainWindow::saveCapture(const CaptureResult &result, QString *error)
 
 void MainWindow::runRequest(const CommandLine::Request &request, const SingleInstance::Reply &reply)
 {
+    if (request.record) {
+        // The same command while a video runs stops it (D-039); the first
+        // command then gets the saved path.
+        if (m_recording->state() == RecordingController::State::Recording
+            || m_recording->state() == RecordingController::State::CountingDown) {
+            m_recording->stop();
+            reply({CommandLine::Outcome::Opened, {}});
+            return;
+        }
+        if (m_request || m_capturing) {
+            reply({CommandLine::Outcome::Failed, tr("Es läuft bereits eine Aufnahme.")});
+            return;
+        }
+        m_request = PendingRequest{request, reply};
+        startRecording(*request.record, request.delay);
+        return;
+    }
     if (!request.capture) {
         showEditor();
         reply({CommandLine::Outcome::Opened, {}});
@@ -1101,6 +1173,112 @@ void MainWindow::finishRequest(CommandLine::Outcome outcome, const QString &deta
     m_request.reset();
     if (reply)
         reply({outcome, detail});
+}
+
+void MainWindow::startRecording(RecordingBackend::Source source, int delay)
+{
+    if (m_capturing)
+        return;
+    if (!m_recording->isAvailable()) {
+        QMessageBox::warning(isVisible() ? this : nullptr, tr("Videoaufnahme nicht möglich"), m_recording->whyNot());
+        finishRequest(CommandLine::Outcome::Failed, m_recording->whyNot());
+        return;
+    }
+    m_capturing = true;
+    for (QToolButton *button : {m_windowButton, m_regionButton, m_screenButton, m_videoButton})
+        button->setEnabled(false);
+    // Hidden first, so the app is neither in the frozen screen nor in the video.
+    m_hiddenBeforeCapture = !isVisible();
+    hide();
+    const int seconds = delay >= 0 ? delay : m_timer->currentData().toInt();
+    QTimer::singleShot(kHideDelayMs, m_recording, [this, source, seconds] { m_recording->start(source, seconds); });
+}
+
+void MainWindow::stopRecording()
+{
+    m_recording->stop();
+}
+
+void MainWindow::onRecordingFinished(const RecordingController::Result &result)
+{
+    onRecordingEnded(false);
+    QString note;
+    if (result.limitReached)
+        note = tr("Die Höchstdauer von 10 Minuten ist erreicht.");
+    else if (!result.endReason.isEmpty())
+        note = result.endReason;
+
+    // From the command line without --open: saved whole, no trimming (D-039).
+    if (m_request && !m_request->request.open) {
+        if (!m_hiddenBeforeCapture)
+            showEditor();
+        keepVideo(result.path, result.title, note);
+        return;
+    }
+
+    // The trim window (F-51); the editor comes back once it is closed.
+    auto *trim = new TrimWindow(result.path, result.title, this);
+    trim->setAttribute(Qt::WA_DeleteOnClose);
+    const bool showAfterwards = !m_hiddenBeforeCapture;
+    connect(trim, &TrimWindow::saved, this, [this, title = result.title, note, showAfterwards](const QString &path) {
+        if (showAfterwards)
+            showEditor();
+        keepVideo(path, title, note);
+    });
+    connect(trim, &TrimWindow::discarded, this, [this, showAfterwards] {
+        if (showAfterwards)
+            showEditor();
+        statusBar()->showMessage(tr("Video verworfen."), 4000);
+        finishRequest(CommandLine::Outcome::Cancelled);
+    });
+    trim->show();
+    trim->raise();
+    trim->activateWindow();
+}
+
+void MainWindow::keepVideo(const QString &path, const QString &title, const QString &note)
+{
+    QString error;
+    const QString saved = saveVideo(path, title, &error);
+    if (saved.isEmpty()) {
+        QMessageBox::warning(isVisible() ? this : nullptr, tr("Video speichern"), error);
+        finishRequest(CommandLine::Outcome::Failed, error);
+        return;
+    }
+    m_savedPath = saved;
+    QString text = tr("Video gespeichert: %1").arg(saved);
+    if (!note.isEmpty())
+        text = note + QLatin1Char(' ') + text;
+    statusBar()->showMessage(text, 8000);
+    if (m_tray && !isVisible())
+        m_tray->showMessage(tr("Video gespeichert"), text);
+    finishRequest(CommandLine::Outcome::Saved, saved);
+}
+
+QString MainWindow::saveVideo(const QString &temporary, const QString &title, QString *error)
+{
+    const QString folder = Settings::saveFolder();
+    QDir().mkpath(folder);
+    const QString path = QDir(folder).filePath(
+        FileNames::fromPattern(Settings::fileNamePattern(), title, QDateTime::currentDateTime(), QStringLiteral("mp4")));
+    QFile::remove(path);
+    // rename() fails across file systems (/tmp on its own): then copy.
+    if (!QFile::rename(temporary, path)) {
+        if (!QFile::copy(temporary, path)) {
+            *error = tr("«%1» konnte nicht gespeichert werden.").arg(path);
+            return {};
+        }
+        QFile::remove(temporary);
+    }
+    return path;
+}
+
+void MainWindow::onRecordingEnded(bool showWindow)
+{
+    if (m_trayStopVideo)
+        m_trayStopVideo->setEnabled(false);
+    m_videoButton->setEnabled(true);
+    onCaptureEnded(showWindow);
 }
 
 void MainWindow::onCaptureEnded(bool showWindow)

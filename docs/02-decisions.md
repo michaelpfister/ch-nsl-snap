@@ -497,3 +497,15 @@ Each entry: context, decision, rationale, consequences. Entries marked **(assump
 - Whether Qt's FFmpeg build has an H.264 encoder on every Linux machine (software or VA-API) is open (Q-28).
 - F-05 now applies to images only.
 - Hyprland window recording can only be tested on a real Hyprland (the requester); a headless Sway covers screen recording.
+
+**Implementation, step 1 (2026-11-11):** the shared core and the backend for Hyprland and other wlroots desktops (`src/recording/`).
+- The controller hands the encoder one frame per 1/30 s, always the newest it has; a source that is slower repeats frames instead of slowing the video down. A frame of another size is scaled into the start size (Q-30).
+- `QVideoFrameInput` is created without a frame format: with a fixed format Qt 6.8.3 accepted no frame in a test; without one it takes the format from the first frame.
+- Qt 6.8.3 from aqt has no software H.264 encoder on Linux: its FFmpeg build offers only `h264_vaapi` and `h264_nvenc` (Q-28). Where neither works, the app says so when "Video" is chosen. The tests encode MPEG-4 Part 2 (software) into the same container; `NSL_TEST_H264=1` tries H.264.
+- Tested in a headless Sway (one and two monitors, 30 fps, MP4 written). Without LayerShellQt the compositor places the indicator: Sway centres it, so it is in the middle of a monitor recording (Q-31).
+
+**Implementation, step 2 (2026-11-11):** the trim window (F-51, `TrimWindow`, `TrimTimeline`, `VideoTrimmer`).
+- The part is encoded anew, exact to the frame (Q-29). Qt 6.8 has no decoder that hands out single frames; a `QMediaPlayer` playing into a `QVideoSink` does, with time stamps. Tried with Qt 6.8.3: every frame arrived at 4, 8 and 16 times the speed, and after a seek playing starts at the frame that holds the position. The trimmer plays the part at 4 times the speed and pauses the player while more than 24 frames wait at the encoder, so none is lost and memory stays bounded.
+- "Ganz speichern", or "Speichern" with the handles at both ends, keeps the recording as it is, without encoding it again.
+- Closing the window without a choice asks before the recording is discarded; the recording stays in the temporary folder while the window is open and is deleted with it.
+- From the command line without `--open` the trim window is skipped (as decided above); with `--open` it opens, and the command ends when it is closed.
