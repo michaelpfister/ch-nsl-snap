@@ -1,6 +1,7 @@
 #pragma once
 
 #include "capture/CaptureResult.h"
+#include "capture/CountdownOptions.h"
 
 #include <QObject>
 
@@ -42,6 +43,12 @@ public:
     // Seconds of countdown before the freeze (F-04, D-025); 0 = at once.
     void setDelay(int seconds) { m_delay = seconds; }
     int delay() const { return m_delay; }
+    // Where the countdown appears and whether a click cancels it (F-04).
+    void setCountdownOptions(const CountdownOptions &options) { m_countdownOptions = options; }
+    const CountdownOptions &countdownOptions() const { return m_countdownOptions; }
+    // Whether Escape cancels the countdown while another app has the
+    // focus; where it does not, a click always cancels (D-025).
+    virtual bool countdownHasEscape() const { return false; }
 
 signals:
     void captured(const CaptureResult &result);
@@ -51,6 +58,7 @@ signals:
 private:
     bool m_regionByDragging = false;
     int m_delay = 0;
+    CountdownOptions m_countdownOptions;
 };
 
 // Returns the backend for the platform the app runs on.

@@ -91,6 +91,7 @@ void RecordingController::onPicked(RecordingBackend::Source, const QString &titl
     // After the pick, so the user can get the window ready (D-039).
     m_countdown = new Countdown;
     m_countdown->setTickInterval(m_countdownTick);
+    m_countdown->setOptions(m_countdownOptions);
     connect(m_countdown, &Countdown::finished, this, [this] {
         m_countdown->deleteLater();
         startRecording();

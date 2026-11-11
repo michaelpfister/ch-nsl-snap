@@ -96,6 +96,7 @@ void WaylandBackend::start(CaptureOverlay::Mode mode)
     }
     // The countdown first (F-04); it is off the screen before the freeze.
     m_countdown = new Countdown;
+    m_countdown->setOptions(countdownOptions());
     connect(m_countdown, &Countdown::finished, this, [this, mode] {
         m_countdown->deleteLater();
         m_countdown = nullptr;

@@ -3,6 +3,7 @@
 #include "app/GlobalHotkeys.h"
 
 #include "app/PropertiesPanel.h"
+#include "app/RecentCaptures.h"
 #include "app/Settings.h"
 #include "app/SettingsDialog.h"
 #include "app/ToolRail.h"
@@ -110,6 +111,7 @@ MainWindow::MainWindow(QWidget *parent)
     , m_view(new EditorView(m_undoStack, this))
     , m_toolRail(new ToolRail(this))
     , m_properties(new PropertiesPanel(this))
+    , m_recent(new RecentCaptures(this))
     , m_capture(createCaptureBackend())
     , m_recordingBackend(createRecordingBackend())
 {
@@ -118,7 +120,8 @@ MainWindow::MainWindow(QWidget *parent)
     setWindowTitle(QStringLiteral("Snapslash"));
     resize(1280, 800);
 
-    // Layout: top bar above [tool rail | editor | properties].
+    // Layout: top bar above [tool rail | editor | properties], the recent
+    // captures (F-52) below.
     auto *central = new QWidget(this);
     central->setObjectName(QStringLiteral("Central"));
     auto *column = new QVBoxLayout(central);
@@ -131,7 +134,17 @@ MainWindow::MainWindow(QWidget *parent)
     row->addWidget(m_view, 1);
     row->addWidget(m_properties);
     column->addLayout(row, 1);
+    column->addWidget(m_recent);
     setCentralWidget(central);
+
+    // Recent captures (F-52): remembered across starts, like the pin.
+    m_recent->setPinned(Settings::recentCapturesPinned());
+    m_recent->setPaths(Settings::recentCaptures());
+    connect(m_recent, &RecentCaptures::pathsChanged, this, [](const QStringList &paths) {
+        Settings::setRecentCaptures(paths);
+    });
+    connect(m_recent, &RecentCaptures::pinnedChanged, this, [](bool pinned) { Settings::setRecentCapturesPinned(pinned); });
+    connect(m_recent, &RecentCaptures::openRequested, this, &MainWindow::openRecentCapture);
 
     m_imageInfo = new QLabel(this);
     m_toolHint = new QLabel(this);
@@ -718,6 +731,7 @@ void MainWindow::applyTheme(const Theme &theme)
 
     m_toolRail->applyTheme(theme);
     m_properties->applyTheme(theme);
+    m_recent->applyTheme(theme);
 }
 
 void MainWindow::finishCrop(bool apply)
@@ -1057,6 +1071,7 @@ void MainWindow::startCapture(CaptureResult::Kind kind, int delay, bool activeWi
     // The overlay can switch to region mode, so it always gets the setting.
     m_capture->setRegionByDragging(Settings::regionByDragging());
     m_capture->setDelay(delay >= 0 ? delay : m_timer->currentData().toInt());
+    m_capture->setCountdownOptions(Settings::countdownOptions());
     for (QToolButton *button : {m_windowButton, m_regionButton, m_screenButton})
         button->setEnabled(false);
     m_capturing = true;
@@ -1079,9 +1094,11 @@ void MainWindow::onCaptured(const CaptureResult &result)
     // The user may have switched the mode in the overlay; that one counts.
     m_lastMode = result.kind;
 
-    if (m_request && !m_request->request.open) {
-        // From the command line, without --open (F-48): into the save
-        // folder; the window and its image stay as they were.
+    // From the command line without --open (F-48), or as part of a series
+    // (F-52, unless the command line asks to open): into the save folder;
+    // the window and its image stay as they were.
+    const bool series = Settings::autoSaveCaptures() && !(m_request && m_request->request.open);
+    if ((m_request && !m_request->request.open) || series) {
         onCaptureEnded(!m_hiddenBeforeCapture);
         QString error;
         const QString path = saveCapture(result, &error);
@@ -1090,7 +1107,11 @@ void MainWindow::onCaptured(const CaptureResult &result)
             finishRequest(CommandLine::Outcome::Failed, error);
             return;
         }
-        statusBar()->showMessage(tr("Gespeichert: %1").arg(path), 6000);
+        m_recent->addCapture(path);
+        if (series)
+            m_recent->setExpanded(true); // the new capture is in sight
+        statusBar()->showMessage(series ? tr("Gespeichert: %1 · unten in «Letzte Aufnahmen»").arg(path)
+                                        : tr("Gespeichert: %1").arg(path), 6000);
         if (m_tray && !isVisible())
             m_tray->showMessage(tr("Aufnahme gespeichert"), path);
         finishRequest(CommandLine::Outcome::Saved, path);
@@ -1197,6 +1218,7 @@ void MainWindow::startRecording(RecordingBackend::Source source, int delay)
     m_hiddenBeforeCapture = !isVisible();
     hide();
     const int seconds = delay >= 0 ? delay : m_timer->currentData().toInt();
+    m_recording->setCountdownOptions(Settings::countdownOptions());
     QTimer::singleShot(kHideDelayMs, m_recording, [this, source, seconds] { m_recording->start(source, seconds); });
 }
 
@@ -1335,6 +1357,21 @@ void MainWindow::loadImageFile(const QString &path)
     const QString name = QFileInfo(path).completeBaseName();
     setImage(image, EditorScene::scaleFromMetadata(image), name, QFileInfo(path).fileName());
     m_handedOff = true; // the file is already on disk
+}
+
+void MainWindow::openRecentCapture(const QString &path)
+{
+    if (!QFileInfo::exists(path)) {
+        m_recent->removePath(path);
+        Settings::setRecentCaptures(m_recent->paths());
+        statusBar()->showMessage(tr("«%1» gibt es nicht mehr.").arg(QDir::toNativeSeparators(path)), 4000);
+        return;
+    }
+    if (hasUnsavedChanges() && !confirmDiscard(tr("Aufnahme öffnen"), tr("Trotzdem die Aufnahme öffnen?")))
+        return;
+    loadImageFile(path);
+    if (m_view->hasImage() && m_imageSource == QFileInfo(path).fileName())
+        m_savedPath = path; // Ctrl+E and Ctrl+Alt+C know the file
 }
 
 void MainWindow::setImage(const QImage &image, double scale, const QString &name, const QString &source)
@@ -1514,7 +1551,11 @@ void MainWindow::copyFilePath()
 
 void MainWindow::showSettings()
 {
-    SettingsDialog dialog(m_hotkeys, this);
+    SettingsDialog dialog(m_hotkeys, m_capture->countdownHasEscape(), this);
+    connect(&dialog, &SettingsDialog::autoSaveChanged, this, [this](bool enabled) {
+        statusBar()->showMessage(enabled ? tr("Serienaufnahme an: Aufnahmen werden sofort im Ordner gespeichert.")
+                                         : tr("Serienaufnahme aus: Aufnahmen öffnen sich wieder im Editor."), 5000);
+    });
     connect(&dialog, &SettingsDialog::releasesLoaded, this, &MainWindow::onReleasesLoaded);
     connect(&dialog, &SettingsDialog::installRequested, this,
             [this, &dialog](const Releases::Release &release) { showUpdate(release, &dialog); });

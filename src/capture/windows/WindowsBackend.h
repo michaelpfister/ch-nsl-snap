@@ -29,6 +29,8 @@ public:
     void captureActiveWindow() override;
     void captureRegion() override;
     void captureScreen() override;
+    // A global hotkey while the countdown runs (D-025).
+    bool countdownHasEscape() const override { return true; }
 
     // The radius Windows 11 gives the window's corners on the screen, in
     // logical px; the capture itself is square (D-022). 0 before Windows 11,

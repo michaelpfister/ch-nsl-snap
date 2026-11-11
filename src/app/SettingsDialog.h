@@ -19,11 +19,15 @@ class SettingsDialog : public QDialog
 
 public:
     // `hotkeys` may be null where the app has no global hotkeys (F-42).
-    explicit SettingsDialog(GlobalHotkeys *hotkeys, QWidget *parent = nullptr);
+    // `countdownHasEscape`: Escape cancels the countdown on this desktop;
+    // where it does not, the click on it cannot be switched off (D-025).
+    explicit SettingsDialog(GlobalHotkeys *hotkeys, bool countdownHasEscape, QWidget *parent = nullptr);
     ~SettingsDialog() override;
 
 signals:
     void advancedModeChanged(bool enabled);
+    // Series of captures switched on or off (F-52).
+    void autoSaveChanged(bool enabled);
     // The styles for new objects were reset to the defaults (F-22).
     void stylesReset();
     // "Updates" (F-49): the releases from a check, for the update button
@@ -34,6 +38,8 @@ signals:
 private:
     // "Tastenkürzel": the global hotkeys, and whether each one works.
     void createHotkeyPage(QVBoxLayout *layout);
+    // "Countdown" on the page "Allgemein" (F-04): where it appears, click.
+    void createCountdownSection(QVBoxLayout *layout, bool hasEscape);
     // "Updates": automatic check, pre-releases, and every version to choose
     // from, older ones included (D-037).
     void createUpdatePage(QVBoxLayout *layout);

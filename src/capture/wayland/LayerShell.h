@@ -1,5 +1,7 @@
 #pragma once
 
+#include "capture/CountdownOptions.h"
+
 class QScreen;
 class QWidget;
 
@@ -21,9 +23,10 @@ bool isAvailable();
 // false (and nothing changed) where layer-shell is not available.
 bool makeOverlay(QWidget *widget, QScreen *screen);
 
-// Makes `widget` a layer surface above all windows in the middle of
-// `screen` that never takes the keyboard (the countdown, F-04).
-bool makeNotification(QWidget *widget, QScreen *screen);
+// Makes `widget` a layer surface above all windows in the middle or a
+// corner of `screen` (`margin` logical pixels from the edges) that never
+// takes the keyboard (the countdown, F-04).
+bool makeNotification(QWidget *widget, QScreen *screen, CountdownPosition position, int margin);
 
 // Makes `widget` a layer surface above all windows in the top right corner
 // of `screen`, `margin` logical pixels from the edges, that never takes the

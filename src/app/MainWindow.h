@@ -24,6 +24,7 @@ class QSystemTrayIcon;
 class QTimer;
 class QToolButton;
 class QUndoStack;
+class RecentCaptures;
 class RecordingBackend;
 class ToolRail;
 class UpdateChecker;
@@ -111,6 +112,9 @@ private:
     void openImage();
     void pasteImage();
     void loadImageFile(const QString &path);
+    // A click in "Letzte Aufnahmen" (F-52): into the editor, asking first
+    // if the image there is neither saved nor copied.
+    void openRecentCapture(const QString &path);
     void saveImage();
     void saveImageAs();
     bool writeImage(const QString &path);
@@ -169,6 +173,7 @@ private:
     EditorView *m_view = nullptr;
     ToolRail *m_toolRail = nullptr;
     PropertiesPanel *m_properties = nullptr;
+    RecentCaptures *m_recent = nullptr;
     std::unique_ptr<CaptureBackend> m_capture;
     std::unique_ptr<RecordingBackend> m_recordingBackend;
     RecordingController *m_recording = nullptr;

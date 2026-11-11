@@ -62,6 +62,11 @@ QWidget { color: @text; }
 #TopBar { border-bottom: 1px solid @border; }
 #ToolRail { border-right: 1px solid @border; }
 #PropertiesPanel { border-left: 1px solid @border; }
+#RecentCaptures { background: @panel; border-top: 1px solid @border; }
+#RecentToggle { background: transparent; border: none; border-radius: 8px; padding: 4px 8px; color: @muted; font-size: 12px; font-weight: 500; }
+#RecentToggle:hover { background: @hover; color: @text; }
+#RecentCaptures QListWidget::item { padding: 4px; color: @muted; font-size: 11px; }
+#RecentCaptures QListWidget::item:hover { background: @hover; }
 QStatusBar { border-top: 1px solid @border; color: @muted; font-size: 12px; }
 QStatusBar QLabel { color: @muted; font-size: 12px; padding: 0 4px; }
 QStatusBar::item { border: none; }

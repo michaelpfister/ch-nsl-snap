@@ -1,5 +1,6 @@
 #pragma once
 
+#include "capture/CountdownOptions.h"
 #include "recording/RecordingBackend.h"
 
 #include <QElapsedTimer>
@@ -56,6 +57,8 @@ public:
     // Ends the live recording (indicator, tray, hotkey, command line); a
     // countdown that is still running is cancelled.
     void stop();
+    // Where the countdown appears and whether a click cancels it (F-04).
+    void setCountdownOptions(const CountdownOptions &options) { m_countdownOptions = options; }
 
     // For the tests.
     void setVideoCodec(QMediaFormat::VideoCodec codec) { m_codec = codec; }
@@ -89,6 +92,7 @@ private:
     QMediaFormat::VideoCodec m_codec = QMediaFormat::VideoCodec::H264;
     qint64 m_maxDurationMs = kMaxDurationMs;
     int m_countdownTick = 1000;
+    CountdownOptions m_countdownOptions;
     QString m_folder;
 
     QString m_title;

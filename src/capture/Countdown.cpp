@@ -36,12 +36,11 @@ Countdown::Countdown(QWidget *parent)
     setWindowFlags(Qt::FramelessWindowHint | Qt::WindowStaysOnTopHint | Qt::Tool | Qt::WindowDoesNotAcceptFocus);
     setAttribute(Qt::WA_TranslucentBackground);
     setAttribute(Qt::WA_ShowWithoutActivating);
-    setCursor(Qt::PointingHandCursor);
-    setToolTip(tr("Klicken zum Abbrechen"));
     // Fixed: tiling Wayland compositors (Sway, Hyprland) float windows
     // that cannot be resized, instead of tiling them across the monitor.
     setFixedSize(220, 140);
     m_tick.setInterval(1000);
+    setOptions({});
     connect(&m_tick, &QTimer::timeout, this, &Countdown::tick);
 }
 
@@ -50,19 +49,48 @@ Countdown::~Countdown()
     stop();
 }
 
+bool Countdown::hasGlobalEscape()
+{
+#ifdef Q_OS_WIN
+    return true;
+#else
+    return false;
+#endif
+}
+
+void Countdown::setOptions(const CountdownOptions &options)
+{
+    m_options = options;
+    // Without a global Escape the click is the only way to cancel.
+    if (!hasGlobalEscape())
+        m_options.clickCancels = true;
+    // Click-through: the window takes no input at all, so a click lands in
+    // the window below it (Qt::WindowTransparentForInput; on Wayland an
+    // empty input region). Only before the first show.
+    if (!m_shown)
+        setWindowFlag(Qt::WindowTransparentForInput, !m_options.clickCancels);
+    setAttribute(Qt::WA_TransparentForMouseEvents, !m_options.clickCancels);
+    if (m_options.clickCancels) {
+        setCursor(Qt::PointingHandCursor);
+        setToolTip(tr("Klicken zum Abbrechen"));
+    } else {
+        unsetCursor();
+        setToolTip(QString());
+    }
+}
+
 void Countdown::start(int seconds)
 {
     m_left = seconds;
     m_running = true;
     if (QScreen *screen = QGuiApplication::primaryScreen()) {
-        const QRect area = screen->geometry();
-        move(area.center() - rect().center());
+        move(CountdownOptions::place(m_options.position, screen->geometry(), screen->availableGeometry(), size()));
 #ifdef NSL_HAVE_WAYLAND_BACKEND
-        // Wayland ignores the position: a layer surface in the middle of
-        // the monitor where the compositor offers one (D-031). Only before
-        // the first show; the widget keeps its role afterwards.
+        // Wayland ignores the position: a layer surface in the middle or
+        // a corner of the monitor where the compositor offers one (D-031).
+        // Only before the first show; the widget keeps its role afterwards.
         if (!m_shown)
-            LayerShell::makeNotification(this, screen);
+            LayerShell::makeNotification(this, screen, m_options.position, CountdownOptions::kMargin);
 #endif
     }
     show();
@@ -126,12 +154,15 @@ void Countdown::paintEvent(QPaintEvent *)
     hint.setPixelSize(12);
     painter.setFont(hint);
     painter.setPen(QColor(255, 255, 255, 190));
-    painter.drawText(QRect(0, 98, width(), 30), Qt::AlignCenter, CaptureHints::countdown());
+    painter.drawText(QRect(0, 98, width(), 30), Qt::AlignCenter, CaptureHints::countdown(m_options.clickCancels));
 }
 
-void Countdown::mousePressEvent(QMouseEvent *)
+void Countdown::mousePressEvent(QMouseEvent *event)
 {
-    cancel();
+    if (m_options.clickCancels)
+        cancel();
+    else
+        QWidget::mousePressEvent(event);
 }
 
 void Countdown::keyPressEvent(QKeyEvent *event)
