@@ -19,8 +19,8 @@ namespace {
 const QString kShellService = QStringLiteral("ch.netslash.Snap.Shell");
 const QString kShellPath = QStringLiteral("/ch/netslash/Snap");
 const QString kShellInterface = QStringLiteral("ch.netslash.Snap1");
-// Version 7 knows the purpose "video".
-constexpr uint kVideoVersion = 7;
+// Version 8 knows the purpose "video" (7 brought the countdown options).
+constexpr uint kVideoVersion = 8;
 
 const QString kMutter = QStringLiteral("org.gnome.Mutter.ScreenCast");
 const QString kMutterPath = QStringLiteral("/org/gnome/Mutter/ScreenCast");

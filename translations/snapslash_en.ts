@@ -50,6 +50,10 @@
         <source>Video: klicken oder Enter, um den Bildschirm aufzunehmen · W: Fenster · Esc: Abbrechen</source>
         <translation>Video: click or Enter to record the screen · W: window · Esc: cancel</translation>
     </message>
+    <message>
+        <source>Esc: Abbrechen</source>
+        <translation>Esc: cancel</translation>
+    </message>
 </context>
 <context>
     <name>ColorPopup</name>
@@ -204,6 +208,37 @@
     <message>
         <source>Klicken zum Abbrechen</source>
         <translation>Click to cancel</translation>
+    </message>
+</context>
+<context>
+    <name>CountdownPositionPicker</name>
+    <message>
+        <source>Ort des Countdowns</source>
+        <translation>Countdown position</translation>
+    </message>
+    <message>
+        <source>Punkt anklicken: Hier erscheint der Countdown</source>
+        <translation>Click a dot: the countdown appears there</translation>
+    </message>
+    <message>
+        <source>Oben links</source>
+        <translation>Top left</translation>
+    </message>
+    <message>
+        <source>Oben rechts</source>
+        <translation>Top right</translation>
+    </message>
+    <message>
+        <source>Unten links</source>
+        <translation>Bottom left</translation>
+    </message>
+    <message>
+        <source>Unten rechts</source>
+        <translation>Bottom right</translation>
+    </message>
+    <message>
+        <source>Mitte</source>
+        <translation>Centre</translation>
     </message>
 </context>
 <context>
@@ -760,6 +795,30 @@ Ctrl+S saves straight into the folder from the settings</translation>
         <source>Video gespeichert: %1</source>
         <translation>Video saved: %1</translation>
     </message>
+    <message>
+        <source>Gespeichert: %1 · unten in «Letzte Aufnahmen»</source>
+        <translation>Saved: %1 · below in “Recent captures”</translation>
+    </message>
+    <message>
+        <source>«%1» gibt es nicht mehr.</source>
+        <translation>“%1” no longer exists.</translation>
+    </message>
+    <message>
+        <source>Aufnahme öffnen</source>
+        <translation>Open capture</translation>
+    </message>
+    <message>
+        <source>Trotzdem die Aufnahme öffnen?</source>
+        <translation>Open the capture anyway?</translation>
+    </message>
+    <message>
+        <source>Serienaufnahme an: Aufnahmen werden sofort im Ordner gespeichert.</source>
+        <translation>Series capture on: captures are saved to the folder right away.</translation>
+    </message>
+    <message>
+        <source>Serienaufnahme aus: Aufnahmen öffnen sich wieder im Editor.</source>
+        <translation>Series capture off: captures open in the editor again.</translation>
+    </message>
 </context>
 <context>
     <name>MarkerItem</name>
@@ -1016,6 +1075,55 @@ Ctrl+S saves straight into the folder from the settings</translation>
     <message>
         <source>Das nächste aufgenommene oder geöffnete Bild beginnt mit der Nummer nach der höchsten in diesem Bild.</source>
         <translation>The next image captured or opened starts with the number after the highest one in this image.</translation>
+    </message>
+</context>
+<context>
+    <name>RecentCaptures</name>
+    <message>
+        <source>Anheften: Die Liste bleibt offen</source>
+        <translation>Pin: the list stays open</translation>
+    </message>
+    <message>
+        <source>Liste leeren (die Dateien bleiben)</source>
+        <translation>Clear the list (the files stay)</translation>
+    </message>
+    <message>
+        <source>Letzte Aufnahmen</source>
+        <translation>Recent captures</translation>
+    </message>
+    <message>
+        <source>%1
+Klicken, um im Editor zu öffnen</source>
+        <translation>%1
+Click to open in the editor</translation>
+    </message>
+    <message>
+        <source>Im Editor öffnen</source>
+        <translation>Open in the editor</translation>
+    </message>
+    <message>
+        <source>Ordner öffnen</source>
+        <translation>Open folder</translation>
+    </message>
+    <message>
+        <source>Aus der Liste entfernen</source>
+        <translation>Remove from the list</translation>
+    </message>
+    <message>
+        <source>Lösen: Die Liste schliesst sich nach dem Öffnen einer Aufnahme</source>
+        <translation>Unpin: the list closes after a capture is opened</translation>
+    </message>
+    <message>
+        <source>Letzte Aufnahmen · %1</source>
+        <translation>Recent captures · %1</translation>
+    </message>
+    <message>
+        <source>Liste schliessen</source>
+        <translation>Close the list</translation>
+    </message>
+    <message>
+        <source>Liste öffnen</source>
+        <translation>Open the list</translation>
     </message>
 </context>
 <context>
@@ -1303,6 +1411,38 @@ Ctrl+S saves straight into the folder from the settings</translation>
     <message>
         <source>Keine Versionen veröffentlicht</source>
         <translation>No versions published</translation>
+    </message>
+    <message>
+        <source>Serienaufnahme</source>
+        <translation>Series capture</translation>
+    </message>
+    <message>
+        <source>Jede Aufnahme sofort in diesem Ordner speichern</source>
+        <translation>Save every capture to this folder right away</translation>
+    </message>
+    <message>
+        <source>So lassen sich mehrere Aufnahmen hintereinander machen: Sie öffnen sich nicht im Editor, sondern erscheinen in der Liste «Letzte Aufnahmen» unten im Fenster. Ein Klick darauf öffnet eine Aufnahme im Editor.</source>
+        <translation>For taking several captures in a row: they do not open in the editor but appear in the “Recent captures” list at the bottom of the window. A click there opens a capture in the editor.</translation>
+    </message>
+    <message>
+        <source>Countdown des Timers</source>
+        <translation>Timer countdown</translation>
+    </message>
+    <message>
+        <source>Ort der Anzeige auf dem Hauptbildschirm. Punkt anklicken, um ihn zu ändern.</source>
+        <translation>Where it appears on the primary monitor. Click a dot to change it.</translation>
+    </message>
+    <message>
+        <source>Klick auf den Countdown bricht die Aufnahme ab</source>
+        <translation>A click on the countdown cancels the capture</translation>
+    </message>
+    <message>
+        <source>Ausgeschaltet gehen Klicks durch den Countdown hindurch, zum Beispiel auf einen Knopf darunter; abbrechen dann nur mit Esc.</source>
+        <translation>When off, clicks go through the countdown, for example to a button below it; then only Esc cancels.</translation>
+    </message>
+    <message>
+        <source>Auf diesem Desktop erreicht Esc den Countdown nicht, daher bricht ein Klick immer ab.</source>
+        <translation>On this desktop Esc does not reach the countdown, so a click always cancels.</translation>
     </message>
 </context>
 <context>

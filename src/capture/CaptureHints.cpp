@@ -38,8 +38,10 @@ QString regionDrag()
         "CaptureHints", "Bereich aufziehen · Pfeiltasten und Enter: pixelgenau · W: Fenster · Esc: Abbrechen");
 }
 
-QString countdown()
+QString countdown(bool clickCancels)
 {
+    if (!clickCancels)
+        return QCoreApplication::translate("CaptureHints", "Esc: Abbrechen");
     return QCoreApplication::translate("CaptureHints", "Esc oder Klick: Abbrechen");
 }
 
@@ -60,7 +62,7 @@ QString videoScreen()
                                        "Video: klicken oder Enter, um den Bildschirm aufzunehmen · W: Fenster · Esc: Abbrechen");
 }
 
-QVariantMap forExtension()
+QVariantMap forExtension(bool countdownClickCancels)
 {
     return {
         {QStringLiteral("window"), window()},
@@ -69,7 +71,7 @@ QVariantMap forExtension()
         {QStringLiteral("region-first"), regionFirstCorner()},
         {QStringLiteral("region-second"), regionSecondCorner()},
         {QStringLiteral("region-drag"), regionDrag()},
-        {QStringLiteral("countdown"), countdown()},
+        {QStringLiteral("countdown"), countdown(countdownClickCancels)},
     };
 }
 

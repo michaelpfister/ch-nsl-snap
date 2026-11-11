@@ -57,6 +57,25 @@ void setRegionByDragging(bool enabled)
     QSettings().setValue(kRegionByDragging, enabled);
 }
 
+CountdownOptions countdownOptions()
+{
+    const QSettings settings;
+    CountdownOptions options;
+    options.position = CountdownOptions::positionFromKey(settings.value("capture/countdownPosition").toString());
+    options.clickCancels = settings.value("capture/countdownClick", true).toBool();
+    return options;
+}
+
+void setCountdownPosition(CountdownPosition position)
+{
+    QSettings().setValue("capture/countdownPosition", CountdownOptions::positionKey(position));
+}
+
+void setCountdownClickCancels(bool enabled)
+{
+    QSettings().setValue("capture/countdownClick", enabled);
+}
+
 QString saveFolder()
 {
     const QString folder = QSettings().value("save/folder").toString();
@@ -77,6 +96,54 @@ QString fileNamePattern()
 void setFileNamePattern(const QString &pattern)
 {
     QSettings().setValue("save/pattern", pattern);
+}
+
+bool autoSaveCaptures()
+{
+    return QSettings().value("save/autoSave", false).toBool();
+}
+
+void setAutoSaveCaptures(bool enabled)
+{
+    QSettings().setValue("save/autoSave", enabled);
+}
+
+QStringList recentCaptures()
+{
+    QStringList paths = QSettings().value("recent/captures").toStringList();
+    paths.removeAll(QString());
+    paths.removeDuplicates();
+    if (paths.size() > kMaxRecentCaptures)
+        paths.resize(kMaxRecentCaptures);
+    return paths;
+}
+
+void setRecentCaptures(const QStringList &paths)
+{
+    QStringList kept = paths;
+    if (kept.size() > kMaxRecentCaptures)
+        kept.resize(kMaxRecentCaptures);
+    QSettings().setValue("recent/captures", kept);
+}
+
+void addRecentCapture(const QString &path)
+{
+    if (path.isEmpty())
+        return;
+    QStringList paths = recentCaptures();
+    paths.removeAll(path);
+    paths.prepend(path);
+    setRecentCaptures(paths);
+}
+
+bool recentCapturesPinned()
+{
+    return QSettings().value("recent/pinned", false).toBool();
+}
+
+void setRecentCapturesPinned(bool pinned)
+{
+    QSettings().setValue("recent/pinned", pinned);
 }
 
 bool closeToTray()

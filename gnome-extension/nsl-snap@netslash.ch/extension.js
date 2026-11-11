@@ -11,7 +11,7 @@ import Shell from 'gi://Shell';
 
 import {Extension} from 'resource:///org/gnome/shell/extensions/extension.js';
 
-import {countdown} from './countdown.js';
+import {Position, countdown} from './countdown.js';
 import {DEFAULT_HINTS, Mode, RegionSelect, freeze, select} from './overlay.js';
 
 Gio._promisify(Shell.Screenshot, 'composite_to_stream');
@@ -25,8 +25,9 @@ const ERROR_PREFIX = 'ch.netslash.Snap1.Error';
 // 4: screen mode (F-01).
 // 5: delay with a countdown (F-04).
 // 6: hints, the overlay's texts in the app's language (D-038).
-// 7: purpose "video": the pick for a video (F-50, D-039).
-const API_VERSION = 7;
+// 7: countdown-position and countdown-click (F-04).
+// 8: purpose "video": the pick for a video (F-50, D-039).
+const API_VERSION = 8;
 
 const IFACE_XML = `
 <node>
@@ -44,6 +45,10 @@ const IFACE_XML = `
         delay (u): seconds of countdown before the freeze (F-04); 0 (default)
                   freezes at once. Escape or a click on the countdown
                   cancels.
+        countdown-position (s): "center" (default), "top-left", "top-right",
+                  "bottom-left" or "bottom-right" of the primary monitor.
+        countdown-click (b): true (default): a click on the countdown
+                  cancels; false: clicks go through it, only Escape cancels.
         hints (a{sv}): the texts of the overlay and the countdown, in the
                   app's language (D-038): window, screens, screen,
                   region-first, region-second, region-drag, countdown.
@@ -263,6 +268,8 @@ class SnapService {
         const crop = options.crop ?? 'frame';
         const how = options['region-select'] ?? RegionSelect.CLICKS;
         const delay = options.delay ?? 0;
+        const position = options['countdown-position'] ?? Position.CENTER;
+        const clickCancels = options['countdown-click'] ?? true;
         const hints = {...DEFAULT_HINTS};
         for (const [key, text] of Object.entries(options.hints ?? {})) {
             if (key in DEFAULT_HINTS && typeof text === 'string')
@@ -276,6 +283,10 @@ class SnapService {
             throw new CaptureError('InvalidArgs', `Unknown region-select "${how}"`);
         if (!Number.isInteger(delay) || delay < 0 || delay > 60)
             throw new CaptureError('InvalidArgs', `Invalid delay ${delay}`);
+        if (!Object.values(Position).includes(position))
+            throw new CaptureError('InvalidArgs', `Unknown countdown-position "${position}"`);
+        if (typeof clickCancels !== 'boolean')
+            throw new CaptureError('InvalidArgs', 'countdown-click must be a boolean');
         const purpose = options.purpose ?? 'image';
         if (purpose !== 'image' && purpose !== 'video')
             throw new CaptureError('InvalidArgs', `Unknown purpose "${purpose}"`);
@@ -286,7 +297,7 @@ class SnapService {
             // After the countdown, if any: the countdown is gone before the
             // freeze (F-04).
             if (delay > 0) {
-                this._countdown = countdown(delay, this._settings, hints.countdown);
+                this._countdown = countdown(delay, this._settings, hints.countdown, position, clickCancels);
                 const go = await this._countdown.promise;
                 this._countdown = null;
                 if (!go)

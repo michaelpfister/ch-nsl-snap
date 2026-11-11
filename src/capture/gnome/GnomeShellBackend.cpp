@@ -21,7 +21,8 @@ const QString kInterface = QStringLiteral("ch.netslash.Snap1");
 // version 4 the screen mode (F-01).
 constexpr uint kCaptureVersion = 2;
 constexpr uint kScreenVersion = 4;
-// Version 5 the delay with a countdown (F-04).
+// Version 5 the delay with a countdown (F-04); version 7 the countdown's
+// position and click-through (older ones ignore those options).
 constexpr uint kDelayVersion = 5;
 
 // "frame-rect", "buffer-rect" and "rect" are D-Bus structs (iiii): x, y,
@@ -122,11 +123,18 @@ void GnomeShellBackend::capture(const QString &mode)
         // How a region is selected (D-023); older extensions ignore it.
         options.insert(QStringLiteral("region-select"),
                        regionByDragging() ? QStringLiteral("drag") : QStringLiteral("clicks"));
-        if (delay() > 0)
+        if (delay() > 0) {
             options.insert(QStringLiteral("delay"), QVariant::fromValue(uint(delay()))); // D-Bus type u
+            // Where the countdown appears and whether a click cancels it
+            // (API version 7); older extensions show it in the middle.
+            options.insert(QStringLiteral("countdown-position"),
+                           CountdownOptions::positionKey(countdownOptions().position)); // s
+            options.insert(QStringLiteral("countdown-click"), countdownOptions().clickCancels); // b
+        }
         // The overlay's texts in the app's language (D-038, API version 6);
         // older extensions ignore it and show their German ones.
-        options.insert(QStringLiteral("hints"), CaptureHints::forExtension()); // a{sv} of strings
+        options.insert(QStringLiteral("hints"),
+                       CaptureHints::forExtension(countdownOptions().clickCancels)); // a{sv} of strings
     }
 
     auto message = QDBusMessage::createMethodCall(kService, kPath, kInterface,

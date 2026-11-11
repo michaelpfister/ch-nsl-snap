@@ -18,6 +18,8 @@ public:
     void captureWindow() override;
     void captureRegion() override;
     void captureScreen() override;
+    // The extension binds Escape while its countdown runs (D-025).
+    bool countdownHasEscape() const override { return true; }
 
     // Turns the extension's reply (PNG bytes and info dictionary) into a
     // result; public for the tests.

@@ -1,15 +1,19 @@
 #pragma once
 
+#include "capture/CountdownOptions.h"
+
 #include <QTimer>
 #include <QWidget>
 
 // Countdown of a delayed capture (F-04, D-025) where the app draws the
 // overlay itself (Windows, Wayland without GNOME; later macOS): a small
-// top-most display in the middle of the primary monitor that never takes
-// the focus, so the user can keep working (open a menu, hover) until it
-// runs out. A click on it or Escape cancels; on Windows Escape is a global
+// top-most display on the primary monitor (in the middle or a corner, as
+// set) that never takes the focus, so the user can keep working (open a
+// menu, hover) until it runs out. Escape cancels, and a click on it unless
+// switched off; then clicks go through it. On Windows Escape is a global
 // hotkey while it runs, because the key goes to the window that has the
-// focus. Wayland has no global keys for apps: there only the click works.
+// focus. Wayland has no global keys for apps: there the click always
+// cancels, else nothing could.
 class Countdown : public QWidget
 {
     Q_OBJECT
@@ -17,6 +21,12 @@ class Countdown : public QWidget
 public:
     explicit Countdown(QWidget *parent = nullptr);
     ~Countdown() override;
+
+    // Before start(): position and click (from the settings).
+    void setOptions(const CountdownOptions &options);
+    const CountdownOptions &options() const { return m_options; }
+    // Whether Escape reaches the countdown while another app has the focus.
+    static bool hasGlobalEscape();
 
     void start(int seconds);
     void cancel();
@@ -40,6 +50,7 @@ private:
     void tick();
     void stop();
 
+    CountdownOptions m_options;
     QTimer m_tick;
     int m_left = 0;
     bool m_running = false;

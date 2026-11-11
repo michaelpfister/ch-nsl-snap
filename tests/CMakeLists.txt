@@ -106,3 +106,13 @@ add_test(NAME tst_language COMMAND tst_language)
 if(WIN32)
     set_target_properties(tst_language PROPERTIES WIN32_EXECUTABLE FALSE)
 endif()
+
+# Series of captures and the list of recent ones (F-52), the countdown's
+# position in the settings (F-04).
+qt_add_executable(tst_recent tst_recent.cpp)
+target_link_libraries(tst_recent PRIVATE nsl_snap_core Qt6::Test)
+add_test(NAME tst_recent COMMAND tst_recent)
+set_tests_properties(tst_recent PROPERTIES ENVIRONMENT "${NSL_OFFSCREEN_ENV}")
+if(WIN32)
+    set_target_properties(tst_recent PROPERTIES WIN32_EXECUTABLE FALSE)
+endif()

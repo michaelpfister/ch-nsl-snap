@@ -13,7 +13,7 @@ class PipeWireStream;
 // Videos on GNOME (F-50, D-039, step 4). The Snapslash Shell extension
 // freezes the screen and lets the user pick, as for an image, but answers
 // with what was picked instead of an image: the window's id or the screen's
-// rectangle (API version 7). The app then records it itself with Mutter's
+// rectangle (API version 8). The app then records it itself with Mutter's
 // screen cast (org.gnome.Mutter.ScreenCast: RecordWindow or RecordArea,
 // with the pointer) and reads the frames from PipeWire (PipeWireStream).
 //

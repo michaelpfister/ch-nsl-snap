@@ -73,19 +73,36 @@ bool makeOverlay(QWidget *widget, QScreen *screen)
 #endif
 }
 
-bool makeNotification(QWidget *widget, QScreen *screen)
+bool makeNotification(QWidget *widget, QScreen *screen, CountdownPosition position, int margin)
 {
 #ifdef NSL_HAVE_LAYER_SHELL_QT
     LayerShellQt::Window *layer = layerFor(widget, screen);
     if (!layer)
         return false;
-    // No anchor: centred on the monitor, at the widget's size.
-    layer->setAnchors(LayerShellQt::Window::Anchors(LayerShellQt::Window::AnchorNone));
+    // No anchor: centred on the monitor, at the widget's size. A corner:
+    // anchored to its two edges, `margin` away from them.
+    using Window = LayerShellQt::Window;
+    Window::Anchors anchors = Window::Anchors(Window::AnchorNone);
+    switch (position) {
+    case CountdownPosition::TopLeft: anchors = Window::Anchors(Window::AnchorTop | Window::AnchorLeft); break;
+    case CountdownPosition::TopRight: anchors = Window::Anchors(Window::AnchorTop | Window::AnchorRight); break;
+    case CountdownPosition::BottomLeft: anchors = Window::Anchors(Window::AnchorBottom | Window::AnchorLeft); break;
+    case CountdownPosition::BottomRight: anchors = Window::Anchors(Window::AnchorBottom | Window::AnchorRight); break;
+    case CountdownPosition::Center: break;
+    }
+    layer->setAnchors(anchors);
+    if (position != CountdownPosition::Center) {
+        layer->setMargins(QMargins(margin, margin, margin, margin));
+        // 0: keep clear of panels, like the recording indicator.
+        layer->setExclusiveZone(0);
+    }
     layer->setKeyboardInteractivity(LayerShellQt::Window::KeyboardInteractivityNone);
     return true;
 #else
     Q_UNUSED(widget);
     Q_UNUSED(screen);
+    Q_UNUSED(position);
+    Q_UNUSED(margin);
     return false;
 #endif
 }
