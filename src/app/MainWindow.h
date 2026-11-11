@@ -132,7 +132,7 @@ private:
 
     // Updates (F-49, D-037): the check at start, the button in the top bar
     // and the dialog for one release (newer or older).
-    void checkForUpdatesAtStart();
+    void checkForUpdatesIfDue();
     void onReleasesLoaded(const QList<Releases::Release> &releases);
     void showUpdateButton(const QString &version);
     void openAvailableUpdate();
