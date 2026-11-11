@@ -104,7 +104,7 @@ Each entry: context, decision, rationale, consequences. Entries marked **(assump
 - The extension grows from a picker to a small capture UI, but still contains no editing logic.
 - A screen capture started from the app needs one click (or Enter); started by Shift + Print it needs none.
 - Window captures still contain no popup menus or tooltips: they are separate surfaces (Q-07). With region capture they are included.
-- The pointer is never composited (F-05).
+- The pointer is never composited into images (F-05). Videos show it (D-039).
 
 ## D-012 Object-based editor with a command stack
 
@@ -468,3 +468,32 @@ Each entry: context, decision, rationale, consequences. Entries marked **(assump
 - The Nix package needs `qttools` for lrelease; Qt's own German texts (a few buttons) may stay English there.
 - Command-line help (`--help`) stays English, as before (D-034).
 
+## D-039 Video recording: window or screen as MP4/H.264, picked on the frozen screen, with trimming
+
+**Context:** Issue #17 asks for short tutorial videos. The requester wants a picked window or a whole screen, with the mouse pointer visible, without audio (2026-11-04). Video was "not planned" until now (04-features.md). Decided on 2026-11-11: H.264 only, 30 fps, at most 10 minutes, trimming in the first version, Hyprland first, then Windows.
+**Decision:**
+- **Scope** (F-50, F-51): window or monitor (or all monitors), no free region, no audio, pointer visible. MP4 with H.264, 30 fps, at most 10 minutes. No GIF or WebM.
+- **Flow:** freeze and pick in the existing overlay as for images (D-011), then a countdown of at least 3 s, then the live recording. A recording indicator with time and stop button is visible the whole time and is kept out of the video. After stopping, the trim window opens (F-51), then the video is saved with the naming pattern (F-41).
+- **Shared core:** a `RecordingBackend` per platform delivers frames with timestamps (`QVideoFrame`); everything else is shared: `VideoEncoder` (Qt Multimedia 6.8, `QMediaRecorder` fed through `QVideoFrameInput`), `RecordingController` (flow, limit, stop), the indicator, the trim window and saving. Frames of a resized window are scaled into the start size.
+- **Backends, in this order:**
+  1. **Hyprland and other wlroots desktops:** the same protocols as the freeze (D-031), but as a stream: wlr-screencopy for a monitor, hyprland-toplevel-export for a window, each with the pointer (`overlay_cursor`), one copy per frame into shared memory. Window recording on Hyprland only.
+  2. **Windows:** Windows.Graphics.Capture (D-022) as a continuous frame pool, `IsCursorCaptureEnabled = true`, `IsBorderRequired = false` where Windows allows it. The indicator is excluded with `SetWindowDisplayAffinity(WDA_EXCLUDEFROMCAPTURE)`.
+  3. **GNOME:** after the pick, the extension opens a Mutter screen cast of the window or monitor (pointer embedded) and hands the app only the PipeWire stream; the app reads it with libpipewire. The extension writes no files and encodes nothing (D-006). Whether Mutter allows this from the Shell is checked in a spike first (Q-27).
+  4. **Other Wayland desktops:** the ScreenCast portal with its own dialog, read with the same PipeWire code. For a video, which is rarer than a screenshot, the dialog is acceptable.
+  5. **macOS:** `SCStream` with `showsCursor`, together with the macOS backend (D-002).
+- **Command line** (F-48): `--record-window`, `--record-screen`; the same command while a recording runs stops it (via the socket of D-034). Without `--open` the trim window is skipped and the whole video is saved.
+- **Security:** recording starts only after the user picked in the overlay (D-003), and the indicator is visible as long as it runs. The extension gets no method that records without a pick.
+**Rationale:**
+- H.264 in MP4 plays in every browser, so the instruction pages can embed it without conversion.
+- One encoder for all platforms through Qt Multimedia instead of Media Foundation, GStreamer and AVFoundation separately; Qt 6.8 accepts frames from the app (`QVideoFrameInput`).
+- Hyprland first, because the requester works there; the backends there reuse the freeze code of D-031.
+**Rejected:**
+- `wf-recorder`, `wl-screenrec`, OBS or `ffmpeg` as external programs: no pick on the frozen screen, one more dependency, and no window recording.
+- GNOME's own screen recorder service (`org.gnome.Shell.Screencast`): records only screens and areas, writes WebM files itself.
+- Frames over D-Bus from the extension: far too much data per second (D-006).
+- GIF: large files and poor colours for screen content.
+**Consequences:**
+- The app depends on Qt Multimedia (and on Linux on libpipewire for GNOME and the portal). Qt Multimedia must be installed with aqt next to Qt 6.8.3.
+- Whether Qt's FFmpeg build has an H.264 encoder on every Linux machine (software or VA-API) is open (Q-28).
+- F-05 now applies to images only.
+- Hyprland window recording can only be tested on a real Hyprland (the requester); a headless Sway covers screen recording.

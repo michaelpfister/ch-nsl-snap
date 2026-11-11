@@ -63,6 +63,12 @@ Each backend delivers a **capture result**: a PNG/RGBA image with alpha, plus me
 - `src/capture/portal/PortalBackend` (D-032): the Screenshot portal's picture as the freeze, region and screen in the same overlay.
 - Wayland has only logical coordinates; `PickGeometry::nativeLayout` builds physical "native" ones for the overlay.
 
+### Video recording (planned, D-039)
+
+- `src/recording/` (planned). The pick reuses the capture overlay; after it, a `RecordingBackend` per platform delivers a stream of `QVideoFrame`s with timestamps instead of one image: frame by frame with wlr-screencopy and hyprland-toplevel-export on Wayland, a continuous Windows.Graphics.Capture frame pool on Windows, a PipeWire stream on GNOME (opened by the extension) and from the ScreenCast portal.
+- Shared: `RecordingController` (countdown, limit of 10 minutes, stop from the indicator, tray, hotkey or command line), `VideoEncoder` (Qt Multimedia, `QMediaRecorder` with `QVideoFrameInput`, MP4/H.264, 30 fps), the recording indicator, the trim window (F-51) and saving with the naming pattern.
+- Videos never go through the image editor.
+
 ### Shared core
 
 Skeleton since 2026-10-25, with the approved design (D-014): top bar with capture modes, timer, undo/redo, copy and save; tool rail; properties panel; status bar; the shortcuts of F-46 that already have a function; editor view with drag & drop and paste; GNOME backend, window crop and corner cleanup in C++ (`src/imaging/WindowImage`, same result as the PoC client, pixel for pixel). Since then: crop (F-12), frames, numbered frames, dim background, pixelate/blur, replace text, free text (F-25), text marker (F-28) and arrows (F-44), and the colour popup with colour wheel, hex code and eyedropper (D-027, `src/ui/ColorWheel`, `src/ui/ColorPopup`, `src/app/ColorRow`). Region capture and window capture on a frozen screen (F-02, F-03, D-011) on GNOME. Window and region capture on Windows (D-022), region by two clicks with a magnifier (D-023), screen capture on GNOME and Windows (D-024), delayed capture with a countdown (D-025). Window, region and screen capture on Hyprland, region and screen on other Wayland desktops (D-031, D-032). Still to come: global hotkeys, the macOS backend, more settings, tray icon. Feature scope in [04-features.md](04-features.md).

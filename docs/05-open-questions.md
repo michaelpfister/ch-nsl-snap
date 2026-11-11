@@ -17,6 +17,11 @@
 | Q-24 | Hyprland rounds window corners only when composing (decoration:rounding); round the capture like on Windows 11 (D-022)? | no: square, as the window buffer is | D-031 |
 | Q-25 | Sign releases (minisign signature checked by the app, Windows code signing against SmartScreen)? | not yet: SHA-256 from the same release (D-037) | trust in updates |
 | Q-26 | Ship the GNOME extension with the releases, so a downgrade on GNOME takes the matching extension along? | not yet; installed from the repository (Q-06) | D-037 on GNOME |
+| Q-27 | GNOME video: may the extension open a Mutter screen cast (`org.gnome.Mutter.ScreenCast`, `RecordWindow` / `RecordMonitor`) and hand the PipeWire stream to the app? Can the top bar indicator be kept out of monitor recordings? | yes, to be proven in a spike before the GNOME backend; else the ScreenCast portal with its dialog | F-50 on GNOME |
+| Q-28 | Does Qt Multimedia's FFmpeg build encode H.264 on every Linux machine (software encoder, or VA-API only)? | to be checked on Zorin and NixOS; without an encoder the app says so instead of offering video | F-50 on Linux |
+| Q-29 | Trimming (F-51): re-encode the chosen range (frame-exact, slower) or cut at key frames without re-encoding (fast, about 1 s exact)? | re-encode; decided in phase 1 | F-51 |
+| Q-30 | A window resized during the recording: scale it into the start size (black bars), or crop? | scale, keeping the aspect ratio | F-50 |
+| Q-31 | Monitor recordings on Wayland: no protocol keeps the indicator out of the video. Show it only in the tray and on other monitors, or accept it in the video? | a small layer surface in a corner, shown in the video; stop also via tray, hotkey or command | F-50 on Hyprland, Sway, portal |
 
 ## Resolved
 

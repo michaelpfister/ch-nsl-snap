@@ -15,7 +15,7 @@ Most of the work is in the **editor**, which is platform-independent. Only captu
 | F-02 | **Window capture** with clean edges and rounded corners | ✓ | ✓ Ext. | done | D-003, D-005, D-009, D-010. Shows the window as it was at the freeze (D-011). **Done on GNOME** (2026-10-25): picked in the capture overlay on the frozen screen, Ctrl+3. **Done on Windows** (2026-10-26, D-022): every window frozen with Windows.Graphics.Capture, picked in the app's own overlay. Popup menus and tooltips are separate surfaces and are not part of a window capture (Q-07); use F-03 for those. |
 | F-03 | **Region capture**: drag a rectangle on the frozen screen | ✓ | ✓ Ext. | M | Open menus, tooltips and hover states are kept, because the freeze happens before the selection. **Done** on GNOME (2026-10-25, D-021) and Windows (2026-10-26). Since 2026-10-26 (D-023): two clicks (or a drag, setting), magnifier and crosshair lines, arrow keys by one physical pixel. |
 | F-04 | **Delayed capture** in seconds, with a countdown shown on screen | ✓ | ✓ Ext. | S | The countdown is drawn by the extension (GNOME) or a topmost window (Windows). When it reaches zero it disappears, the screen is frozen, and the normal selection of F-01 to F-03 follows on the frozen picture (D-011). Esc cancels. **Done** on GNOME and Windows (2026-10-26, D-025): timer in the top bar (remembered); the desktop stays usable during the countdown; Esc or a click on the countdown cancels. |
-| F-05 | **Never capture the mouse pointer** | ✓ | ✓ | – | Default and only behaviour. The extension already does not draw it. |
+| F-05 | **Never capture the mouse pointer** in images | ✓ | ✓ | – | Default and only behaviour for images. The extension already does not draw it. Videos (F-50) show the pointer. |
 | F-06 | **Import an existing image**: file dialog or drag & drop onto the editor | ✓ | ✓ | S | PNG, JPEG, WebP. **Done**: Ctrl+O, drag & drop, Ctrl+V. |
 
 ## Editor basics
@@ -69,6 +69,35 @@ Not on the original list, added and confirmed on 2026-10-25 (Q-11).
 | F-45 | Tray icon | ✓ | ◐ needs the AppIndicator extension (installed on Zorin) | **Done** (2026-10-26, D-030): capture, open the editor, settings and quit from the tray menu; closing or Escape keeps the app in the tray (setting). |
 | F-48 | Command line: `--capture-window`, `--capture-region`, `--capture-screen`, `--open`, `--delay <s>` (issue #13) | ✓ | ✓ | **Done** (2026-10-27, D-034): for key bindings of the desktop (hyprland.conf `bind`, GNOME custom shortcuts, Windows shortcuts). Without `--open` the capture goes straight to the save folder and its path is printed; with `--open` it appears in the editor. A running app does the capture itself. |
 | F-49 | Updates and downgrades from the GitHub releases | ✓ installs itself (portable ZIP) | ◐ hint with the steps (Nix, built from source) | **Done** (2026-11-03, D-037): check at start at most once a day (setting), button "Update x.y.z" in the top bar, settings tab "Updates" with "Jetzt suchen", pre-releases on request, and every published version to install, older ones included. |
+
+## Video
+
+Added on 2026-11-11 after issue #17, for short tutorial videos (D-039).
+
+| ID | Feature | Hyprland | Windows | GNOME | Effort | Status |
+|---|---|---|---|---|---|---|
+| F-50 | **Video recording** of one window or one monitor (or all monitors), with the mouse pointer, without audio | ✓ (window only on Hyprland; Sway & co.: screen) | ✓ | ◐ Ext., spike first (Q-27) | L | Planned. Order: Hyprland, then Windows, then GNOME and the portal; macOS with its backend. |
+| F-51 | **Trim** a recording: cut off the start and the end before saving | ✓ | ✓ | ✓ | M | Planned, part of the first version of F-50. |
+
+### F-50 Video recording
+
+1. The user starts "Video" (top bar, tray menu, `--record-window` / `--record-screen`, F-48).
+2. The screen is frozen and the user picks a window or a monitor in the usual overlay (D-011, F-47). There is no free region: the issue asked for window and screen only.
+3. A countdown of 3 s (or the timer setting, if longer) runs, then the live recording starts.
+4. While it runs, a recording indicator with the elapsed time and a stop button is visible. It is not part of the video. Stop: the indicator, the tray menu, the same global hotkey or command again, or the limit of 10 minutes.
+5. The trim window opens (F-51); "Speichern" writes the MP4 with the naming pattern of F-41 into the save folder, "Verwerfen" deletes it.
+
+- **Format:** MP4 with H.264 only, 30 fps, no audio. The size is the picked window or monitor at the start, in physical pixels (rounded to even numbers, which H.264 needs).
+- **Window resized during the recording:** each frame is scaled into the start size, keeping the aspect ratio; the rest stays black (Q-30).
+- **Pointer:** visible in the video, as the platform draws it. Images stay without pointer (F-05).
+- **No editor:** videos do not go into the image editor; annotations are not planned for videos.
+
+### F-51 Trim
+
+- Preview of the recording with play/pause, a timeline with two handles for start and end, the current position as time, and the frame under the handle while dragging.
+- Arrow keys move the selected handle by one frame, Shift + arrow keys by one second; Space plays and pauses.
+- "Speichern" writes only the chosen range, "Verwerfen" deletes the recording, "Ganz speichern" skips the trimming. The untrimmed recording stays in a temporary folder until the window is closed.
+- How exactly the cut is made (re-encode, or cut at key frames) is decided in phase 1 (Q-29).
 
 ## Keyboard shortcuts
 
@@ -137,6 +166,6 @@ Not adopted from WinSnap: print (Ctrl + P, Ctrl + Shift + P), thumbnail copy (Ct
 ## Not planned
 
 - Scrolling capture (not possible on Wayland, see 03-platform-capabilities.md).
-- Video / GIF recording.
-- Including the mouse pointer (F-05).
+- GIF, WebM or other video formats; audio in videos; free regions as video (F-50, D-039).
+- Including the mouse pointer in images (F-05).
 - Shadow, background or margin around captures (former F-43): the instruction pages add the shadow via CSS (D-004).

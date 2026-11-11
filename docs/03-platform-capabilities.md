@@ -19,6 +19,10 @@ macOS (ScreenCaptureKit, macOS 14+) supports everything in the Windows column ex
 | Scrolling capture | possible (input injection) | practically impossible (no input injection) | practically impossible | practically impossible | practically impossible |
 | Mouse cursor in the image | yes | yes (extension can composite it) | yes (protocol option, not used) | yes | portal option |
 | Overlay above all windows | top-most window | extension draws it | wlr-layer-shell via LayerShellQt, else full screen | same | full screen |
+| Video of a monitor (F-50, D-039) | Windows.Graphics.Capture, continuous | Mutter screen cast via the extension, PipeWire (spike, Q-27); else ScreenCast portal | wlr-screencopy, frame by frame | wlr-screencopy, frame by frame | ScreenCast portal (dialog), PipeWire |
+| Video of one window | Windows.Graphics.Capture, continuous | Mutter screen cast of the window via the extension (spike, Q-27) | hyprland-toplevel-export, frame by frame | not possible | ScreenCast portal, window source (dialog) |
+| Pointer in videos | `IsCursorCaptureEnabled` | embedded by Mutter (`cursor-mode`) | `overlay_cursor` | `overlay_cursor` | portal `cursor_mode` |
+| Keep the recording indicator out of the video | `WDA_EXCLUDEFROMCAPTURE` | extension draws it in the top bar, outside the recorded window; monitor recordings show it (Q-27) | window recordings: yes; monitor recordings: no protocol for it, the indicator sits on another monitor or is a small layer surface (Q-31) | same | no |
 
 ## System integration
 
