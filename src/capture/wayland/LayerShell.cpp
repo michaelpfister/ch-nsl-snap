@@ -90,4 +90,24 @@ bool makeNotification(QWidget *widget, QScreen *screen)
 #endif
 }
 
+bool makeCornerNotification(QWidget *widget, QScreen *screen, int margin)
+{
+#ifdef NSL_HAVE_LAYER_SHELL_QT
+    LayerShellQt::Window *layer = layerFor(widget, screen);
+    if (!layer)
+        return false;
+    layer->setAnchors(LayerShellQt::Window::Anchors(LayerShellQt::Window::AnchorTop | LayerShellQt::Window::AnchorRight));
+    layer->setMargins(QMargins(0, margin, margin, 0));
+    // 0: keep clear of panels (unlike the overlay, which covers them).
+    layer->setExclusiveZone(0);
+    layer->setKeyboardInteractivity(LayerShellQt::Window::KeyboardInteractivityNone);
+    return true;
+#else
+    Q_UNUSED(widget);
+    Q_UNUSED(screen);
+    Q_UNUSED(margin);
+    return false;
+#endif
+}
+
 } // namespace LayerShell

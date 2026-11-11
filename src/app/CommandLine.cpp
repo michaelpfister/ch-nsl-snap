@@ -17,11 +17,15 @@ void addOptions(QCommandLineParser &parser)
         "Snapslash: screenshots of single windows, regions and screens, with an editor.\n"
         "With a --capture option the capture starts at once; without --open it is saved\n"
         "to the save folder from the settings and its path printed. If Snapslash is\n"
-        "already running, the running app does the capture."));
+        "already running, the running app does the capture.\n"
+        "A --record option records a video (MP4, at most 10 minutes); the same command\n"
+        "again, or the indicator on the screen, stops it and saves the video."));
     parser.addOptions({
         {QStringLiteral("capture-window"), QStringLiteral("Pick a window and capture it.")},
         {QStringLiteral("capture-region"), QStringLiteral("Select a region and capture it.")},
         {QStringLiteral("capture-screen"), QStringLiteral("Pick a monitor (Enter: all) and capture it.")},
+        {QStringLiteral("record-window"), QStringLiteral("Pick a window and record a video of it (Hyprland so far).")},
+        {QStringLiteral("record-screen"), QStringLiteral("Pick a monitor (Enter: all) and record a video of it.")},
         {QStringLiteral("open"), QStringLiteral("Show the capture in the editor instead of saving it.")},
         {QStringLiteral("delay"), QStringLiteral("Count down <seconds> before the capture (0-60)."),
          QStringLiteral("seconds"), QStringLiteral("0")},
@@ -60,8 +64,19 @@ Parsed parse(const QStringList &arguments)
             ++modes;
         }
     }
+    const std::pair<const char *, RecordingBackend::Source> recordings[] = {
+        {"record-window", RecordingBackend::Source::Window},
+        {"record-screen", RecordingBackend::Source::Screen},
+    };
+    for (const auto &[name, source] : recordings) {
+        if (parser.isSet(QLatin1String(name))) {
+            parsed.request.record = source;
+            ++modes;
+        }
+    }
     if (modes > 1) {
-        parsed.error = QStringLiteral("Only one of --capture-window, --capture-region and --capture-screen.");
+        parsed.error = QStringLiteral(
+            "Only one of --capture-window, --capture-region, --capture-screen, --record-window and --record-screen.");
         return parsed;
     }
     parsed.request.open = parser.isSet(QStringLiteral("open"));

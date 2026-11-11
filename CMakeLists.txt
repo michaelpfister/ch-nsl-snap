@@ -14,7 +14,8 @@ endif()
 
 # Qt 6.8 LTS, installed separately (docs/07-development-setup.md).
 # Network: QLocalSocket for the single instance and Hyprland's socket.
-set(NSL_QT_COMPONENTS Widgets Svg Network)
+# Multimedia: encoding videos (F-50, D-039).
+set(NSL_QT_COMPONENTS Widgets Svg Network Multimedia)
 if(LINUX)
     list(APPEND NSL_QT_COMPONENTS DBus)
 endif()
@@ -99,6 +100,16 @@ add_library(nsl_snap_core STATIC
     src/imaging/TextSample.h
     src/imaging/WindowImage.cpp
     src/imaging/WindowImage.h
+    src/recording/RecordingBackend.cpp
+    src/recording/RecordingBackend.h
+    src/recording/RecordingController.cpp
+    src/recording/RecordingController.h
+    src/recording/RecordingIndicator.cpp
+    src/recording/RecordingIndicator.h
+    src/recording/VideoEncoder.cpp
+    src/recording/VideoEncoder.h
+    src/recording/VideoFrames.cpp
+    src/recording/VideoFrames.h
     src/ui/ColorPopup.cpp
     src/ui/ColorPopup.h
     src/ui/ColorWheel.cpp
@@ -127,7 +138,7 @@ if(NSL_VERSION_SUFFIX)
     string(APPEND NSL_VERSION "-${NSL_VERSION_SUFFIX}")
 endif()
 target_compile_definitions(nsl_snap_core PUBLIC NSL_VERSION="${NSL_VERSION}")
-target_link_libraries(nsl_snap_core PUBLIC Qt6::Widgets Qt6::Svg Qt6::Network)
+target_link_libraries(nsl_snap_core PUBLIC Qt6::Widgets Qt6::Svg Qt6::Network Qt6::Multimedia)
 
 # Image processing runs over millions of pixels; keep it fast in debug
 # builds too, otherwise the blur takes half a second (F-27).
@@ -197,6 +208,10 @@ if(LINUX)
         src/capture/wayland/WaylandConnection.h
         src/capture/wayland/WaylandFreeze.cpp
         src/capture/wayland/WaylandFreeze.h
+        src/recording/wayland/WaylandRecordingBackend.cpp
+        src/recording/wayland/WaylandRecordingBackend.h
+        src/recording/wayland/WaylandStream.cpp
+        src/recording/wayland/WaylandStream.h
     )
     target_link_libraries(nsl_snap_core PUBLIC PkgConfig::WAYLAND_CLIENT)
     target_compile_definitions(nsl_snap_core PUBLIC NSL_HAVE_WAYLAND_BACKEND)

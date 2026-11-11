@@ -43,6 +43,23 @@ QString countdown()
     return QCoreApplication::translate("CaptureHints", "Esc oder Klick: Abbrechen");
 }
 
+QString videoWindow()
+{
+    return QCoreApplication::translate("CaptureHints", "Video: Fenster anklicken · S: Bildschirm · Esc: Abbrechen");
+}
+
+QString videoScreens()
+{
+    return QCoreApplication::translate(
+        "CaptureHints", "Video: Bildschirm anklicken · Enter: alle Bildschirme · W: Fenster · Esc: Abbrechen");
+}
+
+QString videoScreen()
+{
+    return QCoreApplication::translate("CaptureHints",
+                                       "Video: klicken oder Enter, um den Bildschirm aufzunehmen · W: Fenster · Esc: Abbrechen");
+}
+
 QVariantMap forExtension()
 {
     return {

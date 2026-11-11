@@ -34,6 +34,12 @@ target_link_libraries(tst_overlay PRIVATE nsl_snap_core Qt6::Test)
 add_test(NAME tst_overlay COMMAND tst_overlay)
 set_tests_properties(tst_overlay PROPERTIES ENVIRONMENT "${NSL_OFFSCREEN_ENV}")
 
+# Videos (F-50, D-039): frames, encoder, the flow with a fake backend.
+qt_add_executable(tst_recording tst_recording.cpp)
+target_link_libraries(tst_recording PRIVATE nsl_snap_core Qt6::Test)
+add_test(NAME tst_recording COMMAND tst_recording)
+set_tests_properties(tst_recording PROPERTIES ENVIRONMENT "${NSL_OFFSCREEN_ENV}")
+
 # Registers real hotkeys with Windows (F-42); offscreen is enough.
 qt_add_executable(tst_hotkeys tst_hotkeys.cpp)
 target_link_libraries(tst_hotkeys PRIVATE nsl_snap_core Qt6::Test)
@@ -61,7 +67,7 @@ endif()
 # to the debugger instead of the console; tests must be console programs,
 # so ctest --output-on-failure shows what failed.
 if(WIN32)
-    foreach(test_target tst_windowimage tst_editor tst_blur tst_view tst_capture tst_overlay tst_wincapture tst_hotkeys)
+    foreach(test_target tst_windowimage tst_editor tst_blur tst_view tst_capture tst_overlay tst_wincapture tst_hotkeys tst_recording)
         set_target_properties(${test_target} PROPERTIES WIN32_EXECUTABLE FALSE)
     endforeach()
 endif()

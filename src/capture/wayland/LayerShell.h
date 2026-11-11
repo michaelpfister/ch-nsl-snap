@@ -25,4 +25,9 @@ bool makeOverlay(QWidget *widget, QScreen *screen);
 // `screen` that never takes the keyboard (the countdown, F-04).
 bool makeNotification(QWidget *widget, QScreen *screen);
 
+// Makes `widget` a layer surface above all windows in the top right corner
+// of `screen`, `margin` logical pixels from the edges, that never takes the
+// keyboard but gets clicks (the recording indicator, F-50).
+bool makeCornerNotification(QWidget *widget, QScreen *screen, int margin);
+
 } // namespace LayerShell

@@ -48,6 +48,11 @@ public:
 
     void show();
 
+    // Picking for a video (F-50): window and screen mode only, no region,
+    // and hints that say so. Call before show().
+    void setForVideo(bool video);
+    bool isForVideo() const { return m_forVideo; }
+
     Mode mode() const { return m_mode; }
     int hoveredWindow() const { return m_hovered; }
     // Index into the screens of the monitor under the pointer (screen mode).
@@ -99,4 +104,5 @@ private:
     int m_hovered = -1;
     bool m_hintVisible = true;
     bool m_done = false;
+    bool m_forVideo = false;
 };

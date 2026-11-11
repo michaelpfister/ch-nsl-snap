@@ -76,8 +76,8 @@ Added on 2026-11-11 after issue #17, for short tutorial videos (D-039).
 
 | ID | Feature | Hyprland | Windows | GNOME | Effort | Status |
 |---|---|---|---|---|---|---|
-| F-50 | **Video recording** of one window or one monitor (or all monitors), with the mouse pointer, without audio | ✓ (window only on Hyprland; Sway & co.: screen) | ✓ | ◐ Ext., spike first (Q-27) | L | Planned. Order: Hyprland, then Windows, then GNOME and the portal; macOS with its backend. |
-| F-51 | **Trim** a recording: cut off the start and the end before saving | ✓ | ✓ | ✓ | M | Planned, part of the first version of F-50. |
+| F-50 | **Video recording** of one window or one monitor (or all monitors), with the mouse pointer, without audio | ✓ (window only on Hyprland; Sway & co.: screen) | ✓ | ◐ Ext., spike first (Q-27) | L | **Step 1 done on Hyprland and wlroots desktops** (2026-11-11, D-039): "Video" in the top bar and the tray, `--record-window` / `--record-screen`, pick on the frozen screen, countdown, indicator with time and stop, limit of 10 minutes, MP4 into the save folder. Next: trimming (F-51), then Windows, GNOME and the portal; macOS with its backend. |
+| F-51 | **Trim** a recording: cut off the start and the end before saving | ✓ | ✓ | ✓ | M | Planned, the next step of F-50; until then the whole recording is saved. |
 
 ### F-50 Video recording
 

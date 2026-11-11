@@ -10,10 +10,11 @@ namespace FileNames {
 
 QString defaultPattern(); // "{Datum}_{Zeit}_{Titel}"
 
-// The file name for `pattern`, with ".png". Characters that are not
-// allowed in file names on Windows, macOS or Linux become "_"; an empty
-// result becomes "screenshot".
-QString fromPattern(const QString &pattern, const QString &title, const QDateTime &time);
+// The file name for `pattern`, with ".png" (or `extension`, "mp4" for
+// videos, F-50). Characters that are not allowed in file names on Windows,
+// macOS or Linux become "_"; an empty result becomes "screenshot".
+QString fromPattern(const QString &pattern, const QString &title, const QDateTime &time,
+                    const QString &extension = QStringLiteral("png"));
 
 // ~/Pictures/Snapslash (or the home folder if there is no pictures folder).
 QString defaultFolder();

@@ -497,3 +497,10 @@ Each entry: context, decision, rationale, consequences. Entries marked **(assump
 - Whether Qt's FFmpeg build has an H.264 encoder on every Linux machine (software or VA-API) is open (Q-28).
 - F-05 now applies to images only.
 - Hyprland window recording can only be tested on a real Hyprland (the requester); a headless Sway covers screen recording.
+
+**Implementation, step 1 (2026-11-11):** the shared core and the backend for Hyprland and other wlroots desktops (`src/recording/`).
+- The controller hands the encoder one frame per 1/30 s, always the newest it has; a source that is slower repeats frames instead of slowing the video down. A frame of another size is scaled into the start size (Q-30).
+- `QVideoFrameInput` is created without a frame format: with a fixed format Qt 6.8.3 accepted no frame in a test; without one it takes the format from the first frame.
+- Qt 6.8.3 from aqt has no software H.264 encoder on Linux: its FFmpeg build offers only `h264_vaapi` and `h264_nvenc` (Q-28). Where neither works, the app says so when "Video" is chosen. The tests encode MPEG-4 Part 2 (software) into the same container; `NSL_TEST_H264=1` tries H.264.
+- The trim window (F-51) is the next step; until then the whole recording is saved into the save folder, also with `--open`.
+- Tested in a headless Sway (one and two monitors, 30 fps, MP4 written). Without LayerShellQt the compositor places the indicator: Sway centres it, so it is in the middle of a monitor recording (Q-31).

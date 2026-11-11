@@ -39,6 +39,21 @@ private slots:
         QCOMPARE(parse({QStringLiteral("--capture-screen")}).request.capture, CaptureResult::Kind::Screen);
     }
 
+    void recordModes()
+    {
+        // Videos (F-50): window or screen, with a delay; never together with an image.
+        QCOMPARE(parse({QStringLiteral("--record-window")}).request.record, RecordingBackend::Source::Window);
+        const CommandLine::Parsed screen = parse({QStringLiteral("--record-screen"), QStringLiteral("--delay=5")});
+        QVERIFY(screen.error.isEmpty());
+        QCOMPARE(screen.request.record, RecordingBackend::Source::Screen);
+        QVERIFY(!screen.request.capture);
+        QCOMPARE(screen.request.delay, 5);
+        QVERIFY(!parse({QStringLiteral("--record-window"), QStringLiteral("--record-screen")}).error.isEmpty());
+        QVERIFY(!parse({QStringLiteral("--record-screen"), QStringLiteral("--capture-screen")}).error.isEmpty());
+        QVERIFY(!parse({}).request.record);
+        QVERIFY(CommandLine::helpText().contains(QStringLiteral("--record-screen")));
+    }
+
     void openAndDelay()
     {
         const CommandLine::Parsed parsed =

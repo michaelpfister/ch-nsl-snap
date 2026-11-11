@@ -25,11 +25,12 @@ Qt is installed per user into `~/Qt` with [aqtinstall](https://github.com/miurah
 ```bash
 python3 -m venv ~/Qt/aqt-venv
 ~/Qt/aqt-venv/bin/pip install aqtinstall
-~/Qt/aqt-venv/bin/aqt install-qt linux desktop 6.8.3 linux_gcc_64 -m qtimageformats -O ~/Qt
+~/Qt/aqt-venv/bin/aqt install-qt linux desktop 6.8.3 linux_gcc_64 -m qtimageformats qtmultimedia -O ~/Qt
 ```
 
 - 6.8.3 is the newest open-source release of 6.8 LTS; later 6.8 patch releases are only available commercially.
 - `qtimageformats` adds WebP (used for import, F-06).
+- `qtmultimedia` encodes videos (F-50, D-039), with Qt's own FFmpeg. On Linux that FFmpeg encodes H.264 only with the graphics card (VA-API or NVENC, Q-28). An existing Qt installation gets it with the same command; aqt adds the module.
 - Size: about 1.6 GB.
 
 ### 3. Configure and build
@@ -88,6 +89,7 @@ grim screen.png                          # what the compositor shows
 - `swaymsg output HEADLESS-2 scale 2` gives mixed scales.
 - wtype's first key after connecting is sometimes lost; the leading `Shift_L` absorbs it.
 - Headless Sway has no pointer; wlrctl's virtual pointer did not reach the app. Use the keyboard (D-023).
+- Videos (F-50): `snapslash --record-screen`, then Enter in the overlay (all monitors) or a click; the same command again stops it. Qt's FFmpeg finds no H.264 encoder in a headless Sway (no graphics card), so the app refuses there; the controller with MPEG-4 can be driven from a small test program (`RecordingController::setVideoCodec`). `NSL_TEST_H264=1 ctest -R tst_recording` tries the machine's H.264 encoder.
 - The portal backend (D-032) needs `xdg-desktop-portal`, `xdg-desktop-portal-wlr`, `pipewire` and an Access portal such as `xdg-desktop-portal-gtk`, plus `~/.config/xdg-desktop-portal/sway-portals.conf` with `[preferred]`, `default=wlr;gtk`.
 
 ### Translations
@@ -141,6 +143,7 @@ Hyprland settings that matter (hyprland.conf):
   bind = , Print, exec, snapslash --capture-region       # region, saved to the save folder
   bind = SHIFT, Print, exec, snapslash --capture-screen
   bind = ALT, Print, exec, snapslash --capture-window --open   # window, into the editor
+  bind = SUPER, Print, exec, snapslash --record-window        # video; the same key again stops it
   ```
 
 ## Releasing
@@ -176,9 +179,9 @@ With aqtinstall, as on Linux (PowerShell):
 py -m venv C:\Qt\aqt-venv
 C:\Qt\aqt-venv\Scripts\pip install aqtinstall
 # ARM64:
-C:\Qt\aqt-venv\Scripts\aqt install-qt windows_arm64 desktop 6.8.3 win64_msvc2022_arm64 -m qtimageformats -O C:\Qt
+C:\Qt\aqt-venv\Scripts\aqt install-qt windows_arm64 desktop 6.8.3 win64_msvc2022_arm64 -m qtimageformats qtmultimedia -O C:\Qt
 # x64:
-C:\Qt\aqt-venv\Scripts\aqt install-qt windows desktop 6.8.3 win64_msvc2022_64 -m qtimageformats -O C:\Qt
+C:\Qt\aqt-venv\Scripts\aqt install-qt windows desktop 6.8.3 win64_msvc2022_64 -m qtimageformats qtmultimedia -O C:\Qt
 ```
 
 Qt ends up in `C:\Qt\6.8.3\msvc2022_arm64` or `C:\Qt\6.8.3\msvc2022_64`.

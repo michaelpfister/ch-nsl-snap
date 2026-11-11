@@ -29,7 +29,7 @@ QString defaultPattern()
     return QCoreApplication::translate("FileNames", "{Datum}_{Zeit}_{Titel}");
 }
 
-QString fromPattern(const QString &pattern, const QString &title, const QDateTime &time)
+QString fromPattern(const QString &pattern, const QString &title, const QDateTime &time, const QString &extension)
 {
     QString name = pattern.trimmed().isEmpty() ? defaultPattern() : pattern;
     name.replace(QStringLiteral("{Datum}"), time.toString(QStringLiteral("yyyy-MM-dd")), Qt::CaseInsensitive);
@@ -40,11 +40,12 @@ QString fromPattern(const QString &pattern, const QString &title, const QDateTim
     name.replace(QStringLiteral("{Time}"), time.toString(QStringLiteral("HH-mm-ss")), Qt::CaseInsensitive);
     name.replace(QStringLiteral("{Title}"), slug(title).left(60), Qt::CaseInsensitive);
     name = slug(name);
-    if (name.endsWith(QStringLiteral(".png"), Qt::CaseInsensitive))
-        name.chop(4);
+    const QString suffix = QLatin1Char('.') + extension;
+    if (name.endsWith(suffix, Qt::CaseInsensitive))
+        name.chop(suffix.size());
     if (name.isEmpty())
         name = QStringLiteral("screenshot");
-    return name.left(120) + QStringLiteral(".png");
+    return name.left(120) + suffix;
 }
 
 QString defaultFolder()

@@ -1,6 +1,7 @@
 #pragma once
 
 #include "capture/CaptureResult.h"
+#include "recording/RecordingBackend.h"
 
 #include <QString>
 #include <QStringList>
@@ -11,12 +12,15 @@
 // hyprland.conf:
 //   snapslash --capture-region            capture, save to the save folder
 //   snapslash --capture-window --open     capture, show it in the editor
+//   snapslash --record-screen             record a video (F-50); the same
+//                                         command again stops it
 // Without a capture option the app starts as usual.
 namespace CommandLine {
 
 struct Request
 {
     std::optional<CaptureResult::Kind> capture; // none: just start (or show) the app
+    std::optional<RecordingBackend::Source> record; // a video instead of an image (F-50)
     bool open = false;  // show the capture in the editor instead of saving it
     int delay = 0;      // seconds of countdown before the freeze (F-04)
 };

@@ -119,7 +119,7 @@ int main(int argc, char *argv[])
         window.runRequest(request.request, reply);
     });
 
-    if (!parsed.request.capture) {
+    if (!parsed.request.capture && !parsed.request.record) {
         window.show();
         return app.exec();
     }

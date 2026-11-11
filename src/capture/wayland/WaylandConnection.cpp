@@ -104,6 +104,27 @@ bool WaylandConnection::roundtrip()
     return wl_display_roundtrip_queue(m_display, m_queue) >= 0;
 }
 
+bool WaylandConnection::dispatchPending()
+{
+    // As dispatchUntil(), but poll() does not wait.
+    while (wl_display_prepare_read_queue(m_display, m_queue) != 0) {
+        if (wl_display_dispatch_queue_pending(m_display, m_queue) < 0)
+            return false;
+    }
+    if (wl_display_flush(m_display) < 0 && errno != EAGAIN) {
+        wl_display_cancel_read(m_display);
+        return false;
+    }
+    pollfd fd = {wl_display_get_fd(m_display), POLLIN, 0};
+    if (poll(&fd, 1, 0) > 0) {
+        if (wl_display_read_events(m_display) < 0)
+            return false;
+    } else {
+        wl_display_cancel_read(m_display);
+    }
+    return wl_display_dispatch_queue_pending(m_display, m_queue) >= 0;
+}
+
 bool WaylandConnection::dispatchUntil(const std::function<bool()> &done, int timeoutMs)
 {
     // The usual way to wait on a queue while another thread (Qt's) reads
