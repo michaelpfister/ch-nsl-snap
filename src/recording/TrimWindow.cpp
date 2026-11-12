@@ -358,10 +358,12 @@ void TrimWindow::closeEvent(QCloseEvent *event)
         return;
     }
     // Closing without a choice would lose the recording: ask.
-    const auto answer = QMessageBox::question(this, tr("Video verwerfen"),
-                                              tr("Die Aufnahme ist nicht gespeichert. Verwerfen?"),
-                                              QMessageBox::Discard | QMessageBox::Cancel, QMessageBox::Cancel);
-    if (answer != QMessageBox::Discard) {
+    QMessageBox box(QMessageBox::Question, tr("Video verwerfen"), tr("Video verwerfen?"), QMessageBox::NoButton, this);
+    box.setInformativeText(tr("Die Aufnahme ist nicht gespeichert."));
+    QPushButton *discard = box.addButton(tr("Verwerfen"), QMessageBox::DestructiveRole);
+    box.setDefaultButton(box.addButton(QMessageBox::Cancel));
+    box.exec();
+    if (box.clickedButton() != discard) {
         event->ignore();
         return;
     }

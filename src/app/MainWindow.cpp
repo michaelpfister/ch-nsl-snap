@@ -683,7 +683,7 @@ void MainWindow::quit()
     // Unsaved work is not lost without a question.
     if (hasUnsavedChanges()) {
         showEditor();
-        if (!confirmDiscard(tr("Snapslash beenden"), tr("Trotzdem beenden?")))
+        if (!confirmDiscard(tr("Snapslash beenden"), tr("Trotzdem beenden?"), tr("Beenden")))
             return;
     }
     m_quitting = true;
@@ -697,7 +697,7 @@ void MainWindow::closeEvent(QCloseEvent *event)
         event->ignore();
         return;
     }
-    if (!m_quitting && hasUnsavedChanges() && !confirmDiscard(tr("Snapslash beenden"), tr("Trotzdem beenden?"))) {
+    if (!m_quitting && hasUnsavedChanges() && !confirmDiscard(tr("Snapslash beenden"), tr("Trotzdem beenden?"), tr("Beenden"))) {
         event->ignore();
         return;
     }
@@ -1392,7 +1392,7 @@ void MainWindow::openRecentCapture(const QString &path)
         statusBar()->showMessage(tr("«%1» gibt es nicht mehr.").arg(QDir::toNativeSeparators(path)), 4000);
         return;
     }
-    if (hasUnsavedChanges() && !confirmDiscard(tr("Aufnahme öffnen"), tr("Trotzdem die Aufnahme öffnen?")))
+    if (hasUnsavedChanges() && !confirmDiscard(tr("Aufnahme öffnen"), tr("Trotzdem die Aufnahme öffnen?"), tr("Öffnen")))
         return;
     loadImageFile(path);
     if (m_view->hasImage() && m_imageSource == QFileInfo(path).fileName())
@@ -1499,12 +1499,16 @@ bool MainWindow::hasUnsavedChanges() const
     return m_view->hasImage() && (!m_handedOff || !m_undoStack->isClean());
 }
 
-bool MainWindow::confirmDiscard(const QString &title, const QString &question)
+bool MainWindow::confirmDiscard(const QString &title, const QString &question, const QString &action)
 {
-    const auto answer = QMessageBox::question(
-        this, title, tr("Das Bild wurde seit der letzten Änderung weder gespeichert noch kopiert. %1").arg(question),
-        QMessageBox::Yes | QMessageBox::Cancel, QMessageBox::Cancel);
-    return answer == QMessageBox::Yes;
+    // The question in bold, the reason below, and the action named on its
+    // button instead of "Ja". "Abbrechen" stays the default.
+    QMessageBox box(QMessageBox::Question, title, question, QMessageBox::NoButton, this);
+    box.setInformativeText(tr("Das Bild wurde seit der letzten Änderung weder gespeichert noch kopiert."));
+    QPushButton *discard = box.addButton(action, QMessageBox::DestructiveRole);
+    box.setDefaultButton(box.addButton(QMessageBox::Cancel));
+    box.exec();
+    return box.clickedButton() == discard;
 }
 
 void MainWindow::showDone(QPushButton *button, const QString &text)
@@ -1653,7 +1657,7 @@ void MainWindow::showUpdate(const Releases::Release &release, QWidget *parent)
     // The new version is unpacked; the swap needs the app to quit.
     if (hasUnsavedChanges()) {
         showEditor();
-        if (!confirmDiscard(tr("Neu starten"), tr("Trotzdem neu starten?"))) {
+        if (!confirmDiscard(tr("Neu starten"), tr("Trotzdem neu starten?"), tr("Neu starten"))) {
             dialog.installer()->discard();
             return;
         }
@@ -1671,7 +1675,7 @@ void MainWindow::clearEditor()
     if (!m_view->hasImage())
         return;
     // Only unsaved work needs a question (F-10).
-    if (hasUnsavedChanges() && !confirmDiscard(tr("Editor leeren"), tr("Trotzdem leeren?")))
+    if (hasUnsavedChanges() && !confirmDiscard(tr("Editor leeren"), tr("Trotzdem leeren?"), tr("Leeren")))
         return;
     rememberNextNumber();
     m_undoStack->clear();

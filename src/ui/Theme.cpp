@@ -3,6 +3,7 @@
 #include <QApplication>
 #include <QFont>
 #include <QList>
+#include <QMessageBox>
 #include <QPalette>
 #include <QStyleFactory>
 #include <QStyleHints>
@@ -126,6 +127,33 @@ QToolButton[role="icon"]:pressed { background: @border; }
 QPushButton:disabled, QToolButton:disabled { color: @muted; }
 QPushButton[role="primary"]:disabled { background: @border; color: @muted; }
 
+/* Message boxes (QMessageBox) and button rows (QDialogButtonBox): the
+   app's own icons instead of the style's, no stock icons on the buttons
+   (Qt's green ball and red cross), the buttons like the app's; the
+   default button is the primary one. */
+QMessageBox {
+    background: @panel;
+    messagebox-question-icon: url(:/icons/dialog-question.svg);
+    messagebox-information-icon: url(:/icons/dialog-information.svg);
+    messagebox-warning-icon: url(:/icons/dialog-warning.svg);
+    messagebox-critical-icon: url(:/icons/dialog-error.svg);
+}
+/* Wide enough that a sentence is not broken after every other word. */
+QMessageBox QLabel#qt_msgbox_label { font-size: 14px; font-weight: 600; min-width: 320px; }
+QMessageBox QLabel#qt_msgbox_informativelabel { color: @muted; min-width: 320px; }
+QDialogButtonBox { dialogbuttonbox-buttons-have-icons: 0; }
+QDialogButtonBox QPushButton {
+    background: @panel; color: @text; border: 1px solid @border; border-radius: 8px;
+    padding: 0 14px; min-height: 32px; min-width: 72px; font-weight: 500;
+}
+QDialogButtonBox QPushButton:hover { background: @hover; }
+QDialogButtonBox QPushButton:pressed { background: @border; }
+QDialogButtonBox QPushButton:default {
+    background: @accent; color: #FFFFFF; border: none; font-weight: 600;
+}
+QDialogButtonBox QPushButton:default:hover { background: @accentHover; }
+QDialogButtonBox QPushButton:default:pressed { background: @accentPressed; }
+
 /* Inputs. */
 QComboBox {
     background: @panel; color: @text; border: 1px solid @border; border-radius: 8px;
@@ -179,6 +207,36 @@ QScrollBar::add-line, QScrollBar::sub-line { width: 0; height: 0; }
     qss.replace(QStringLiteral("@chevron"),
                 dark ? QStringLiteral(":/icons/chevron-down-dark.svg") : QStringLiteral(":/icons/chevron-down-light.svg"));
     return qss;
+}
+
+namespace {
+
+// Sees every widget of the app before it is first shown (QEvent::Polish
+// comes before the native window exists, so the flags still count).
+class DialogPolish : public QObject
+{
+public:
+    using QObject::QObject;
+
+    bool eventFilter(QObject *watched, QEvent *event) override
+    {
+        if (event->type() == QEvent::Polish) {
+            if (auto *box = qobject_cast<QMessageBox *>(watched)) {
+                const Qt::WindowFlags wanted = Qt::Dialog | Qt::CustomizeWindowHint | Qt::WindowTitleHint
+                                             | Qt::WindowCloseButtonHint;
+                if (box->windowFlags() != wanted)
+                    box->setWindowFlags(wanted);
+            }
+        }
+        return QObject::eventFilter(watched, event);
+    }
+};
+
+} // namespace
+
+void Theme::installDialogPolish(QApplication &app)
+{
+    app.installEventFilter(new DialogPolish(&app));
 }
 
 void Theme::apply(QApplication &app) const

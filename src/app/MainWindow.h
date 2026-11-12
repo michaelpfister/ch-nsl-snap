@@ -125,7 +125,7 @@ private:
     void markHandedOff();
     bool hasUnsavedChanges() const;
     // "… weder gespeichert noch kopiert. <question>" with Yes / Cancel.
-    bool confirmDiscard(const QString &title, const QString &question);
+    bool confirmDiscard(const QString &title, const QString &question, const QString &action);
     // Feedback on Kopieren / Speichern: check mark and text for a moment.
     void showDone(QPushButton *button, const QString &text);
     void restoreButton(QPushButton *button);

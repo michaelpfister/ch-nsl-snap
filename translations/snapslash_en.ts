@@ -782,10 +782,6 @@ Ctrl+S saves straight into the folder from the settings</translation>
         <translation>Saved: %1 · Ctrl+E shows the file</translation>
     </message>
     <message>
-        <source>Das Bild wurde seit der letzten Änderung weder gespeichert noch kopiert. %1</source>
-        <translation>The image has been neither saved nor copied since the last change. %1</translation>
-    </message>
-    <message>
         <source>Das Bild ist noch nicht gespeichert.</source>
         <translation>The image is not saved yet.</translation>
     </message>
@@ -920,6 +916,18 @@ Ctrl+S saves straight into the folder from the settings</translation>
     <message>
         <source>Serienaufnahme aus: Aufnahmen öffnen sich wieder im Editor.</source>
         <translation>Series capture off: captures open in the editor again.</translation>
+    </message>
+    <message>
+        <source>Öffnen</source>
+        <translation>Open</translation>
+    </message>
+    <message>
+        <source>Das Bild wurde seit der letzten Änderung weder gespeichert noch kopiert.</source>
+        <translation>The image has been neither saved nor copied since the last change.</translation>
+    </message>
+    <message>
+        <source>Leeren</source>
+        <translation>Clear</translation>
     </message>
 </context>
 <context>
@@ -1387,10 +1395,6 @@ Click to open in the editor</translation>
         <translation>Reset colours and styles</translation>
     </message>
     <message>
-        <source>Farben, Linienstärken und Schriftgrössen für neue Objekte auf den Standard setzen und die zuletzt verwendeten eigenen Farben vergessen?</source>
-        <translation>Set colours, line widths and font sizes for new objects back to the default, and forget the own colours used recently?</translation>
-    </message>
-    <message>
         <source>Zurückgesetzt</source>
         <translation>Reset</translation>
     </message>
@@ -1561,6 +1565,18 @@ Click to open in the editor</translation>
     <message>
         <source>AppImage</source>
         <translation>AppImage</translation>
+    </message>
+    <message>
+        <source>Farben und Stile zurücksetzen?</source>
+        <translation>Reset colours and styles?</translation>
+    </message>
+    <message>
+        <source>Farben, Linienstärken und Schriftgrössen für neue Objekte gehen auf den Standard zurück, und die zuletzt verwendeten eigenen Farben werden vergessen.</source>
+        <translation>Colours, line widths and font sizes for new objects go back to the defaults, and your recently used colours are forgotten.</translation>
+    </message>
+    <message>
+        <source>Zurücksetzen</source>
+        <translation>Reset</translation>
     </message>
 </context>
 <context>
@@ -1734,8 +1750,12 @@ Click to open in the editor</translation>
         <translation>Discard video</translation>
     </message>
     <message>
-        <source>Die Aufnahme ist nicht gespeichert. Verwerfen?</source>
-        <translation>The recording is not saved. Discard it?</translation>
+        <source>Video verwerfen?</source>
+        <translation>Discard the video?</translation>
+    </message>
+    <message>
+        <source>Die Aufnahme ist nicht gespeichert.</source>
+        <translation>The recording has not been saved.</translation>
     </message>
 </context>
 <context>

@@ -266,11 +266,14 @@ SettingsDialog::SettingsDialog(GlobalHotkeys *hotkeys, bool countdownHasEscape, 
     layout->addSpacing(4);
     layout->addLayout(resetRow);
     connect(reset, &QPushButton::clicked, this, [this, reset] {
-        const auto answer = QMessageBox::question(
-            this, tr("Farben und Stile zurücksetzen"),
-            tr("Farben, Linienstärken und Schriftgrössen für neue Objekte auf den Standard setzen "
-               "und die zuletzt verwendeten eigenen Farben vergessen?"));
-        if (answer != QMessageBox::Yes)
+        QMessageBox box(QMessageBox::Question, tr("Farben und Stile zurücksetzen"),
+                        tr("Farben und Stile zurücksetzen?"), QMessageBox::NoButton, this);
+        box.setInformativeText(tr("Farben, Linienstärken und Schriftgrössen für neue Objekte gehen auf den "
+                                  "Standard zurück, und die zuletzt verwendeten eigenen Farben werden vergessen."));
+        QPushButton *confirm = box.addButton(tr("Zurücksetzen"), QMessageBox::DestructiveRole);
+        box.setDefaultButton(box.addButton(QMessageBox::Cancel));
+        box.exec();
+        if (box.clickedButton() != confirm)
             return;
         Settings::resetStyles();
         emit stylesReset();

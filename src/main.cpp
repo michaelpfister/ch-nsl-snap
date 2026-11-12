@@ -104,6 +104,7 @@ int main(int argc, char *argv[])
         window.applyTheme(theme);
     };
     applyTheme();
+    Theme::installDialogPolish(app);
     // Follow the system when the user switches between light and dark.
     QObject::connect(QGuiApplication::styleHints(), &QStyleHints::colorSchemeChanged, &window, applyTheme);
 
