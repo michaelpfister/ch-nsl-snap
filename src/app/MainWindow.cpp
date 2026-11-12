@@ -1,12 +1,16 @@
 #include "app/MainWindow.h"
 #include "app/FileNames.h"
 #include "app/GlobalHotkeys.h"
+#include "app/GnomeExtensionSetup.h"
+#include "app/LinuxIntegration.h"
 
 #include "app/PropertiesPanel.h"
 #include "app/RecentCaptures.h"
 #include "app/Settings.h"
 #include "app/SettingsDialog.h"
 #include "app/ToolRail.h"
+#include "app/UpdateBar.h"
+#include "ui/AppDialog.h"
 #include "app/UpdateDialog.h"
 #include "capture/CaptureBackend.h"
 #include "editor/ArrowItem.h"
@@ -46,7 +50,6 @@
 #include <QLabel>
 #include <QLocale>
 #include <QMenu>
-#include <QMessageBox>
 #include <QMimeData>
 #include <QPushButton>
 #include <QRegularExpression>
@@ -135,6 +138,12 @@ MainWindow::MainWindow(QWidget *parent)
     row->addWidget(m_properties);
     column->addLayout(row, 1);
     column->addWidget(m_recent);
+    // A newer version (F-49): a bar at the bottom, hidden until a check
+    // finds one.
+    m_updateBar = new UpdateBar(central);
+    connect(m_updateBar, &UpdateBar::openRequested, this, &MainWindow::openAvailableUpdate);
+    connect(m_updateBar, &UpdateBar::dismissed, this, [](const QString &version) { Settings::setDismissedUpdate(version); });
+    column->addWidget(m_updateBar);
     setCentralWidget(central);
 
     // Recent captures (F-52): remembered across starts, like the pin.
@@ -277,7 +286,7 @@ MainWindow::MainWindow(QWidget *parent)
         // window hidden; the message comes on its own.
         const bool onlySave = m_request && !m_request->request.open;
         onCaptureEnded(!(onlySave && m_hiddenBeforeCapture));
-        QMessageBox::warning(isVisible() ? this : nullptr, tr("Aufnahme fehlgeschlagen"), message);
+        AppDialog::error(this, tr("Aufnahme fehlgeschlagen"), message);
         finishRequest(CommandLine::Outcome::Failed, message);
     });
 
@@ -294,7 +303,7 @@ MainWindow::MainWindow(QWidget *parent)
     connect(m_recording, &RecordingController::failed, this, [this](const QString &message) {
         const bool fromCommandLine = m_request.has_value();
         onRecordingEnded(!(fromCommandLine && m_hiddenBeforeCapture));
-        QMessageBox::warning(isVisible() ? this : nullptr, tr("Videoaufnahme fehlgeschlagen"), message);
+        AppDialog::error(this, tr("Videoaufnahme fehlgeschlagen"), message);
         finishRequest(CommandLine::Outcome::Failed, message);
     });
 
@@ -311,13 +320,15 @@ MainWindow::MainWindow(QWidget *parent)
     createTrayIcon();
     createShortcuts();
     createGlobalHotkeys();
+    // The AppImage's menu entry and extension (D-041), once the window is up.
+    QTimer::singleShot(0, this, &MainWindow::setUpAppImage);
 
     m_updates = new UpdateChecker(this);
     connect(m_updates, &UpdateChecker::finished, this, &MainWindow::onReleasesLoaded);
     connect(m_updates, &UpdateChecker::failed, this, [this](const QString &message) {
         // At start a failed check stays silent; after a click it is said.
         if (std::exchange(m_openUpdateWhenLoaded, false))
-            QMessageBox::warning(this, tr("Update"), message);
+            AppDialog::warning(this, tr("Update"), message);
     });
     // A few seconds after start, so it never slows down the first capture.
     QTimer::singleShot(5000, this, &MainWindow::checkForUpdatesIfDue);
@@ -479,12 +490,6 @@ QWidget *MainWindow::createTopBar()
     zoomLayout->addWidget(m_fitButton);
     layout->addWidget(zoom);
 
-    // Shown once a check found a newer version (F-49).
-    m_updateButton = textButton(QString(), QStringLiteral("secondary"), bar);
-    m_updateButton->setVisible(false);
-    connect(m_updateButton, &QPushButton::clicked, this, &MainWindow::openAvailableUpdate);
-    layout->addWidget(m_updateButton);
-
     m_settingsButton = iconButton(tr("Einstellungen (F2)"), bar);
     connect(m_settingsButton, &QToolButton::clicked, this, &MainWindow::showSettings);
     layout->addWidget(m_settingsButton);
@@ -599,7 +604,7 @@ void MainWindow::createGlobalHotkeys()
         m_hotkeys->setKey(action, Settings::globalHotkey(action));
     connect(m_hotkeys, &GlobalHotkeys::triggered, this, [this](GlobalHotkeys::Action action) {
         // Not while a dialog of the app waits for an answer.
-        if (QApplication::activeModalWidget())
+        if (QApplication::activeModalWidget() || AppDialog::isOpen())
             return;
         switch (action) {
         case GlobalHotkeys::Action::LastMode: captureLastMode(); break;
@@ -610,6 +615,21 @@ void MainWindow::createGlobalHotkeys()
     });
     // After the window is on the screen.
     QTimer::singleShot(0, this, &MainWindow::showPrintKeyHint);
+}
+
+void MainWindow::setUpAppImage()
+{
+    if (!LinuxIntegration::isAppImage())
+        return;
+    // Menu entry, icon and command on every start, quietly: they follow the
+    // file when it was moved or replaced (D-041).
+    const LinuxIntegration::SetupResult result = LinuxIntegration::setUpDesktop(LinuxIntegration::currentPaths());
+    if (!result.error.isEmpty())
+        qWarning("snapslash: %s", qUtf8Printable(result.error));
+    // The extension only after the user agreed, and not in the middle of a
+    // capture started from the command line (then the window is hidden).
+    if (isVisible() && GnomeExtensionSetup::shouldOffer())
+        GnomeExtensionSetup::offer(this);
 }
 
 void MainWindow::showPrintKeyHint()
@@ -623,17 +643,15 @@ void MainWindow::showPrintKeyHint()
         return;
     Settings::setPrintKeyHintShown(true);
 
-    QMessageBox box(QMessageBox::Information, tr("Druck-Taste"),
-                    tr("Windows öffnet mit der Druck-Taste das Snipping Tool, deshalb erreicht die Taste "
-                       "Snapslash nicht."), QMessageBox::NoButton, this);
-    box.setInformativeText(tr("Damit die Druck-Taste mit Snapslash aufnimmt, in den Windows-Einstellungen unter "
-                              "«Barrierefreiheit › Tastatur» den Schalter zur Druck-Taste ausschalten. "
-                              "Die Tastenkürzel lassen sich auch in den Einstellungen von Snapslash ändern."));
-    QPushButton *open = box.addButton(tr("Windows-Einstellung öffnen"), QMessageBox::AcceptRole);
-    box.addButton(tr("Später"), QMessageBox::RejectRole);
-    box.setDefaultButton(open);
-    box.exec();
-    if (box.clickedButton() == open)
+    AppDialog dialog(this, AppDialog::Kind::Information,
+                     tr("Windows öffnet mit der Druck-Taste das Snipping Tool, deshalb erreicht die Taste "
+                        "Snapslash nicht."),
+                     tr("Damit die Druck-Taste mit Snapslash aufnimmt, in den Windows-Einstellungen unter "
+                        "«Barrierefreiheit › Tastatur» den Schalter zur Druck-Taste ausschalten. "
+                        "Die Tastenkürzel lassen sich auch in den Einstellungen von Snapslash ändern."));
+    dialog.addButton(tr("Später"), AppDialog::Role::Cancel);
+    QPushButton *open = dialog.addButton(tr("Windows-Einstellung öffnen"), AppDialog::Role::Primary);
+    if (dialog.exec() == open)
         GlobalHotkeys::openPrintKeySetting();
 }
 
@@ -664,7 +682,7 @@ void MainWindow::quit()
     // Unsaved work is not lost without a question.
     if (hasUnsavedChanges()) {
         showEditor();
-        if (!confirmDiscard(tr("Snapslash beenden"), tr("Trotzdem beenden?")))
+        if (!confirmQuit())
             return;
     }
     m_quitting = true;
@@ -678,7 +696,12 @@ void MainWindow::closeEvent(QCloseEvent *event)
         event->ignore();
         return;
     }
-    if (!m_quitting && hasUnsavedChanges() && !confirmDiscard(tr("Snapslash beenden"), tr("Trotzdem beenden?"))) {
+    // A question is open already (the close button of the title bar).
+    if (AppDialog::isOpen()) {
+        event->ignore();
+        return;
+    }
+    if (!m_quitting && hasUnsavedChanges() && !confirmQuit()) {
         event->ignore();
         return;
     }
@@ -1062,7 +1085,13 @@ void MainWindow::startCapture(CaptureResult::Kind kind, int delay, bool activeWi
         return;
     }
     if (!m_capture->isAvailable()) {
-        QMessageBox::warning(isVisible() ? this : nullptr, tr("Aufnahme nicht möglich"), m_capture->unavailableReason());
+        // The AppImage on GNOME brings the missing extension along (D-041).
+        if (GnomeExtensionSetup::isAvailable()
+            && LinuxIntegration::extensionState(LinuxIntegration::currentPaths())
+                   != LinuxIntegration::ExtensionState::Current)
+            GnomeExtensionSetup::offer(isVisible() ? this : nullptr, m_capture->unavailableReason());
+        else
+            AppDialog::warning(this, tr("Aufnahme nicht möglich"), m_capture->unavailableReason());
         modeButton(m_lastMode)->setChecked(true);
         finishRequest(CommandLine::Outcome::Failed, m_capture->unavailableReason());
         return;
@@ -1103,7 +1132,7 @@ void MainWindow::onCaptured(const CaptureResult &result)
         QString error;
         const QString path = saveCapture(result, &error);
         if (path.isEmpty()) {
-            QMessageBox::warning(isVisible() ? this : nullptr, tr("Bild speichern"), error);
+            AppDialog::warning(this, tr("Bild speichern"), error);
             finishRequest(CommandLine::Outcome::Failed, error);
             return;
         }
@@ -1207,7 +1236,7 @@ void MainWindow::startRecording(RecordingBackend::Source source, int delay)
     if (m_capturing)
         return;
     if (!m_recording->isAvailable()) {
-        QMessageBox::warning(isVisible() ? this : nullptr, tr("Videoaufnahme nicht möglich"), m_recording->whyNot());
+        AppDialog::warning(this, tr("Videoaufnahme nicht möglich"), m_recording->whyNot());
         finishRequest(CommandLine::Outcome::Failed, m_recording->whyNot());
         return;
     }
@@ -1269,7 +1298,7 @@ void MainWindow::keepVideo(const QString &path, const QString &title, const QStr
     QString error;
     const QString saved = saveVideo(path, title, &error);
     if (saved.isEmpty()) {
-        QMessageBox::warning(isVisible() ? this : nullptr, tr("Video speichern"), error);
+        AppDialog::warning(this, tr("Video speichern"), error);
         finishRequest(CommandLine::Outcome::Failed, error);
         return;
     }
@@ -1349,7 +1378,7 @@ void MainWindow::loadImageFile(const QString &path)
     QImageReader reader(path);
     const QImage image = reader.read();
     if (image.isNull()) {
-        QMessageBox::warning(this, tr("Bild öffnen"),
+        AppDialog::warning(this, tr("Bild öffnen"),
                              tr("«%1» konnte nicht geöffnet werden: %2")
                                  .arg(QFileInfo(path).fileName(), reader.errorString()));
         return;
@@ -1367,7 +1396,7 @@ void MainWindow::openRecentCapture(const QString &path)
         statusBar()->showMessage(tr("«%1» gibt es nicht mehr.").arg(QDir::toNativeSeparators(path)), 4000);
         return;
     }
-    if (hasUnsavedChanges() && !confirmDiscard(tr("Aufnahme öffnen"), tr("Trotzdem die Aufnahme öffnen?")))
+    if (hasUnsavedChanges() && !confirmDiscard(tr("Aufnahme öffnen?"), tr("Öffnen")))
         return;
     loadImageFile(path);
     if (m_view->hasImage() && m_imageSource == QFileInfo(path).fileName())
@@ -1451,7 +1480,7 @@ QString MainWindow::suggestedFileName() const
 bool MainWindow::writeImage(const QString &path)
 {
     if (!m_view->renderedImage().save(path, "PNG")) {
-        QMessageBox::warning(this, tr("Bild speichern"), tr("«%1» konnte nicht gespeichert werden.").arg(path));
+        AppDialog::warning(this, tr("Bild speichern"), tr("«%1» konnte nicht gespeichert werden.").arg(path));
         return false;
     }
     m_savedPath = path;
@@ -1474,12 +1503,28 @@ bool MainWindow::hasUnsavedChanges() const
     return m_view->hasImage() && (!m_handedOff || !m_undoStack->isClean());
 }
 
-bool MainWindow::confirmDiscard(const QString &title, const QString &question)
+bool MainWindow::confirmDiscard(const QString &question, const QString &action, bool offerDontAsk)
 {
-    const auto answer = QMessageBox::question(
-        this, title, tr("Das Bild wurde seit der letzten Änderung weder gespeichert noch kopiert. %1").arg(question),
-        QMessageBox::Yes | QMessageBox::Cancel, QMessageBox::Cancel);
-    return answer == QMessageBox::Yes;
+    // The question in bold, the reason below, the action named on its red
+    // button; "Abbrechen" has the focus, so Enter never throws work away.
+    AppDialog dialog(this, AppDialog::Kind::Question, question,
+                     tr("Das Bild wurde seit der letzten Änderung weder gespeichert noch kopiert."));
+    QCheckBox *dontAsk = offerDontAsk ? dialog.setCheckBox(tr("Beenden und in Zukunft nicht mehr nachfragen")) : nullptr;
+    dialog.addButton(tr("Abbrechen"), AppDialog::Role::Cancel);
+    QPushButton *discard = dialog.addButton(action, AppDialog::Role::Destructive);
+    if (dialog.exec() != discard)
+        return false;
+    if (dontAsk && dontAsk->isChecked())
+        Settings::setConfirmQuitUnsaved(false);
+    return true;
+}
+
+bool MainWindow::confirmQuit()
+{
+    // Switched off in the settings, or with the checkbox of this question.
+    if (!Settings::confirmQuitUnsaved())
+        return true;
+    return confirmDiscard(tr("Snapslash beenden?"), tr("Beenden"), true);
 }
 
 void MainWindow::showDone(QPushButton *button, const QString &text)
@@ -1572,7 +1617,7 @@ void MainWindow::checkForUpdatesIfDue()
     if (!Settings::checkForUpdates())
         return;
     // Known from an earlier check: show it now, without asking GitHub again.
-    showUpdateButton(Settings::availableUpdate());
+    showUpdateBar(Settings::availableUpdate());
     if (UpdateChecker::isDue(Settings::lastUpdateCheck(), QDateTime::currentDateTimeUtc()))
         m_updates->check();
 }
@@ -1584,7 +1629,7 @@ void MainWindow::onReleasesLoaded(const QList<Releases::Release> &releases)
     const QString version = m_availableUpdate ? m_availableUpdate->version.toString() : QString();
     const bool isNew = !version.isEmpty() && version != Settings::availableUpdate();
     Settings::setAvailableUpdate(version);
-    showUpdateButton(version);
+    showUpdateBar(version);
     // While the app waits in the tray, the tray says it, once per version.
     if (isNew && m_tray && !isVisible())
         m_tray->showMessage(tr("Update verfügbar"), tr("Snapslash %1 ist verfügbar.").arg(version));
@@ -1592,21 +1637,19 @@ void MainWindow::onReleasesLoaded(const QList<Releases::Release> &releases)
         if (m_availableUpdate)
             showUpdate(*m_availableUpdate, this);
         else
-            QMessageBox::information(this, tr("Update"), tr("Snapslash ist auf dem neusten Stand."));
+            AppDialog::information(this, tr("Update"), tr("Snapslash ist auf dem neusten Stand."));
     }
 }
 
-void MainWindow::showUpdateButton(const QString &version)
+void MainWindow::showUpdateBar(const QString &version)
 {
     // A stored version that is no longer newer (installed in the meantime)
     // shows nothing.
+    // The bar stays away for a version whose note was closed; the next
+    // version shows it again.
     const std::optional<Version> parsed = Version::parse(version);
-    const bool show = parsed && *parsed > Version::current();
-    m_updateButton->setVisible(show);
-    if (show) {
-        m_updateButton->setText(tr("Update %1").arg(parsed->toString()));
-        m_updateButton->setToolTip(tr("Snapslash %1 ist verfügbar: anzeigen und installieren").arg(parsed->toString()));
-    }
+    const bool show = parsed && *parsed > Version::current() && parsed->toString() != Settings::dismissedUpdate();
+    m_updateBar->setVersion(show ? parsed->toString() : QString());
 }
 
 void MainWindow::openAvailableUpdate()
@@ -1628,13 +1671,13 @@ void MainWindow::showUpdate(const Releases::Release &release, QWidget *parent)
     // The new version is unpacked; the swap needs the app to quit.
     if (hasUnsavedChanges()) {
         showEditor();
-        if (!confirmDiscard(tr("Neu starten"), tr("Trotzdem neu starten?"))) {
+        if (!confirmDiscard(tr("Neu starten?"), tr("Neu starten"))) {
             dialog.installer()->discard();
             return;
         }
     }
     if (!dialog.installer()->startSwap(QCoreApplication::applicationPid())) {
-        QMessageBox::warning(this, tr("Update"), tr("Das Update liess sich nicht starten (PowerShell fehlt)."));
+        AppDialog::warning(this, tr("Update"), tr("Das Update liess sich nicht starten (PowerShell fehlt)."));
         return;
     }
     m_quitting = true;
@@ -1646,7 +1689,7 @@ void MainWindow::clearEditor()
     if (!m_view->hasImage())
         return;
     // Only unsaved work needs a question (F-10).
-    if (hasUnsavedChanges() && !confirmDiscard(tr("Editor leeren"), tr("Trotzdem leeren?")))
+    if (hasUnsavedChanges() && !confirmDiscard(tr("Editor leeren?"), tr("Leeren")))
         return;
     rememberNextNumber();
     m_undoStack->clear();

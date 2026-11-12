@@ -34,8 +34,12 @@ add_library(nsl_snap_core STATIC
     src/app/FileNames.h
     src/app/GlobalHotkeys.cpp
     src/app/GlobalHotkeys.h
+    src/app/GnomeExtensionSetup.cpp
+    src/app/GnomeExtensionSetup.h
     src/app/Language.cpp
     src/app/Language.h
+    src/app/LinuxIntegration.cpp
+    src/app/LinuxIntegration.h
     src/app/MainWindow.cpp
     src/app/MainWindow.h
     src/app/PlatformTheme.cpp
@@ -52,6 +56,8 @@ add_library(nsl_snap_core STATIC
     src/app/SingleInstance.h
     src/app/ToolRail.cpp
     src/app/ToolRail.h
+    src/app/UpdateBar.cpp
+    src/app/UpdateBar.h
     src/app/UpdateDialog.cpp
     src/app/UpdateDialog.h
     src/capture/CaptureBackend.cpp
@@ -122,6 +128,8 @@ add_library(nsl_snap_core STATIC
     src/recording/VideoFrames.h
     src/recording/VideoTrimmer.cpp
     src/recording/VideoTrimmer.h
+    src/ui/AppDialog.cpp
+    src/ui/AppDialog.h
     src/ui/ColorPopup.cpp
     src/ui/ColorPopup.h
     src/ui/ColorWheel.cpp

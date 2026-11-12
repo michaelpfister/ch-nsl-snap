@@ -2,6 +2,13 @@
 <!DOCTYPE TS>
 <TS version="2.1" language="en_US" sourcelanguage="de">
 <context>
+    <name>AppDialog</name>
+    <message>
+        <source>OK</source>
+        <translation>OK</translation>
+    </message>
+</context>
+<context>
     <name>ArrowItem</name>
     <message>
         <source>Pfeil</source>
@@ -314,6 +321,65 @@
     </message>
 </context>
 <context>
+    <name>GnomeExtensionSetup</name>
+    <message>
+        <source>GNOME lädt Erweiterungen nur bei der Anmeldung: Danach einmal ab- und wieder anmelden.</source>
+        <translation>GNOME loads extensions only at login: log out and in again once afterwards.</translation>
+    </message>
+    <message>
+        <source>Aktualisieren</source>
+        <translation>Update</translation>
+    </message>
+    <message>
+        <source>Einrichten</source>
+        <translation>Set up</translation>
+    </message>
+    <message>
+        <source>Später</source>
+        <translation>Later</translation>
+    </message>
+    <message>
+        <source>Die Erweiterung liess sich nicht einrichten.</source>
+        <translation>The extension could not be set up.</translation>
+    </message>
+    <message>
+        <source>Nicht installiert.</source>
+        <translation>Not installed.</translation>
+    </message>
+    <message>
+        <source>Installiert, passend zu dieser Version der App.</source>
+        <translation>Installed, matching this version of the app.</translation>
+    </message>
+    <message>
+        <source>Installiert, aber in einer anderen Version als die App.</source>
+        <translation>Installed, but in another version than the app.</translation>
+    </message>
+    <message>
+        <source>Die installierte Erweiterung passt nicht zu dieser Version der App. Die App ersetzt sie durch die mitgelieferte Version.</source>
+        <translation>The installed extension does not match this version of the app. The app replaces it with the version it brings along.</translation>
+    </message>
+    <message>
+        <source>Unter GNOME wählt Snapslash Fenster und Bereiche über die eigene Erweiterung aus. Die App kopiert sie in den eigenen Benutzerordner und schaltet sie ein.</source>
+        <translation>On GNOME, Snapslash picks windows and regions through its own extension. The app copies it into your user folder and turns it on.</translation>
+    </message>
+    <message>
+        <source>GNOME-Erweiterung aktualisieren?</source>
+        <translation>Update the GNOME extension?</translation>
+    </message>
+    <message>
+        <source>GNOME-Erweiterung einrichten?</source>
+        <translation>Set up the GNOME extension?</translation>
+    </message>
+    <message>
+        <source>Die Erweiterung ist eingerichtet.</source>
+        <translation>The extension is set up.</translation>
+    </message>
+    <message>
+        <source>Bitte jetzt ab- und wieder anmelden, damit GNOME sie lädt.</source>
+        <translation>Please log out and in again now, so GNOME loads it.</translation>
+    </message>
+</context>
+<context>
     <name>GnomeRecordingBackend</name>
     <message>
         <source>Die GNOME-Erweiterung «Snapslash» ist veraltet und kennt die Videoaufnahme noch nicht. Bitte ab- und wieder anmelden, damit die neue Version geladen wird.</source>
@@ -377,6 +443,49 @@
     <message>
         <source>Die Aufnahme konnte nicht gelesen werden.</source>
         <translation>The capture could not be read.</translation>
+    </message>
+    <message>
+        <source>Die GNOME-Erweiterung «Snapslash» ist eingerichtet, aber GNOME hat sie noch nicht geladen. Bitte ab- und wieder anmelden.</source>
+        <translation>The GNOME extension “Snapslash” is set up, but GNOME has not loaded it yet. Please log out and in again.</translation>
+    </message>
+    <message>
+        <source>Die GNOME-Erweiterung «Snapslash» läuft nicht. Sie lässt sich in den Einstellungen unter «Allgemein» einrichten; danach ab- und wieder anmelden.</source>
+        <translation>The GNOME extension “Snapslash” is not running. It can be set up in the settings under “General”; then log out and in again.</translation>
+    </message>
+</context>
+<context>
+    <name>LinuxIntegration</name>
+    <message>
+        <source>«gsettings %1» ist fehlgeschlagen: %2</source>
+        <translation>“gsettings %1” failed: %2</translation>
+    </message>
+    <message>
+        <source>Der Menüeintrag fehlt im AppImage.</source>
+        <translation>The menu entry is missing from the AppImage.</translation>
+    </message>
+    <message>
+        <source>Das Symbol lässt sich nicht nach %1 schreiben.</source>
+        <translation>The icon cannot be written to %1.</translation>
+    </message>
+    <message>
+        <source>Der Menüeintrag lässt sich nicht nach %1 schreiben.</source>
+        <translation>The menu entry cannot be written to %1.</translation>
+    </message>
+    <message>
+        <source>Der Befehl «snapslash» lässt sich nicht in %1 anlegen.</source>
+        <translation>The command “snapslash” cannot be created in %1.</translation>
+    </message>
+    <message>
+        <source>Die GNOME-Erweiterung fehlt im AppImage.</source>
+        <translation>The GNOME extension is missing from the AppImage.</translation>
+    </message>
+    <message>
+        <source>Die Erweiterung lässt sich nicht nach %1 kopieren.</source>
+        <translation>The extension cannot be copied to %1.</translation>
+    </message>
+    <message>
+        <source>Die bisherige Erweiterung in %1 lässt sich nicht ersetzen.</source>
+        <translation>The previous extension in %1 cannot be replaced.</translation>
     </message>
 </context>
 <context>
@@ -536,10 +645,6 @@ Ctrl+S saves straight into the folder from the settings</translation>
         <translation>Quit</translation>
     </message>
     <message>
-        <source>Druck-Taste</source>
-        <translation>Print key</translation>
-    </message>
-    <message>
         <source>Windows öffnet mit der Druck-Taste das Snipping Tool, deshalb erreicht die Taste Snapslash nicht.</source>
         <translation>Windows opens the Snipping Tool with the Print key, so the key does not reach Snapslash.</translation>
     </message>
@@ -562,14 +667,6 @@ Ctrl+S saves straight into the folder from the settings</translation>
     <message>
         <source>Aufnehmen und Öffnen über das Symbol im Infobereich. Beenden ebenfalls dort; das Verhalten lässt sich in den Einstellungen ändern.</source>
         <translation>Capture and open through the icon in the tray. Quit there as well; the settings can change this.</translation>
-    </message>
-    <message>
-        <source>Snapslash beenden</source>
-        <translation>Quit Snapslash</translation>
-    </message>
-    <message>
-        <source>Trotzdem beenden?</source>
-        <translation>Quit anyway?</translation>
     </message>
     <message>
         <source>Rahmen</source>
@@ -680,10 +777,6 @@ Ctrl+S saves straight into the folder from the settings</translation>
         <translation>Saved: %1 · Ctrl+E shows the file</translation>
     </message>
     <message>
-        <source>Das Bild wurde seit der letzten Änderung weder gespeichert noch kopiert. %1</source>
-        <translation>The image has been neither saved nor copied since the last change. %1</translation>
-    </message>
-    <message>
         <source>Das Bild ist noch nicht gespeichert.</source>
         <translation>The image is not saved yet.</translation>
     </message>
@@ -712,32 +805,12 @@ Ctrl+S saves straight into the folder from the settings</translation>
         <translation>Snapslash is up to date.</translation>
     </message>
     <message>
-        <source>Update %1</source>
-        <translation>Update %1</translation>
-    </message>
-    <message>
-        <source>Snapslash %1 ist verfügbar: anzeigen und installieren</source>
-        <translation>Snapslash %1 is available: show and install</translation>
-    </message>
-    <message>
         <source>Neu starten</source>
         <translation>Restart</translation>
     </message>
     <message>
-        <source>Trotzdem neu starten?</source>
-        <translation>Restart anyway?</translation>
-    </message>
-    <message>
         <source>Das Update liess sich nicht starten (PowerShell fehlt).</source>
         <translation>The update could not be started (PowerShell is missing).</translation>
-    </message>
-    <message>
-        <source>Editor leeren</source>
-        <translation>Clear editor</translation>
-    </message>
-    <message>
-        <source>Trotzdem leeren?</source>
-        <translation>Clear anyway?</translation>
     </message>
     <message>
         <source>Videoaufnahme abgebrochen.</source>
@@ -804,20 +877,48 @@ Ctrl+S saves straight into the folder from the settings</translation>
         <translation>“%1” no longer exists.</translation>
     </message>
     <message>
-        <source>Aufnahme öffnen</source>
-        <translation>Open capture</translation>
-    </message>
-    <message>
-        <source>Trotzdem die Aufnahme öffnen?</source>
-        <translation>Open the capture anyway?</translation>
-    </message>
-    <message>
         <source>Serienaufnahme an: Aufnahmen werden sofort im Ordner gespeichert.</source>
         <translation>Series capture on: captures are saved to the folder right away.</translation>
     </message>
     <message>
         <source>Serienaufnahme aus: Aufnahmen öffnen sich wieder im Editor.</source>
         <translation>Series capture off: captures open in the editor again.</translation>
+    </message>
+    <message>
+        <source>Öffnen</source>
+        <translation>Open</translation>
+    </message>
+    <message>
+        <source>Das Bild wurde seit der letzten Änderung weder gespeichert noch kopiert.</source>
+        <translation>The image has been neither saved nor copied since the last change.</translation>
+    </message>
+    <message>
+        <source>Leeren</source>
+        <translation>Clear</translation>
+    </message>
+    <message>
+        <source>Aufnahme öffnen?</source>
+        <translation>Open the capture?</translation>
+    </message>
+    <message>
+        <source>Beenden und in Zukunft nicht mehr nachfragen</source>
+        <translation>Quit and do not ask again</translation>
+    </message>
+    <message>
+        <source>Abbrechen</source>
+        <translation>Cancel</translation>
+    </message>
+    <message>
+        <source>Snapslash beenden?</source>
+        <translation>Quit Snapslash?</translation>
+    </message>
+    <message>
+        <source>Neu starten?</source>
+        <translation>Restart?</translation>
+    </message>
+    <message>
+        <source>Editor leeren?</source>
+        <translation>Clear the editor?</translation>
     </message>
 </context>
 <context>
@@ -1281,14 +1382,6 @@ Click to open in the editor</translation>
         <translation>Reset to default</translation>
     </message>
     <message>
-        <source>Farben und Stile zurücksetzen</source>
-        <translation>Reset colours and styles</translation>
-    </message>
-    <message>
-        <source>Farben, Linienstärken und Schriftgrössen für neue Objekte auf den Standard setzen und die zuletzt verwendeten eigenen Farben vergessen?</source>
-        <translation>Set colours, line widths and font sizes for new objects back to the default, and forget the own colours used recently?</translation>
-    </message>
-    <message>
         <source>Zurückgesetzt</source>
         <translation>Reset</translation>
     </message>
@@ -1443,6 +1536,46 @@ Click to open in the editor</translation>
     <message>
         <source>Auf diesem Desktop erreicht Esc den Countdown nicht, daher bricht ein Klick immer ab.</source>
         <translation>On this desktop Esc does not reach the countdown, so a click always cancels.</translation>
+    </message>
+    <message>
+        <source>GNOME-Erweiterung</source>
+        <translation>GNOME extension</translation>
+    </message>
+    <message>
+        <source>Über sie wählt Snapslash unter GNOME Fenster und Bereiche aus. Sie kommt mit der App und wird in den eigenen Benutzerordner installiert.</source>
+        <translation>Through it Snapslash picks windows and regions on GNOME. It comes with the app and is installed into your user folder.</translation>
+    </message>
+    <message>
+        <source>GNOME-Erweiterung einrichten …</source>
+        <translation>Set up GNOME extension …</translation>
+    </message>
+    <message>
+        <source>AppImage</source>
+        <translation>AppImage</translation>
+    </message>
+    <message>
+        <source>Farben und Stile zurücksetzen?</source>
+        <translation>Reset colours and styles?</translation>
+    </message>
+    <message>
+        <source>Farben, Linienstärken und Schriftgrössen für neue Objekte gehen auf den Standard zurück, und die zuletzt verwendeten eigenen Farben werden vergessen.</source>
+        <translation>Colours, line widths and font sizes for new objects go back to the defaults, and your recently used colours are forgotten.</translation>
+    </message>
+    <message>
+        <source>Zurücksetzen</source>
+        <translation>Reset</translation>
+    </message>
+    <message>
+        <source>Beenden</source>
+        <translation>Quit</translation>
+    </message>
+    <message>
+        <source>Nachfragen, wenn das Bild weder gespeichert noch kopiert ist</source>
+        <translation>Ask when the image is neither saved nor copied</translation>
+    </message>
+    <message>
+        <source>Abbrechen</source>
+        <translation>Cancel</translation>
     </message>
 </context>
 <context>
@@ -1612,12 +1745,16 @@ Click to open in the editor</translation>
         <translation>The part could not be saved: %1</translation>
     </message>
     <message>
-        <source>Video verwerfen</source>
-        <translation>Discard video</translation>
+        <source>Video verwerfen?</source>
+        <translation>Discard the video?</translation>
     </message>
     <message>
-        <source>Die Aufnahme ist nicht gespeichert. Verwerfen?</source>
-        <translation>The recording is not saved. Discard it?</translation>
+        <source>Die Aufnahme ist nicht gespeichert.</source>
+        <translation>The recording has not been saved.</translation>
+    </message>
+    <message>
+        <source>Abbrechen</source>
+        <translation>Cancel</translation>
     </message>
 </context>
 <context>
@@ -1636,6 +1773,21 @@ Click to open in the editor</translation>
     <message>
         <source>Diese Snapslash-Version wurde ohne PipeWire gebaut; unter GNOME gibt es damit keine Videos.</source>
         <translation>This Snapslash version was built without PipeWire, so there are no videos on GNOME.</translation>
+    </message>
+</context>
+<context>
+    <name>UpdateBar</name>
+    <message>
+        <source>Anzeigen und installieren</source>
+        <translation>Show and install</translation>
+    </message>
+    <message>
+        <source>Für diese Version ausblenden</source>
+        <translation>Hide for this version</translation>
+    </message>
+    <message>
+        <source>&lt;b&gt;Snapslash %1 ist verfügbar.&lt;/b&gt; Die Einstellungen bleiben beim Update erhalten.</source>
+        <translation>&lt;b&gt;Snapslash %1 is available.&lt;/b&gt; Your settings stay as they are.</translation>
     </message>
 </context>
 <context>
@@ -1790,6 +1942,10 @@ cmake --install build --prefix ~/.local
 ```
 
 On GNOME, then install the extension again (`scripts/dev-install.sh`) and log out and in again.</translation>
+    </message>
+    <message>
+        <source>**Wechsel auf %1:** Auf der Release-Seite die Datei `%2` herunterladen, die bisherige AppImage-Datei damit ersetzen und sie starten. Menüeintrag, Befehl und GNOME-Erweiterung richtet die App danach selbst neu ein.</source>
+        <translation>**Switching to %1:** download the file `%2` from the release page, replace the previous AppImage file with it and start it. The app then sets up its menu entry, command and GNOME extension again by itself.</translation>
     </message>
 </context>
 <context>

@@ -67,6 +67,10 @@ void setRecentCapturesPinned(bool pinned);
 // Tray icon (F-45): closing the window keeps the app running in the tray.
 bool closeToTray();
 void setCloseToTray(bool enabled);
+// Ask before quitting while the image is neither saved nor copied; off
+// after "Beenden und in Zukunft nicht mehr nachfragen".
+bool confirmQuitUnsaved();
+void setConfirmQuitUnsaved(bool enabled);
 // Whether the "still running in the tray" message was shown once.
 bool trayHintShown();
 void setTrayHintShown(bool shown);
@@ -92,6 +96,9 @@ QDateTime lastUpdateCheck();
 void setLastUpdateCheck(const QDateTime &time);
 QString availableUpdate();
 void setAvailableUpdate(const QString &version);
+// The version whose note at the bottom of the window was closed (UpdateBar).
+QString dismissedUpdate();
+void setDismissedUpdate(const QString &version);
 
 // Global hotkeys (F-42): the key of each action; GlobalHotkeys::defaultKey
 // until changed, an empty sequence when switched off.
@@ -100,6 +107,11 @@ void setGlobalHotkey(GlobalHotkeys::Action action, const QKeySequence &key);
 // Whether the note about Windows' Print key setting was shown once (D-035).
 bool printKeyHintShown();
 void setPrintKeyHintShown(bool shown);
+
+// The app version for which the user answered "Später" when asked to set up
+// the GNOME extension of the AppImage (D-041); asked again after an update.
+QString gnomeExtensionDeclinedFor();
+void setGnomeExtensionDeclinedFor(const QString &version);
 
 // Styles for new objects (F-22): the last ones chosen in the panel, so a
 // restart keeps the colours, widths and sizes the user works with.

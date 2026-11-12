@@ -3,6 +3,7 @@
 #include <QApplication>
 #include <QFont>
 #include <QList>
+#include <QMessageBox>
 #include <QPalette>
 #include <QStyleFactory>
 #include <QStyleHints>
@@ -126,6 +127,58 @@ QToolButton[role="icon"]:pressed { background: @border; }
 QPushButton:disabled, QToolButton:disabled { color: @muted; }
 QPushButton[role="primary"]:disabled { background: @border; color: @muted; }
 
+/* Message boxes (QMessageBox) and button rows (QDialogButtonBox): the
+   app's own icons instead of the style's, no stock icons on the buttons
+   (Qt's green ball and red cross), the buttons like the app's; the
+   default button is the primary one. */
+QMessageBox {
+    background: @panel;
+    messagebox-question-icon: url(:/icons/dialog-question.svg);
+    messagebox-information-icon: url(:/icons/dialog-information.svg);
+    messagebox-warning-icon: url(:/icons/dialog-warning.svg);
+    messagebox-critical-icon: url(:/icons/dialog-error.svg);
+}
+/* Wide enough that a sentence is not broken after every other word. */
+QMessageBox QLabel#qt_msgbox_label { font-size: 14px; font-weight: 600; min-width: 320px; }
+QMessageBox QLabel#qt_msgbox_informativelabel { color: @muted; min-width: 320px; }
+QDialogButtonBox { dialogbuttonbox-buttons-have-icons: 0; }
+QDialogButtonBox QPushButton {
+    background: @panel; color: @text; border: 1px solid @border; border-radius: 8px;
+    padding: 0 14px; min-height: 32px; min-width: 72px; font-weight: 500;
+}
+QDialogButtonBox QPushButton:hover { background: @hover; }
+QDialogButtonBox QPushButton:pressed { background: @border; }
+QDialogButtonBox QPushButton:default {
+    background: @accent; color: #FFFFFF; border: none; font-weight: 600;
+}
+QDialogButtonBox QPushButton:default:hover { background: @accentHover; }
+QDialogButtonBox QPushButton:default:pressed { background: @accentPressed; }
+
+/* The app's own dialogs (AppDialog, design mockup "Dialoge"): a card with
+   a bold title, a muted explanation and buttons at the right; the red
+   button throws something away. A focused button gets a ring. */
+#DialogCard { background: @panel; border: 1px solid @border; border-radius: 14px; }
+QLabel[role="dialogTitle"] { font-size: 15px; font-weight: 600; }
+QLabel[role="dialogText"] { color: @muted; font-size: 13px; }
+#DialogCard QPushButton { min-height: 36px; padding: 0 16px; }
+QPushButton[role="destructive"] {
+    background: @danger; color: #FFFFFF; border: none; border-radius: 8px;
+    padding: 0 16px; min-height: 34px; font-weight: 600;
+}
+QPushButton[role="destructive"]:hover { background: @dangerHover; }
+QPushButton[role="destructive"]:pressed { background: @dangerPressed; }
+#DialogCard QPushButton[role="secondary"]:focus { border: 2px solid @accent; }
+#DialogCard QPushButton[role="primary"]:focus, #DialogCard QPushButton[role="destructive"]:focus {
+    border: 2px solid @focusOnColor;
+}
+
+/* The note about a newer version at the bottom of the window (UpdateBar). */
+#UpdateBar { background: @soft; border-top: 1px solid @border; }
+#UpdateBarText { color: @softText; }
+#UpdateBar QPushButton[role="primary"] { min-height: 30px; padding: 0 12px; }
+#UpdateBarClose { background: transparent; border: none; border-radius: 6px; color: @softText; padding: 4px 8px; }
+#UpdateBarClose:hover { background: @hover; }
+
 /* Inputs. */
 QComboBox {
     background: @panel; color: @text; border: 1px solid @border; border-radius: 8px;
@@ -160,8 +213,14 @@ QScrollBar::add-line, QScrollBar::sub-line { width: 0; height: 0; }
 )");
     const QList<std::pair<QString, QColor>> tokens = {
         // Longest names first, so "@accentHover" is not hit by "@accent".
+        {QStringLiteral("@dangerPressed"), QColor(0xDC2626).darker(125)},
+        {QStringLiteral("@dangerHover"), QColor(0xDC2626).darker(112)},
+        {QStringLiteral("@danger"), QColor(0xDC2626)},
+        // A focus ring on a blue or red button: light, half transparent.
+        {QStringLiteral("@focusOnColor"), QColor(255, 255, 255, 170)},
         {QStringLiteral("@accentPressed"), accent.darker(125)},
         {QStringLiteral("@accentHover"), accent.darker(112)},
+        {QStringLiteral("@softText"), softText},
         {QStringLiteral("@success"), success},
         {QStringLiteral("@warning"), warning},
         {QStringLiteral("@accent"), accent},
@@ -175,10 +234,42 @@ QScrollBar::add-line, QScrollBar::sub-line { width: 0; height: 0; }
         {QStringLiteral("@bg"), bg},
     };
     for (const auto &[name, color] : tokens)
-        qss.replace(name, color.name());
+        qss.replace(name, color.alpha() < 255 ? QStringLiteral("rgba(%1, %2, %3, %4)")
+                                                    .arg(color.red()).arg(color.green()).arg(color.blue()).arg(color.alpha())
+                                              : color.name());
     qss.replace(QStringLiteral("@chevron"),
                 dark ? QStringLiteral(":/icons/chevron-down-dark.svg") : QStringLiteral(":/icons/chevron-down-light.svg"));
     return qss;
+}
+
+namespace {
+
+// Sees every widget of the app before it is first shown (QEvent::Polish
+// comes before the native window exists, so the flags still count).
+class DialogPolish : public QObject
+{
+public:
+    using QObject::QObject;
+
+    bool eventFilter(QObject *watched, QEvent *event) override
+    {
+        if (event->type() == QEvent::Polish) {
+            if (auto *box = qobject_cast<QMessageBox *>(watched)) {
+                const Qt::WindowFlags wanted = Qt::Dialog | Qt::CustomizeWindowHint | Qt::WindowTitleHint
+                                             | Qt::WindowCloseButtonHint;
+                if (box->windowFlags() != wanted)
+                    box->setWindowFlags(wanted);
+            }
+        }
+        return QObject::eventFilter(watched, event);
+    }
+};
+
+} // namespace
+
+void Theme::installDialogPolish(QApplication &app)
+{
+    app.installEventFilter(new DialogPolish(&app));
 }
 
 void Theme::apply(QApplication &app) const

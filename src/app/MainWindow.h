@@ -20,6 +20,7 @@ class PropertiesPanel;
 class QComboBox;
 class QLabel;
 class QPushButton;
+class UpdateBar;
 class QSystemTrayIcon;
 class QTimer;
 class QToolButton;
@@ -87,6 +88,7 @@ private:
     void createGlobalHotkeys();
     // Once on Windows: Print opens the Snipping Tool (D-035).
     void showPrintKeyHint();
+    void setUpAppImage();
     QToolButton *modeButton(CaptureResult::Kind kind) const;
     void onCaptured(const CaptureResult &result);
     void onCaptureEnded(bool showWindow = true);
@@ -124,7 +126,10 @@ private:
     void markHandedOff();
     bool hasUnsavedChanges() const;
     // "… weder gespeichert noch kopiert. <question>" with Yes / Cancel.
-    bool confirmDiscard(const QString &title, const QString &question);
+    // Asks before throwing away an image that is neither saved nor copied;
+    // `offerDontAsk` adds the checkbox that turns the question off (quit).
+    bool confirmDiscard(const QString &question, const QString &action, bool offerDontAsk = false);
+    bool confirmQuit();
     // Feedback on Kopieren / Speichern: check mark and text for a moment.
     void showDone(QPushButton *button, const QString &text);
     void restoreButton(QPushButton *button);
@@ -138,7 +143,7 @@ private:
     // and the dialog for one release (newer or older).
     void checkForUpdatesIfDue();
     void onReleasesLoaded(const QList<Releases::Release> &releases);
-    void showUpdateButton(const QString &version);
+    void showUpdateBar(const QString &version);
     void openAvailableUpdate();
     void showUpdate(const Releases::Release &release, QWidget *parent);
 
@@ -221,7 +226,7 @@ private:
     QToolButton *m_fitButton = nullptr;
     QAction *m_fitAction = nullptr;
     QToolButton *m_settingsButton = nullptr;
-    QPushButton *m_updateButton = nullptr; // hidden until an update is known
+    UpdateBar *m_updateBar = nullptr; // hidden until an update is known
     QPushButton *m_copyButton = nullptr;
     QPushButton *m_saveButton = nullptr;
     QToolButton *m_clearButton = nullptr;

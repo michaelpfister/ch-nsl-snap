@@ -3,6 +3,8 @@
 #include "app/CountdownPositionPicker.h"
 #include "app/FileNames.h"
 #include "app/GlobalHotkeys.h"
+#include "app/GnomeExtensionSetup.h"
+#include "ui/AppDialog.h"
 #include "app/Language.h"
 #include "app/Settings.h"
 #include "update/UpdateChecker.h"
@@ -25,7 +27,6 @@
 #include <QLabel>
 #include <QLineEdit>
 #include <QLocale>
-#include <QMessageBox>
 #include <QPushButton>
 #include <QSystemTrayIcon>
 #include <QTabWidget>
@@ -146,6 +147,45 @@ SettingsDialog::SettingsDialog(GlobalHotkeys *hotkeys, bool countdownHasEscape, 
     tray->setEnabled(hasTray);
     connect(tray, &QCheckBox::toggled, this, [](bool enabled) { Settings::setCloseToTray(enabled); });
 
+    // The question before quitting with unsaved work; the dialog's checkbox
+    // "in Zukunft nicht mehr nachfragen" turns it off, this turns it on again.
+    layout->addSpacing(16);
+    auto *quitTitle = new QLabel(tr("Beenden"), this);
+    quitTitle->setProperty("role", QStringLiteral("section"));
+    layout->addWidget(quitTitle);
+    auto *confirmQuit = new QCheckBox(tr("Nachfragen, wenn das Bild weder gespeichert noch kopiert ist"), this);
+    confirmQuit->setChecked(Settings::confirmQuitUnsaved());
+    layout->addWidget(confirmQuit);
+    connect(confirmQuit, &QCheckBox::toggled, this, [](bool enabled) { Settings::setConfirmQuitUnsaved(enabled); });
+
+    // The extension inside the AppImage (D-041): its state, and setting it
+    // up again, e.g. after "Später" or when it was removed.
+    if (GnomeExtensionSetup::isAvailable()) {
+        layout->addSpacing(16);
+        auto *extensionTitle = new QLabel(tr("GNOME-Erweiterung"), this);
+        extensionTitle->setProperty("role", QStringLiteral("section"));
+        layout->addWidget(extensionTitle);
+        auto *extensionState = new QLabel(GnomeExtensionSetup::stateText(), this);
+        extensionState->setWordWrap(true);
+        layout->addWidget(extensionState);
+        auto *extensionHint = new QLabel(tr("Über sie wählt Snapslash unter GNOME Fenster und Bereiche aus. "
+                                            "Sie kommt mit der App und wird in den eigenen Benutzerordner installiert."), this);
+        extensionHint->setProperty("role", QStringLiteral("hint"));
+        extensionHint->setWordWrap(true);
+        layout->addWidget(extensionHint);
+        layout->addSpacing(4);
+        auto *extensionRow = new QHBoxLayout;
+        auto *setUp = new QPushButton(tr("GNOME-Erweiterung einrichten …"), this);
+        setUp->setProperty("role", QStringLiteral("secondary"));
+        extensionRow->addWidget(setUp);
+        extensionRow->addStretch(1);
+        layout->addLayout(extensionRow);
+        connect(setUp, &QPushButton::clicked, this, [this, extensionState] {
+            GnomeExtensionSetup::offer(this);
+            extensionState->setText(GnomeExtensionSetup::stateText());
+        });
+    }
+
     layout->addStretch(1);
 
     // --- Tastenkürzel (F-42) ---
@@ -237,11 +277,12 @@ SettingsDialog::SettingsDialog(GlobalHotkeys *hotkeys, bool countdownHasEscape, 
     layout->addSpacing(4);
     layout->addLayout(resetRow);
     connect(reset, &QPushButton::clicked, this, [this, reset] {
-        const auto answer = QMessageBox::question(
-            this, tr("Farben und Stile zurücksetzen"),
-            tr("Farben, Linienstärken und Schriftgrössen für neue Objekte auf den Standard setzen "
-               "und die zuletzt verwendeten eigenen Farben vergessen?"));
-        if (answer != QMessageBox::Yes)
+        AppDialog dialog(this, AppDialog::Kind::Question, tr("Farben und Stile zurücksetzen?"),
+                         tr("Farben, Linienstärken und Schriftgrössen für neue Objekte gehen auf den "
+                            "Standard zurück, und die zuletzt verwendeten eigenen Farben werden vergessen."));
+        dialog.addButton(tr("Abbrechen"), AppDialog::Role::Cancel);
+        QPushButton *confirm = dialog.addButton(tr("Zurücksetzen"), AppDialog::Role::Destructive);
+        if (dialog.exec() != confirm)
             return;
         Settings::resetStyles();
         emit stylesReset();
@@ -449,6 +490,7 @@ void SettingsDialog::createUpdatePage(QVBoxLayout *layout)
     QString kind;
     switch (Releases::installation()) {
     case Releases::Installation::PortableWindows: kind = tr("portable Windows-Version"); break;
+    case Releases::Installation::AppImage: kind = tr("AppImage"); break;
     case Releases::Installation::Nix: kind = tr("über Nix installiert"); break;
     case Releases::Installation::Other: kind = tr("selbst gebaut"); break;
     }

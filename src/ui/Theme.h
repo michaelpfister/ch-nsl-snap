@@ -34,4 +34,9 @@ struct Theme
 
     // Sets palette, font and style sheet on the application.
     void apply(QApplication &app) const;
+
+    // Once at start: message boxes get only a close button in their title
+    // bar. Qt draws the title bar itself on GNOME's Wayland and would add
+    // minimize and maximize, which make no sense for a question.
+    static void installDialogPolish(QApplication &app);
 };

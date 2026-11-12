@@ -2,6 +2,7 @@
 
 #include "recording/RecordingIndicator.h"
 #include "recording/TrimTimeline.h"
+#include "ui/AppDialog.h"
 #include "recording/VideoTrimmer.h"
 #include "ui/Icons.h"
 #include "ui/Theme.h"
@@ -14,7 +15,6 @@
 #include <QKeyEvent>
 #include <QLabel>
 #include <QMediaPlayer>
-#include <QMessageBox>
 #include <QPainter>
 #include <QProgressBar>
 #include <QPushButton>
@@ -296,7 +296,7 @@ void TrimWindow::saveRange()
         m_trimmer->deleteLater();
         m_trimmer = nullptr;
         setBusy(false);
-        QMessageBox::warning(this, tr("Video zuschneiden"), tr("Der Ausschnitt konnte nicht gespeichert werden: %1")
+        AppDialog::warning(this, tr("Video zuschneiden"), tr("Der Ausschnitt konnte nicht gespeichert werden: %1")
                                                                 .arg(message));
     });
     setBusy(true);
@@ -358,10 +358,10 @@ void TrimWindow::closeEvent(QCloseEvent *event)
         return;
     }
     // Closing without a choice would lose the recording: ask.
-    const auto answer = QMessageBox::question(this, tr("Video verwerfen"),
-                                              tr("Die Aufnahme ist nicht gespeichert. Verwerfen?"),
-                                              QMessageBox::Discard | QMessageBox::Cancel, QMessageBox::Cancel);
-    if (answer != QMessageBox::Discard) {
+    AppDialog dialog(this, AppDialog::Kind::Question, tr("Video verwerfen?"), tr("Die Aufnahme ist nicht gespeichert."));
+    dialog.addButton(tr("Abbrechen"), AppDialog::Role::Cancel);
+    QPushButton *discard = dialog.addButton(tr("Verwerfen"), AppDialog::Role::Destructive);
+    if (dialog.exec() != discard) {
         event->ignore();
         return;
     }

@@ -1,6 +1,7 @@
 // Updates and downgrades (F-49, D-037): versions, GitHub's release list,
 // checksums, and on Windows the folder swap with the real PowerShell script.
 
+#include "app/UpdateBar.h"
 #include "app/UpdateDialog.h"
 #include "update/Releases.h"
 #include "update/UpdateChecker.h"
@@ -11,8 +12,10 @@
 #include <QDir>
 #include <QFile>
 #include <QProcess>
+#include <QPushButton>
 #include <QSignalSpy>
 #include <QTemporaryDir>
+#include <QToolButton>
 #include <QTest>
 
 namespace {
@@ -118,6 +121,27 @@ private slots:
                  QByteArray("abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789"));
     }
 
+    void updateBarShowsAndHides()
+    {
+        QWidget window;
+        auto *bar = new UpdateBar(&window);
+        window.show();
+        QVERIFY(!bar->isVisible());
+        bar->setVersion(QStringLiteral("0.3.1"));
+        QVERIFY(bar->isVisible());
+
+        QSignalSpy dismissed(bar, &UpdateBar::dismissed);
+        bar->findChild<QToolButton *>(QStringLiteral("UpdateBarClose"))->click();
+        QVERIFY(!bar->isVisible());
+        QCOMPARE(dismissed.size(), 1);
+        QCOMPARE(dismissed.first().first().toString(), QStringLiteral("0.3.1"));
+
+        QSignalSpy open(bar, &UpdateBar::openRequested);
+        bar->setVersion(QStringLiteral("0.3.2"));
+        bar->findChild<QPushButton *>(QStringLiteral("UpdateBarOpen"))->click();
+        QCOMPARE(open.size(), 1);
+    }
+
     void installationKind()
     {
         using Releases::Installation;
@@ -125,6 +149,9 @@ private slots:
         QCOMPARE(Releases::installation(QStringLiteral("C:/repo/build"), true, false), Installation::Other);
         QCOMPARE(Releases::installation(QStringLiteral("/nix/store/abc-snapslash-0.2.0/bin"), false, false), Installation::Nix);
         QCOMPARE(Releases::installation(QStringLiteral("/home/user/ch-nsl-snap/build"), false, false), Installation::Other);
+        QCOMPARE(Releases::installation(QStringLiteral("/tmp/.mount_snapslXYZ/usr/bin"), false, false, true),
+                 Installation::AppImage);
+        QCOMPARE(Releases::linuxAssetName(v("0.3.0-beta.3")), QStringLiteral("snapslash-0.3.0-beta.3-linux-x86_64.AppImage"));
         QCOMPARE(Releases::windowsAssetName(v("0.2.0"), QStringLiteral("x86_64")), QStringLiteral("snapslash-0.2.0-windows-x64.zip"));
         QCOMPARE(Releases::windowsAssetName(v("0.2.0"), QStringLiteral("arm64")), QStringLiteral("snapslash-0.2.0-windows-arm64.zip"));
     }

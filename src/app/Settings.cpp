@@ -156,6 +156,16 @@ void setCloseToTray(bool enabled)
     QSettings().setValue("tray/closeToTray", enabled);
 }
 
+bool confirmQuitUnsaved()
+{
+    return QSettings().value("general/confirmQuitUnsaved", true).toBool();
+}
+
+void setConfirmQuitUnsaved(bool enabled)
+{
+    QSettings().setValue("general/confirmQuitUnsaved", enabled);
+}
+
 bool trayHintShown()
 {
     return QSettings().value("tray/hintShown", false).toBool();
@@ -226,6 +236,16 @@ void setAvailableUpdate(const QString &version)
     QSettings().setValue("updates/available", version);
 }
 
+QString dismissedUpdate()
+{
+    return QSettings().value("updates/dismissed").toString();
+}
+
+void setDismissedUpdate(const QString &version)
+{
+    QSettings().setValue("updates/dismissed", version);
+}
+
 namespace {
 
 QString hotkeySettingsKey(GlobalHotkeys::Action action)
@@ -263,6 +283,16 @@ bool printKeyHintShown()
 void setPrintKeyHintShown(bool shown)
 {
     QSettings().setValue("hotkeys/printKeyHintShown", shown);
+}
+
+QString gnomeExtensionDeclinedFor()
+{
+    return QSettings().value("linux/gnomeExtensionDeclinedFor").toString();
+}
+
+void setGnomeExtensionDeclinedFor(const QString &version)
+{
+    QSettings().setValue("linux/gnomeExtensionDeclinedFor", version);
 }
 
 namespace {

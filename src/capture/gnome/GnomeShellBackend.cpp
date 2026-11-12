@@ -1,5 +1,7 @@
 #include "capture/gnome/GnomeShellBackend.h"
 
+#include "app/LinuxIntegration.h"
+
 #include "capture/CaptureHints.h"
 
 #include <QDBusArgument>
@@ -54,6 +56,15 @@ bool GnomeShellBackend::isAvailable() const
 
 QString GnomeShellBackend::unavailableReason() const
 {
+    // The AppImage installs the extension itself (D-041).
+    if (LinuxIntegration::isAppImage()) {
+        if (LinuxIntegration::extensionState(LinuxIntegration::currentPaths())
+            == LinuxIntegration::ExtensionState::Current)
+            return tr("Die GNOME-Erweiterung «Snapslash» ist eingerichtet, aber GNOME hat sie noch nicht geladen. "
+                      "Bitte ab- und wieder anmelden.");
+        return tr("Die GNOME-Erweiterung «Snapslash» läuft nicht. Sie lässt sich in den Einstellungen unter "
+                  "«Allgemein» einrichten; danach ab- und wieder anmelden.");
+    }
     return tr("Die GNOME-Erweiterung «Snapslash» läuft nicht. "
               "Bitte installieren und aktivieren (docs/06-poc-gnome-window-capture.md) "
               "und danach ab- und wieder anmelden.");
