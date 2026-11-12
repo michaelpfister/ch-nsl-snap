@@ -3,7 +3,6 @@
 | # | Question | Current assumption | Blocks |
 |---|---|---|---|
 | Q-05 | Which GNOME versions does the extension support? | 46 (tested), newer versions as they come | metadata.json |
-| Q-06 | Distribute the extension via extensions.gnome.org, or only together with the app? | together with the app | packaging |
 | Q-07 | Should menus and tooltips of the picked window be included? | not in the PoC | window capture |
 | Q-12 | OCR for text replacement (F-29): in v1 or later? Tesseract or Windows OCR? | later; v1 is manual | F-29 |
 | Q-13 | Save editable projects (image + annotations) to continue later? | not in v1, but the model allows it (D-012) | file format |
@@ -16,17 +15,21 @@
 | Q-23 | Rotated monitors (Wayland output transform) on Hyprland and Sway: is the frozen picture already upright? | not handled; untested | D-031 |
 | Q-24 | Hyprland rounds window corners only when composing (decoration:rounding); round the capture like on Windows 11 (D-022)? | no: square, as the window buffer is | D-031 |
 | Q-25 | Sign releases (minisign signature checked by the app, Windows code signing against SmartScreen)? | not yet: SHA-256 from the same release (D-037) | trust in updates |
-| Q-26 | Ship the GNOME extension with the releases, so a downgrade on GNOME takes the matching extension along? | not yet; installed from the repository (Q-06) | D-037 on GNOME |
 | Q-28 | Does Qt Multimedia's FFmpeg build encode H.264 on every Linux machine (software encoder, or VA-API only)? | no software encoder in Qt 6.8.3 from aqt (2026-11-11): only `h264_vaapi` and `h264_nvenc`, so it needs the graphics card. Still to check on Zorin (VA-API) and NixOS (nixpkgs' FFmpeg, perhaps with x264); without an encoder the app says so. On Windows Qt 6.8.3 offers H.264 (seen on the x64 and ARM64 CI runners, 2026-11-11). If too many Linux machines lack one: bundle OpenH264 or encode with a system FFmpeg | F-50 on Linux |
 | Q-30 | A window resized during the recording: scale it into the start size (black bars), or crop? | scale, keeping the aspect ratio | F-50 |
 | Q-31 | Monitor recordings on Wayland: no protocol keeps the indicator out of the video. Show it only in the tray and on other monitors, or accept it in the video? | a small layer surface in the top right corner, on a monitor that is not recorded if there is one, else shown in the video; stop also via tray or command. Without LayerShellQt (Ubuntu builds) the compositor places it, Sway in the middle. On GNOME the app's indicator is a normal window wherever Mutter places it, and GNOME's own sharing indicator is in the top bar; both show in monitor recordings | F-50 on Hyprland, Sway, GNOME, portal |
 | Q-32 | Series of captures (F-52) started from the top bar: should the window stay hidden between captures, so the next one can follow with a hotkey without the window in the way? | no: the window comes back as before a capture; from the tray or a hotkey it stays hidden | D-040 |
+| Q-33 | Does the static AppImage runtime start on Ubuntu 24.04, Zorin 18 and Fedora without extra packages (no libfuse2), and does Ubuntu's AppArmor rule on user namespaces get in the way? | yes, to be checked in the AppImage spike | D-041, step 1 |
+| Q-34 | Can LayerShellQt be built against Qt 6.8.3 and shipped in the AppImage, so overlay and indicator are layer surfaces on Hyprland and Sway? | yes, built in the AppImage job; without it the overlay is full screen and the indicator where the compositor puts it (Q-31) | D-041, step 1 |
+| Q-35 | Linux on ARM64 (AppImage for aarch64)? | later, when someone needs it; Qt 6.8 offers linux_gcc_arm64 | D-041 |
 
 ## Resolved
 
 | # | Question | Resolution | Recorded in |
 |---|---|---|---|
 | Q-27 | GNOME video: may the extension open a Mutter screen cast (`org.gnome.Mutter.ScreenCast`, `RecordWindow` / `RecordMonitor`) and hand the PipeWire stream to the app? Can the top bar indicator be kept out of monitor recordings? | Mutter's screen cast is open to every session client: the extension picks and hands out the window's id, the app records it itself (spike in a headless GNOME Shell 46, 2026-11-11). GNOME's own sharing indicator stays in monitor recordings | D-039 |
+| Q-06 | Distribute the extension via extensions.gnome.org, or only together with the app? | together with the app: the AppImage carries it and installs it after the user agreed (2026-11-12) | D-041 |
+| Q-26 | Ship the GNOME extension with the releases, so a downgrade on GNOME takes the matching extension along? | yes: inside the AppImage; an update or downgrade replaces it with the app's version (2026-11-12) | D-041 |
 | Q-29 | Trimming (F-51): re-encode the chosen range (frame-exact, slower) or cut at key frames without re-encoding (fast, about 1 s exact)? | re-encode, exact to the frame: the part is played at 4 times the speed into the encoder (2026-11-11) | D-039 |
 | Q-02 | Language of the user interface? | German (Switzerland), no "ß", and English since 2026-11-04; chosen in the settings, by default the system's language | D-038 |
 | Q-03 | Name of the product? | "Snapslash", with the logo of two frame corners and a slash (2026-11-03, issue #16) | D-036, D-007 |

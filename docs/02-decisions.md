@@ -443,7 +443,7 @@ Each entry: context, decision, rationale, consequences. Entries marked **(assump
   - *Built from source, or a copy without the marker*: the dialog shows the steps (`git checkout <tag>` and build; on GNOME install the extension again and log in anew), or the download on Windows.
 - **Downgrade:** the settings tab "Updates" lists every offered release, newest first, with the version below the installed one preselected. Installing an older version is the same path as an update. Settings stay: an older version ignores keys it does not know, and they apply again after the next update.
 **Rationale:** GitHub's releases are where the code already is, need no server of our own, and answer without an account. A portable folder can replace itself without administrator rights; an installer would need them for `Program Files` and a second program to maintain. Swapping whole folders keeps no files of the old version behind (Qt plugins of another version would break the app). Nix and source builds have their own update mechanism, which the app must not get in the way of.
-**Rejected:** an installer (Inno Setup, MSIX) for now; replacing files one by one inside the running folder; checking on every start; telling the user about pre-releases by default; a self-update for Linux (AppImage), as long as the Linux users install through Nix or from source.
+**Rejected:** an installer (Inno Setup, MSIX) for now; replacing files one by one inside the running folder; checking on every start; telling the user about pre-releases by default; a self-update for Linux (AppImage), as long as the Linux users install through Nix or from source. Revised on 2026-11-12: Linux gets an AppImage that updates itself in the same way (D-041).
 **Consequences:**
 - The checksum comes from the same release as the ZIP: it protects against broken downloads, not against a compromised GitHub account. A signature of our own (minisign) or code signing would close that (Q-25).
 - Without code signing, Windows SmartScreen warns when the downloaded ZIP's program is started the first time.
@@ -541,3 +541,35 @@ Each entry: context, decision, rationale, consequences. Entries marked **(assump
 - An extension older than version 7 ignores the two countdown options: middle, a click cancels, until the user logs out and in.
 - Manual saves (Ctrl+S, "Speichern") do not go into the list; only captures that were saved without the editor.
 - Open: whether the window should stay hidden between series captures started from the top bar (Q-32).
+
+## D-041 Linux package: one AppImage that sets itself up and updates itself
+
+**Context:** On Linux without Nix, Snapslash is so far built from source with Qt from aqtinstall, `cmake --install` and `scripts/dev-install.sh` (docs/07-development-setup.md): a dozen shell commands, and every update the same again. The goal (2026-11-12): distributed without any store, with the full function on GNOME and Hyprland, installed and updated without typing commands into a shell. "Full function" means: the GNOME extension installed and enabled, Mutter's screen cast and PipeWire for videos (D-039), Hyprland's control socket and the wlroots protocols (D-031), and the system's VA-API driver for H.264 (Q-28).
+**Decision:**
+- **Format:** one AppImage per release and architecture, `snapslash-<version>-linux-x86_64.AppImage` (ARM64 later, Q-35), next to the Windows ZIPs in the GitHub release (D-037). It carries Qt 6.8.3 with Qt Multimedia, Qt's FFmpeg, libpipewire, LayerShellQt if it can be built against that Qt (Q-34), and the GNOME extension of the same version. It uses the static AppImage runtime, which needs no `libfuse2` (Ubuntu 24.04 ships none, Q-33). Built on the oldest Ubuntu LTS that Qt 6.8 still supports, so it runs on newer systems too.
+- **First start, without a shell:** the user downloads the file, ticks "Als Programm ausführen" once in the file's properties and starts it. The app then sets itself up for the user, nothing system-wide and no administrator rights:
+  - a desktop entry in `~/.local/share/applications` with its icon (D-036), pointing at the AppImage's path (`$APPIMAGE`), updated when the file was moved;
+  - a link `~/.local/bin/snapslash` to the AppImage, so desktop key bindings and the command line (F-48, D-034) keep working by name;
+  - on GNOME, after the user agrees in a dialog ("GNOME-Erweiterung einrichten"): the bundled extension copied to `~/.local/share/gnome-shell/extensions/nsl-snap@netslash.ch` with its compiled settings schema, and added to `org.gnome.shell enabled-extensions`; the app then says that one logout and login is needed (GNOME Shell loads new extensions only at login). The same dialog is in the settings, for later.
+- **Updates and downgrades:** the path of the portable Windows ZIP (D-037) for a third installation kind, *AppImage* (`$APPIMAGE` is set and writable): the app downloads the release's AppImage, checks its SHA-256, writes it next to the running file, makes it executable, renames it over the old one (atomic in the same folder; the running program keeps its open copy) and restarts. When the bundled extension differs from the installed one, it is replaced in the same step, so app and extension always match (Q-26); the app then asks for a logout once more. The settings tab "Updates" lists every release, as on Windows.
+- **Other ways stay:** NixOS keeps the flake (an AppImage does not run there without `appimage-run`); building from source stays documented for developers.
+- **Security:** the app changes only files of the user who runs it, and installs the extension only after the user agreed. The extension keeps its rule that nothing is captured without a pick (D-003). The checksum protects against broken downloads, not against a compromised GitHub account (Q-25), as on Windows.
+**Rationale:**
+- No sandbox: Mutter's screen cast, the extension's D-Bus service, Hyprland's socket and PipeWire work as in a build from source, with no permission requests and no store review.
+- One file for every distribution, and one build in the release workflow; the update is the code that already updates the Windows folder.
+- The extension comes with the app, in the same version: no separate download, no mismatch after an update or downgrade.
+**Rejected:**
+- **Flatpak** (own repository, no Flathub): Ubuntu ships no Flatpak (installing it needs the shell); full function needs sandbox exceptions for Mutter's screen cast, the extension's service, Hyprland's socket and the extensions folder, which defeat the sandbox; VA-API drivers come from runtime extensions. Possible later as an extra, with the portal as the video path.
+- **.deb and .rpm:** two formats, a build per distribution release, Qt 6.8 shipped under `/opt` anyway, and updates only through our own signed apt and dnf repositories that the package must register.
+- **Snap:** bound to the Snap Store.
+- **An installer script** (`curl … | sh`): a shell command, and no update path.
+**Consequences:**
+- The first start needs the one click "Als Programm ausführen"; the system does not update the AppImage, the app does (the daily check of D-037).
+- A missing VA-API driver is outside the package (Q-28): the app says so when "Video" is chosen.
+- Q-06 and Q-26 are answered: the extension comes with the app, inside the AppImage.
+- The update check on Linux no longer only shows steps (F-49) for AppImage installations.
+**Implementation plan** (F-53), each step its own pull request:
+1. **AppImage build:** a script `scripts/build-appimage.sh` (AppDir with the app, Qt's libraries and plugins including Multimedia and the Wayland platform, libpipewire, the extension under `share/snapslash/gnome-extension`, desktop entry and icon; static runtime) and a job in `release.yml` that builds it on the oldest supported Ubuntu, checks it starts (`--version`, the offscreen tests against the AppDir) and adds it and its checksum to the release. Spike first: LayerShellQt against Qt 6.8.3 (Q-34), the static runtime on Ubuntu 24.04, Zorin 18 and Fedora (Q-33).
+2. **Self-setup:** `Releases::installation` learns the kind *AppImage*; a class `LinuxIntegration` writes the desktop entry and the link, and installs and enables the extension after the dialog; the settings get "GNOME-Erweiterung einrichten" and show whether the installed extension matches. Tests with a temporary home folder.
+3. **Self-update:** the AppImage path in `UpdateInstaller` (download, checksum, rename over `$APPIMAGE`, extension, restart), with a test that swaps a real file. Then README and docs/07-development-setup.md: the Linux installation is "download, tick, start".
+4. **By hand on the target systems:** Zorin 18 (GNOME), Ubuntu 24.04, Fedora, Hyprland on a non-Nix distribution; the first update from one AppImage release to the next.
