@@ -192,6 +192,8 @@ if(LINUX)
     target_sources(nsl_snap_core PRIVATE
         src/capture/gnome/GnomeShellBackend.cpp
         src/capture/gnome/GnomeShellBackend.h
+        src/ui/linux/PortalColorScheme.cpp
+        src/ui/linux/PortalColorScheme.h
     )
     target_link_libraries(nsl_snap_core PUBLIC Qt6::DBus)
     target_compile_definitions(nsl_snap_core PUBLIC NSL_HAVE_GNOME_BACKEND)

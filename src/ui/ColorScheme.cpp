@@ -3,22 +3,9 @@
 #include <QGuiApplication>
 #include <QStyleHints>
 
-#ifdef Q_OS_LINUX
-#include <QDBusConnection>
-#include <QDBusMessage>
-#include <QDBusReply>
-#include <QDBusVariant>
+#ifdef NSL_HAVE_GNOME_BACKEND
+#include "ui/linux/PortalColorScheme.h"
 #endif
-
-namespace {
-
-const QString kPortalService = QStringLiteral("org.freedesktop.portal.Desktop");
-const QString kPortalPath = QStringLiteral("/org/freedesktop/portal/desktop");
-const QString kPortalSettings = QStringLiteral("org.freedesktop.portal.Settings");
-const QString kAppearance = QStringLiteral("org.freedesktop.appearance");
-const QString kColorScheme = QStringLiteral("color-scheme");
-
-} // namespace
 
 ColorScheme *ColorScheme::instance()
 {
@@ -34,57 +21,29 @@ ColorScheme::ColorScheme(QObject *parent)
         if (m_choice == Choice::System && !m_portalDark)
             emit changed();
     });
-#ifdef Q_OS_LINUX
-    readPortal();
-    // The portal says when the user switches light and dark.
-    QDBusConnection::sessionBus().connect(kPortalService, kPortalPath, kPortalSettings, QStringLiteral("SettingChanged"),
-                                          this, SLOT(onPortalSettingChanged(QString, QString, QDBusVariant)));
+#ifdef NSL_HAVE_GNOME_BACKEND
+    // Linux: the desktop portal, whatever platform theme Qt found.
+    auto *portal = new PortalColorScheme(this);
+    m_portalDark = portal->read();
+    connect(portal, &PortalColorScheme::darkChanged, this, [this](bool dark) {
+        if (dark == m_portalDark)
+            return;
+        m_portalDark = dark;
+        if (m_choice == Choice::System)
+            emit changed();
+    });
 #endif
 }
 
 std::optional<bool> ColorScheme::darkFromPortalValue(uint value)
 {
-    switch (value) {
-    case 1: return true;  // prefer dark
-    case 2: return false; // prefer light
-    case 0: return false; // no preference: the desktops' default is light
-    default: return std::nullopt;
-    }
-}
-
-void ColorScheme::readPortal()
-{
-#ifdef Q_OS_LINUX
-    // ReadOne (portal version 2) answers the value itself; the older Read
-    // wraps it in one more variant.
-    for (const QString &method : {QStringLiteral("ReadOne"), QStringLiteral("Read")}) {
-        QDBusMessage call = QDBusMessage::createMethodCall(kPortalService, kPortalPath, kPortalSettings, method);
-        call << kAppearance << kColorScheme;
-        const QDBusMessage reply = QDBusConnection::sessionBus().call(call, QDBus::Block, 500);
-        if (reply.type() != QDBusMessage::ReplyMessage || reply.arguments().isEmpty())
-            continue;
-        QVariant value = reply.arguments().first().value<QDBusVariant>().variant();
-        if (value.canConvert<QDBusVariant>())
-            value = value.value<QDBusVariant>().variant();
-        if (value.canConvert<uint>()) {
-            m_portalDark = darkFromPortalValue(value.toUInt());
-            if (m_portalDark)
-                return;
-        }
-    }
+#ifdef NSL_HAVE_GNOME_BACKEND
+    return PortalColorScheme::darkFromValue(value);
+#else
+    return value == 1 ? std::optional<bool>(true)
+         : (value == 0 || value == 2) ? std::optional<bool>(false)
+                                      : std::nullopt;
 #endif
-}
-
-void ColorScheme::onPortalSettingChanged(const QString &group, const QString &key, const QDBusVariant &value)
-{
-    if (group != kAppearance || key != kColorScheme)
-        return;
-    const std::optional<bool> dark = darkFromPortalValue(value.variant().toUInt());
-    if (!dark || dark == m_portalDark)
-        return;
-    m_portalDark = dark;
-    if (m_choice == Choice::System)
-        emit changed();
 }
 
 bool ColorScheme::systemIsDark() const

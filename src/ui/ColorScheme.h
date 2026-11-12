@@ -4,8 +4,6 @@
 
 #include <optional>
 
-class QDBusVariant;
-
 // Light or dark (D-014, D-045): the user's choice in the settings, or the
 // system's. On Linux the app asks the desktop portal itself
 // (org.freedesktop.appearance color-scheme) and follows its changes, so it
@@ -36,12 +34,8 @@ signals:
     // Light or dark changed (the choice, or the system's setting).
     void changed();
 
-private slots:
-    void onPortalSettingChanged(const QString &group, const QString &key, const QDBusVariant &value);
-
 private:
     explicit ColorScheme(QObject *parent);
-    void readPortal();
     bool systemIsDark() const;
 
     Choice m_choice = Choice::System;
