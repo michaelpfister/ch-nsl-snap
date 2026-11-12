@@ -236,6 +236,16 @@ void setAvailableUpdate(const QString &version)
     QSettings().setValue("updates/available", version);
 }
 
+QString dismissedUpdate()
+{
+    return QSettings().value("updates/dismissed").toString();
+}
+
+void setDismissedUpdate(const QString &version)
+{
+    QSettings().setValue("updates/dismissed", version);
+}
+
 namespace {
 
 QString hotkeySettingsKey(GlobalHotkeys::Action action)

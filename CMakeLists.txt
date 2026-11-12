@@ -56,6 +56,8 @@ add_library(nsl_snap_core STATIC
     src/app/SingleInstance.h
     src/app/ToolRail.cpp
     src/app/ToolRail.h
+    src/app/UpdateBar.cpp
+    src/app/UpdateBar.h
     src/app/UpdateDialog.cpp
     src/app/UpdateDialog.h
     src/capture/CaptureBackend.cpp

@@ -1,6 +1,7 @@
 // Updates and downgrades (F-49, D-037): versions, GitHub's release list,
 // checksums, and on Windows the folder swap with the real PowerShell script.
 
+#include "app/UpdateBar.h"
 #include "app/UpdateDialog.h"
 #include "update/Releases.h"
 #include "update/UpdateChecker.h"
@@ -11,8 +12,10 @@
 #include <QDir>
 #include <QFile>
 #include <QProcess>
+#include <QPushButton>
 #include <QSignalSpy>
 #include <QTemporaryDir>
+#include <QToolButton>
 #include <QTest>
 
 namespace {
@@ -116,6 +119,27 @@ private slots:
         QCOMPARE(sums.size(), 2);
         QCOMPARE(sums.value(QStringLiteral("snapslash-0.2.0-windows-arm64.zip")),
                  QByteArray("abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789"));
+    }
+
+    void updateBarShowsAndHides()
+    {
+        QWidget window;
+        auto *bar = new UpdateBar(&window);
+        window.show();
+        QVERIFY(!bar->isVisible());
+        bar->setVersion(QStringLiteral("0.3.1"));
+        QVERIFY(bar->isVisible());
+
+        QSignalSpy dismissed(bar, &UpdateBar::dismissed);
+        bar->findChild<QToolButton *>(QStringLiteral("UpdateBarClose"))->click();
+        QVERIFY(!bar->isVisible());
+        QCOMPARE(dismissed.size(), 1);
+        QCOMPARE(dismissed.first().first().toString(), QStringLiteral("0.3.1"));
+
+        QSignalSpy open(bar, &UpdateBar::openRequested);
+        bar->setVersion(QStringLiteral("0.3.2"));
+        bar->findChild<QPushButton *>(QStringLiteral("UpdateBarOpen"))->click();
+        QCOMPARE(open.size(), 1);
     }
 
     void installationKind()

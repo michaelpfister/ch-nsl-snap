@@ -805,14 +805,6 @@ Ctrl+S saves straight into the folder from the settings</translation>
         <translation>Snapslash is up to date.</translation>
     </message>
     <message>
-        <source>Update %1</source>
-        <translation>Update %1</translation>
-    </message>
-    <message>
-        <source>Snapslash %1 ist verfügbar: anzeigen und installieren</source>
-        <translation>Snapslash %1 is available: show and install</translation>
-    </message>
-    <message>
         <source>Neu starten</source>
         <translation>Restart</translation>
     </message>
@@ -1781,6 +1773,21 @@ Click to open in the editor</translation>
     <message>
         <source>Diese Snapslash-Version wurde ohne PipeWire gebaut; unter GNOME gibt es damit keine Videos.</source>
         <translation>This Snapslash version was built without PipeWire, so there are no videos on GNOME.</translation>
+    </message>
+</context>
+<context>
+    <name>UpdateBar</name>
+    <message>
+        <source>Anzeigen und installieren</source>
+        <translation>Show and install</translation>
+    </message>
+    <message>
+        <source>Für diese Version ausblenden</source>
+        <translation>Hide for this version</translation>
+    </message>
+    <message>
+        <source>&lt;b&gt;Snapslash %1 ist verfügbar.&lt;/b&gt; Die Einstellungen bleiben beim Update erhalten.</source>
+        <translation>&lt;b&gt;Snapslash %1 is available.&lt;/b&gt; Your settings stay as they are.</translation>
     </message>
 </context>
 <context>

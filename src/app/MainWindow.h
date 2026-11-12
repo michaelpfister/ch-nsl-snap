@@ -20,6 +20,7 @@ class PropertiesPanel;
 class QComboBox;
 class QLabel;
 class QPushButton;
+class UpdateBar;
 class QSystemTrayIcon;
 class QTimer;
 class QToolButton;
@@ -142,7 +143,7 @@ private:
     // and the dialog for one release (newer or older).
     void checkForUpdatesIfDue();
     void onReleasesLoaded(const QList<Releases::Release> &releases);
-    void showUpdateButton(const QString &version);
+    void showUpdateBar(const QString &version);
     void openAvailableUpdate();
     void showUpdate(const Releases::Release &release, QWidget *parent);
 
@@ -225,7 +226,7 @@ private:
     QToolButton *m_fitButton = nullptr;
     QAction *m_fitAction = nullptr;
     QToolButton *m_settingsButton = nullptr;
-    QPushButton *m_updateButton = nullptr; // hidden until an update is known
+    UpdateBar *m_updateBar = nullptr; // hidden until an update is known
     QPushButton *m_copyButton = nullptr;
     QPushButton *m_saveButton = nullptr;
     QToolButton *m_clearButton = nullptr;

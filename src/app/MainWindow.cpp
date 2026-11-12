@@ -9,6 +9,7 @@
 #include "app/Settings.h"
 #include "app/SettingsDialog.h"
 #include "app/ToolRail.h"
+#include "app/UpdateBar.h"
 #include "ui/AppDialog.h"
 #include "app/UpdateDialog.h"
 #include "capture/CaptureBackend.h"
@@ -137,6 +138,12 @@ MainWindow::MainWindow(QWidget *parent)
     row->addWidget(m_properties);
     column->addLayout(row, 1);
     column->addWidget(m_recent);
+    // A newer version (F-49): a bar at the bottom, hidden until a check
+    // finds one.
+    m_updateBar = new UpdateBar(central);
+    connect(m_updateBar, &UpdateBar::openRequested, this, &MainWindow::openAvailableUpdate);
+    connect(m_updateBar, &UpdateBar::dismissed, this, [](const QString &version) { Settings::setDismissedUpdate(version); });
+    column->addWidget(m_updateBar);
     setCentralWidget(central);
 
     // Recent captures (F-52): remembered across starts, like the pin.
@@ -482,12 +489,6 @@ QWidget *MainWindow::createTopBar()
     });
     zoomLayout->addWidget(m_fitButton);
     layout->addWidget(zoom);
-
-    // Shown once a check found a newer version (F-49).
-    m_updateButton = textButton(QString(), QStringLiteral("secondary"), bar);
-    m_updateButton->setVisible(false);
-    connect(m_updateButton, &QPushButton::clicked, this, &MainWindow::openAvailableUpdate);
-    layout->addWidget(m_updateButton);
 
     m_settingsButton = iconButton(tr("Einstellungen (F2)"), bar);
     connect(m_settingsButton, &QToolButton::clicked, this, &MainWindow::showSettings);
@@ -1616,7 +1617,7 @@ void MainWindow::checkForUpdatesIfDue()
     if (!Settings::checkForUpdates())
         return;
     // Known from an earlier check: show it now, without asking GitHub again.
-    showUpdateButton(Settings::availableUpdate());
+    showUpdateBar(Settings::availableUpdate());
     if (UpdateChecker::isDue(Settings::lastUpdateCheck(), QDateTime::currentDateTimeUtc()))
         m_updates->check();
 }
@@ -1628,7 +1629,7 @@ void MainWindow::onReleasesLoaded(const QList<Releases::Release> &releases)
     const QString version = m_availableUpdate ? m_availableUpdate->version.toString() : QString();
     const bool isNew = !version.isEmpty() && version != Settings::availableUpdate();
     Settings::setAvailableUpdate(version);
-    showUpdateButton(version);
+    showUpdateBar(version);
     // While the app waits in the tray, the tray says it, once per version.
     if (isNew && m_tray && !isVisible())
         m_tray->showMessage(tr("Update verfügbar"), tr("Snapslash %1 ist verfügbar.").arg(version));
@@ -1640,17 +1641,15 @@ void MainWindow::onReleasesLoaded(const QList<Releases::Release> &releases)
     }
 }
 
-void MainWindow::showUpdateButton(const QString &version)
+void MainWindow::showUpdateBar(const QString &version)
 {
     // A stored version that is no longer newer (installed in the meantime)
     // shows nothing.
+    // The bar stays away for a version whose note was closed; the next
+    // version shows it again.
     const std::optional<Version> parsed = Version::parse(version);
-    const bool show = parsed && *parsed > Version::current();
-    m_updateButton->setVisible(show);
-    if (show) {
-        m_updateButton->setText(tr("Update %1").arg(parsed->toString()));
-        m_updateButton->setToolTip(tr("Snapslash %1 ist verfügbar: anzeigen und installieren").arg(parsed->toString()));
-    }
+    const bool show = parsed && *parsed > Version::current() && parsed->toString() != Settings::dismissedUpdate();
+    m_updateBar->setVersion(show ? parsed->toString() : QString());
 }
 
 void MainWindow::openAvailableUpdate()

@@ -172,6 +172,13 @@ QPushButton[role="destructive"]:pressed { background: @dangerPressed; }
     border: 2px solid @focusOnColor;
 }
 
+/* The note about a newer version at the bottom of the window (UpdateBar). */
+#UpdateBar { background: @soft; border-top: 1px solid @border; }
+#UpdateBarText { color: @softText; }
+#UpdateBar QPushButton[role="primary"] { min-height: 30px; padding: 0 12px; }
+#UpdateBarClose { background: transparent; border: none; border-radius: 6px; color: @softText; padding: 4px 8px; }
+#UpdateBarClose:hover { background: @hover; }
+
 /* Inputs. */
 QComboBox {
     background: @panel; color: @text; border: 1px solid @border; border-radius: 8px;
@@ -213,6 +220,7 @@ QScrollBar::add-line, QScrollBar::sub-line { width: 0; height: 0; }
         {QStringLiteral("@focusOnColor"), QColor(255, 255, 255, 170)},
         {QStringLiteral("@accentPressed"), accent.darker(125)},
         {QStringLiteral("@accentHover"), accent.darker(112)},
+        {QStringLiteral("@softText"), softText},
         {QStringLiteral("@success"), success},
         {QStringLiteral("@warning"), warning},
         {QStringLiteral("@accent"), accent},

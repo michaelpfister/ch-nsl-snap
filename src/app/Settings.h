@@ -96,6 +96,9 @@ QDateTime lastUpdateCheck();
 void setLastUpdateCheck(const QDateTime &time);
 QString availableUpdate();
 void setAvailableUpdate(const QString &version);
+// The version whose note at the bottom of the window was closed (UpdateBar).
+QString dismissedUpdate();
+void setDismissedUpdate(const QString &version);
 
 // Global hotkeys (F-42): the key of each action; GlobalHotkeys::defaultKey
 // until changed, an empty sequence when switched off.
