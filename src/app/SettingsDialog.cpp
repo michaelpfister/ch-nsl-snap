@@ -9,7 +9,8 @@
 #include "app/Settings.h"
 #include "update/UpdateChecker.h"
 #include "update/UpdateInstaller.h"
-#include "ui/Placement.h"
+#include "ui/Icons.h"
+#include "ui/Theme.h"
 
 #include <QButtonGroup>
 #include <QCheckBox>
@@ -17,7 +18,6 @@
 #include <QRadioButton>
 #include <QScrollArea>
 #include <QDateTime>
-#include <QDialogButtonBox>
 #include <QDir>
 #include <QApplication>
 #include <QFileDialog>
@@ -29,44 +29,121 @@
 #include <QLocale>
 #include <QPushButton>
 #include <QSystemTrayIcon>
-#include <QTabWidget>
+#include <QEventLoop>
+#include <QMouseEvent>
+#include <QPainter>
+#include <QStackedWidget>
+#include <QStyle>
+#include <QToolButton>
 
-#include <algorithm>
 #include <QVBoxLayout>
 
+#include <algorithm>
+
+namespace {
+
+int openOverlays = 0;
+// The card: at most this large (mockup "Einstellungen", D-044).
+constexpr int kCardWidth = 880;
+constexpr int kCardHeight = 640;
+constexpr int kMargin = 24;
+constexpr int kNarrowMargin = 16;
+// A card narrower than this shows the navigation as a row on top.
+constexpr int kNarrowBelow = 720;
+constexpr int kNavWidth = 208;
+
+} // namespace
+
 SettingsDialog::SettingsDialog(GlobalHotkeys *hotkeys, bool countdownHasEscape, QWidget *parent)
-    : QDialog(parent)
+    : QWidget(parent ? parent->window() : nullptr)
     , m_hotkeys(hotkeys)
 {
-    setWindowTitle(tr("Einstellungen"));
-    setMinimumWidth(540);
+    // An overlay over the whole window (D-044): it takes every click and
+    // key, and follows the window's size.
+    setObjectName(QStringLiteral("SettingsOverlay"));
+    setAttribute(Qt::WA_NoSystemBackground);
+    setFocusPolicy(Qt::StrongFocus);
+    if (parentWidget())
+        parentWidget()->installEventFilter(this);
 
-    // Three tabs keep the dialog small enough for laptop screens.
-    auto *outer = new QVBoxLayout(this);
-    outer->setContentsMargins(16, 16, 16, 12);
-    auto *tabs = new QTabWidget(this);
-    outer->addWidget(tabs);
-    // Each page scrolls, so the dialog fits small or highly scaled screens
-    // (fitIntoScreen below); usually the scroll bar never shows.
-    const auto page = [this, tabs](const QString &title) {
-        auto *widget = new QWidget(this);
+    m_card = new QFrame(this);
+    m_card->setObjectName(QStringLiteral("SettingsCard"));
+    m_card->setAttribute(Qt::WA_StyledBackground);
+
+    // "Einstellungen" above the navigation (wide), or in the header (narrow).
+    m_navPane = new QWidget(m_card);
+    m_navPane->setObjectName(QStringLiteral("SettingsNav"));
+    m_navPane->setAttribute(Qt::WA_StyledBackground);
+    auto *navLayout = new QVBoxLayout(m_navPane);
+    navLayout->setContentsMargins(12, 20, 12, 12);
+    navLayout->setSpacing(8);
+    m_navTitle = new QLabel(tr("Einstellungen"), m_navPane);
+    m_navTitle->setProperty("role", QStringLiteral("settingsTitle"));
+    m_navTitle->setContentsMargins(8, 0, 0, 4);
+    navLayout->addWidget(m_navTitle);
+    m_navButtons = new QWidget;
+    m_navButtonsLayout = new QBoxLayout(QBoxLayout::TopToBottom, m_navButtons);
+    m_navButtonsLayout->setContentsMargins(0, 0, 0, 0);
+    m_navButtonsLayout->setSpacing(4);
+    m_navScroll = new QScrollArea(m_navPane);
+    m_navScroll->setWidget(m_navButtons);
+    m_navScroll->setWidgetResizable(true);
+    m_navScroll->setFrameShape(QFrame::NoFrame);
+    m_navScroll->viewport()->setAutoFillBackground(false);
+    m_navButtons->setAutoFillBackground(false);
+    navLayout->addWidget(m_navScroll, 1);
+    m_navGroup = new QButtonGroup(this);
+
+    // The header: the page's name and the close button.
+    m_header = new QWidget(m_card);
+    auto *headerLayout = new QHBoxLayout(m_header);
+    headerLayout->setContentsMargins(28, 16, 16, 12);
+    m_headerTitle = new QLabel(m_header);
+    m_headerTitle->setProperty("role", QStringLiteral("pageTitle"));
+    headerLayout->addWidget(m_headerTitle, 1);
+    auto *close = new QToolButton(m_header);
+    close->setObjectName(QStringLiteral("SettingsClose"));
+    close->setText(QStringLiteral("✕"));
+    close->setToolTip(tr("Schliessen (Esc)"));
+    close->setAccessibleName(tr("Einstellungen schliessen"));
+    connect(close, &QToolButton::clicked, this, &SettingsDialog::close);
+    headerLayout->addWidget(close);
+
+    m_pages = new QStackedWidget(m_card);
+    m_cardLayout = new QGridLayout(m_card);
+    m_cardLayout->setContentsMargins(0, 0, 0, 0);
+    m_cardLayout->setSpacing(0);
+
+    // Each page scrolls inside the card, which is never larger than the
+    // window: nothing reaches past the screen (D-044).
+    const auto page = [this](const QString &title, const QString &icon) {
+        auto *widget = new QWidget;
         auto *pageLayout = new QVBoxLayout(widget);
-        pageLayout->setContentsMargins(16, 16, 16, 16);
+        pageLayout->setContentsMargins(28, 8, 28, 28);
         pageLayout->setSpacing(6);
-        auto *scroll = new QScrollArea(this);
+        auto *scroll = new QScrollArea;
         scroll->setWidget(widget);
         scroll->setWidgetResizable(true);
         scroll->setFrameShape(QFrame::NoFrame);
         scroll->setHorizontalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
-        // The page's own background shows through, not the scroll area's.
+        // The card's background shows through, not the scroll area's.
         scroll->viewport()->setAutoFillBackground(false);
         widget->setAutoFillBackground(false);
-        tabs->addTab(scroll, title);
+        m_pages->addWidget(scroll);
+
+        auto *button = new QPushButton(title, m_navButtons);
+        button->setProperty("role", QStringLiteral("nav"));
+        button->setCheckable(true);
+        button->setAutoDefault(false);
+        button->setProperty("iconName", icon);
+        m_navGroup->addButton(button, m_pages->count() - 1);
+        m_navButtonsLayout->addWidget(button);
+        m_titles.append(title);
         return pageLayout;
     };
 
     // --- Allgemein ---
-    QVBoxLayout *layout = page(tr("Allgemein"));
+    QVBoxLayout *layout = page(tr("Allgemein"), QStringLiteral("settings"));
 
     // Language (D-038): applies at the next start.
     auto *languageTitle = new QLabel(tr("Sprache"), this);
@@ -105,29 +182,6 @@ SettingsDialog::SettingsDialog(GlobalHotkeys *hotkeys, bool countdownHasEscape, 
     layout->addWidget(hint);
     layout->addSpacing(16);
 
-    // Region capture (F-03, D-023).
-    auto *region = new QLabel(tr("Bereich auswählen"), this);
-    region->setProperty("role", QStringLiteral("section"));
-    layout->addWidget(region);
-    auto *clicks = new QRadioButton(tr("Mit zwei Klicks: erst eine Ecke, dann die gegenüberliegende"), this);
-    auto *drag = new QRadioButton(tr("Durch Ziehen mit gedrückter Maustaste"), this);
-    auto *regionGroup = new QButtonGroup(this);
-    regionGroup->addButton(clicks);
-    regionGroup->addButton(drag);
-    (Settings::regionByDragging() ? drag : clicks)->setChecked(true);
-    layout->addWidget(clicks);
-    layout->addWidget(drag);
-    auto *regionHint = new QLabel(tr("Die Lupe und die Pfeiltasten (Ctrl: 10 Pixel) helfen, pixelgenau zu treffen."), this);
-    regionHint->setProperty("role", QStringLiteral("hint"));
-    regionHint->setWordWrap(true);
-    regionHint->setContentsMargins(26, 0, 0, 0);
-    layout->addWidget(regionHint);
-    connect(drag, &QRadioButton::toggled, this, [](bool enabled) { Settings::setRegionByDragging(enabled); });
-    layout->addSpacing(16);
-
-    createCountdownSection(layout, countdownHasEscape);
-    layout->addSpacing(16);
-
     // Tray icon (F-45).
     auto *trayTitle = new QLabel(tr("Infobereich"), this);
     trayTitle->setProperty("role", QStringLiteral("section"));
@@ -157,6 +211,33 @@ SettingsDialog::SettingsDialog(GlobalHotkeys *hotkeys, bool countdownHasEscape, 
     confirmQuit->setChecked(Settings::confirmQuitUnsaved());
     layout->addWidget(confirmQuit);
     connect(confirmQuit, &QCheckBox::toggled, this, [](bool enabled) { Settings::setConfirmQuitUnsaved(enabled); });
+
+    layout->addStretch(1);
+
+    // --- Aufnahme: how regions are picked, the countdown, the extension ---
+    layout = page(tr("Aufnahme"), QStringLiteral("region"));
+    // Region capture (F-03, D-023).
+    auto *region = new QLabel(tr("Bereich auswählen"), this);
+    region->setProperty("role", QStringLiteral("section"));
+    layout->addWidget(region);
+    auto *clicks = new QRadioButton(tr("Mit zwei Klicks: erst eine Ecke, dann die gegenüberliegende"), this);
+    auto *drag = new QRadioButton(tr("Durch Ziehen mit gedrückter Maustaste"), this);
+    auto *regionGroup = new QButtonGroup(this);
+    regionGroup->addButton(clicks);
+    regionGroup->addButton(drag);
+    (Settings::regionByDragging() ? drag : clicks)->setChecked(true);
+    layout->addWidget(clicks);
+    layout->addWidget(drag);
+    auto *regionHint = new QLabel(tr("Die Lupe und die Pfeiltasten (Ctrl: 10 Pixel) helfen, pixelgenau zu treffen."), this);
+    regionHint->setProperty("role", QStringLiteral("hint"));
+    regionHint->setWordWrap(true);
+    regionHint->setContentsMargins(26, 0, 0, 0);
+    layout->addWidget(regionHint);
+    connect(drag, &QRadioButton::toggled, this, [](bool enabled) { Settings::setRegionByDragging(enabled); });
+    layout->addSpacing(16);
+
+    createCountdownSection(layout, countdownHasEscape);
+    layout->addSpacing(16);
 
     // The extension inside the AppImage (D-041): its state, and setting it
     // up again, e.g. after "Später" or when it was removed.
@@ -190,10 +271,10 @@ SettingsDialog::SettingsDialog(GlobalHotkeys *hotkeys, bool countdownHasEscape, 
 
     // --- Tastenkürzel (F-42) ---
     if (m_hotkeys)
-        createHotkeyPage(page(tr("Tastenkürzel")));
+        createHotkeyPage(page(tr("Tastenkürzel"), QStringLiteral("select")));
 
     // --- Speichern (F-41): folder and file name pattern ---
-    layout = page(tr("Speichern"));
+    layout = page(tr("Speichern"), QStringLiteral("save"));
     auto *folderLabel = new QLabel(tr("Ordner"), this);
     layout->addWidget(folderLabel);
     auto *folderRow = new QHBoxLayout;
@@ -262,7 +343,7 @@ SettingsDialog::SettingsDialog(GlobalHotkeys *hotkeys, bool countdownHasEscape, 
     layout->addStretch(1);
 
     // --- Farben und Stile (F-22, D-029) ---
-    layout = page(tr("Farben und Stile"));
+    layout = page(tr("Farben und Stile"), QStringLiteral("marker"));
     auto *stylesHint = new QLabel(tr("Die App merkt sich Farben, Linienstärken und Schriftgrössen für neue Objekte "
                                      "und die zuletzt verwendeten eigenen Farben. Bereits gezeichnete Objekte "
                                      "bleiben beim Zurücksetzen, wie sie sind."), this);
@@ -292,44 +373,219 @@ SettingsDialog::SettingsDialog(GlobalHotkeys *hotkeys, bool countdownHasEscape, 
     layout->addStretch(1);
 
     // --- Updates (F-49, D-037) ---
-    createUpdatePage(page(tr("Updates")));
-    // The list of versions loads when the tab is opened, if automatic
+    createUpdatePage(page(tr("Updates"), QStringLiteral("redo")));
+    m_navButtonsLayout->addStretch(1);
+    applyNavIcons();
+
+    // The list of versions loads when its page is opened, if automatic
     // checks are allowed; otherwise only with "Jetzt suchen".
-    const int updateTab = tabs->count() - 1;
-    connect(tabs, &QTabWidget::currentChanged, this, [this, updateTab](int index) {
-        if (index == updateTab && m_releases.isEmpty() && Settings::checkForUpdates())
+    const int updatePage = m_pages->count() - 1;
+    connect(m_navGroup, &QButtonGroup::idClicked, this, [this, updatePage](int index) {
+        showPage(index);
+        if (index == updatePage && m_releases.isEmpty() && Settings::checkForUpdates())
             checkForUpdates();
     });
-
-    auto *buttons = new QDialogButtonBox(QDialogButtonBox::Close, this);
-    buttons->button(QDialogButtonBox::Close)->setText(tr("Schliessen"));
-    connect(buttons, &QDialogButtonBox::rejected, this, &QDialog::reject);
-    outer->addWidget(buttons);
+    showPage(0);
 
     connect(m_advanced, &QCheckBox::toggled, this, [this](bool enabled) {
         Settings::setAdvancedMode(enabled);
         emit advancedModeChanged(enabled);
     });
 
-    // A scroll area asks only for a small size, so the pages' own sizes
-    // decide how large the dialog wants to be; then it is limited to the
-    // screen, so its title bar stays reachable.
-    int pageHeight = 0;
-    int pageWidth = 0;
-    for (int i = 0; i < tabs->count(); ++i) {
-        const QSize hint = static_cast<QScrollArea *>(tabs->widget(i))->widget()->sizeHint();
-        pageHeight = std::max(pageHeight, hint.height());
-        pageWidth = std::max(pageWidth, hint.width());
-    }
-    const QSize chrome = sizeHint() - tabs->currentWidget()->sizeHint();
-    resize(QSize(std::max(minimumWidth(), pageWidth + chrome.width()), pageHeight + chrome.height()).expandedTo(minimumSize()));
-    fitIntoScreen(this);
+    hide();
 }
 
 SettingsDialog::~SettingsDialog()
 {
     if (m_hotkeys)
         m_hotkeys->setSuspended(false);
+}
+
+bool SettingsDialog::isOpen()
+{
+    return openOverlays > 0;
+}
+
+void SettingsDialog::exec()
+{
+    QWidget *window = parentWidget();
+    if (!window)
+        return;
+    setGeometry(window->rect());
+    arrange();
+    show();
+    raise();
+    // The overlay itself has the focus, so Escape works at once; Tab then
+    // walks into the card (no focus ring until then).
+    setFocus(Qt::OtherFocusReason);
+
+    // Waits here, as QDialog::exec did, until the overlay is closed or
+    // the window goes away; the window's shortcuts rest meanwhile.
+    QEventLoop loop;
+    m_loop = &loop;
+    qApp->installEventFilter(this);
+    ++openOverlays;
+    loop.exec();
+    --openOverlays;
+    qApp->removeEventFilter(this);
+    m_loop = nullptr;
+    hide();
+}
+
+void SettingsDialog::close()
+{
+    if (m_loop)
+        m_loop->quit();
+}
+
+void SettingsDialog::showPage(int index)
+{
+    if (QAbstractButton *button = m_navGroup->button(index))
+        button->setChecked(true);
+    m_pages->setCurrentIndex(index);
+    m_headerTitle->setText(m_narrow ? tr("Einstellungen") : m_titles.value(index));
+}
+
+void SettingsDialog::applyNavIcons()
+{
+    const Theme theme = Theme::current();
+    for (QAbstractButton *button : m_navGroup->buttons())
+        button->setIcon(Icons::toggleIcon(button->property("iconName").toString(), theme.text, theme.softText));
+}
+
+void SettingsDialog::arrange()
+{
+    // At most 880 × 640, never larger than the window minus a margin; below
+    // 720 px the navigation moves into a row on top (D-044).
+    const QRect area = rect();
+    const bool narrow = area.width() < kNarrowBelow + 2 * kMargin;
+    const int margin = narrow ? kNarrowMargin : kMargin;
+    const QSize size(std::min(kCardWidth, area.width() - 2 * margin), std::min(kCardHeight, area.height() - 2 * margin));
+    const QSize cardSize = narrow ? area.size() - QSize(2 * margin, 2 * margin) : size;
+    m_card->setGeometry(QRect(QPoint(), cardSize.expandedTo(QSize(1, 1))).translated(area.center() - QRect(QPoint(), cardSize).center()));
+
+    if (narrow == m_narrow && m_cardLayout->count() > 0)
+        return;
+    m_narrow = narrow;
+    while (m_cardLayout->count() > 0)
+        m_cardLayout->takeAt(0);
+    m_card->setProperty("narrow", narrow);
+    m_card->style()->unpolish(m_card);
+    m_card->style()->polish(m_card);
+    m_navPane->style()->unpolish(m_navPane);
+    m_navPane->style()->polish(m_navPane);
+    if (narrow) {
+        // Header ("Einstellungen", ✕) / row of pages / the page.
+        m_navTitle->hide();
+        m_navButtonsLayout->setDirection(QBoxLayout::LeftToRight);
+        m_navPane->layout()->setContentsMargins(16, 0, 16, 8);
+        m_navPane->setMinimumWidth(0);
+        m_navPane->setMaximumWidth(QWIDGETSIZE_MAX);
+        m_navScroll->setHorizontalScrollBarPolicy(Qt::ScrollBarAsNeeded);
+        m_navScroll->setVerticalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
+        m_navScroll->setFixedHeight(m_navButtons->sizeHint().height() + 12);
+        m_navPane->setSizePolicy(QSizePolicy::Preferred, QSizePolicy::Fixed);
+        m_header->layout()->setContentsMargins(20, 14, 12, 8);
+        m_cardLayout->addWidget(m_header, 0, 0);
+        m_cardLayout->addWidget(m_navPane, 1, 0);
+        m_cardLayout->addWidget(m_pages, 2, 0);
+        m_cardLayout->setRowStretch(0, 0);
+        m_cardLayout->setRowStretch(1, 0);
+        m_cardLayout->setRowStretch(2, 1);
+        m_cardLayout->setColumnStretch(0, 1);
+        m_cardLayout->setColumnStretch(1, 0);
+    } else {
+        // Navigation on the left, header and page on the right.
+        m_navTitle->show();
+        m_navButtonsLayout->setDirection(QBoxLayout::TopToBottom);
+        m_navPane->layout()->setContentsMargins(12, 20, 12, 12);
+        m_navPane->setFixedWidth(kNavWidth);
+        m_navScroll->setHorizontalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
+        m_navScroll->setVerticalScrollBarPolicy(Qt::ScrollBarAsNeeded);
+        m_navScroll->setMinimumHeight(0);
+        m_navScroll->setMaximumHeight(QWIDGETSIZE_MAX);
+        m_navPane->setSizePolicy(QSizePolicy::Fixed, QSizePolicy::Preferred);
+        m_header->layout()->setContentsMargins(28, 16, 16, 12);
+        m_cardLayout->addWidget(m_navPane, 0, 0, 2, 1);
+        m_cardLayout->addWidget(m_header, 0, 1);
+        m_cardLayout->addWidget(m_pages, 1, 1);
+        m_cardLayout->setRowStretch(0, 0);
+        m_cardLayout->setRowStretch(1, 1);
+        m_cardLayout->setRowStretch(2, 0);
+        m_cardLayout->setColumnStretch(0, 0);
+        m_cardLayout->setColumnStretch(1, 1);
+    }
+    showPage(m_pages->currentIndex());
+}
+
+void SettingsDialog::paintEvent(QPaintEvent *)
+{
+    // The dimmed window, and a soft shadow under the card (a few rounded
+    // rectangles; a graphics effect would slow down scrolling the pages).
+    QPainter painter(this);
+    painter.setRenderHint(QPainter::Antialiasing);
+    painter.fillRect(rect(), Theme::current().dark ? QColor(0, 0, 0, 140) : QColor(15, 17, 19, 102));
+    painter.setPen(Qt::NoPen);
+    const QRectF card = QRectF(m_card->geometry()).translated(0, 10);
+    for (int i = 1; i <= 8; ++i) {
+        painter.setBrush(QColor(0, 0, 0, 6));
+        painter.drawRoundedRect(card.adjusted(-2 * i, -2 * i, 2 * i, 2 * i), 14 + 2 * i, 14 + 2 * i);
+    }
+}
+
+void SettingsDialog::resizeEvent(QResizeEvent *event)
+{
+    QWidget::resizeEvent(event);
+    arrange();
+}
+
+void SettingsDialog::mousePressEvent(QMouseEvent *event)
+{
+    // Beside the card: close; nothing is lost, every change applies at once.
+    if (!m_card->geometry().contains(event->position().toPoint()))
+        close();
+    event->accept();
+}
+
+void SettingsDialog::keyPressEvent(QKeyEvent *event)
+{
+    if (event->key() == Qt::Key_Escape)
+        close();
+    // No key reaches the window behind the overlay.
+    event->accept();
+}
+
+bool SettingsDialog::focusNextPrevChild(bool next)
+{
+    // Tab stays in the overlay: step along Qt's chain until it lands here.
+    for (int i = 0; i < 200; ++i) {
+        if (!QWidget::focusNextPrevChild(next))
+            return false;
+        QWidget *focused = QApplication::focusWidget();
+        if (focused && isAncestorOf(focused))
+            return true;
+    }
+    return true;
+}
+
+bool SettingsDialog::eventFilter(QObject *watched, QEvent *event)
+{
+    // The window changed size: so does the overlay.
+    if (watched == parentWidget() && event->type() == QEvent::Resize)
+        setGeometry(parentWidget()->rect());
+    // The window went away (tray, quit): close.
+    if (watched == parentWidget() && event->type() == QEvent::Hide)
+        close();
+    // The window's shortcuts rest while the overlay is open, except
+    // those of widgets inside it (and of dialogs on top of it).
+    if (event->type() == QEvent::Shortcut && m_loop) {
+        auto *widget = qobject_cast<QWidget *>(watched);
+        if (!widget || !(widget == this || isAncestorOf(widget) || widget->window() != window()))
+            return true;
+    }
+    if (event->type() == QEvent::ThemeChange || event->type() == QEvent::PaletteChange)
+        applyNavIcons();
+    return QWidget::eventFilter(watched, event);
 }
 
 void SettingsDialog::createCountdownSection(QVBoxLayout *layout, bool hasEscape)

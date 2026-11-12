@@ -605,3 +605,17 @@ Each entry: context, decision, rationale, consequences. Entries marked **(assump
 **Consequences:**
 - The countdown's look changed on all platforms (D-025); its text "Aufnahme in N s" is translated by the app.
 - The GNOME countdown's look is not yet seen on a real desktop (headless shell: no screenshots).
+
+## D-044 Settings as an overlay in the window
+
+**Context:** On GNOME the settings window took the screen's whole height (its "Allgemein" tab had grown long); moved, it reached past the screen, and Qt's own title bar on Wayland could not be held on screen (2026-11-12). The tabs along the top also crowded on small windows. Drafted in the design mockup ("Einstellungen") and approved.
+**Decision:**
+- "Einstellungen" (F2) is no window of its own but an **overlay over the main window** (`SettingsDialog`, now a widget): a card over the dimmed window, like the dialogs (D-042), at most 880 × 640 px and never larger than the window minus 24 px. Each page scrolls inside the card, so nothing can reach past the screen.
+- **Navigation on the left** (Allgemein, Aufnahme, Speichern, Farben und Stile, Tastenkürzel on Windows, Updates), the page's name and ✕ above the page. When the card is narrower than 720 px, the navigation becomes a row on top that scrolls sideways, and the card fills the window minus 16 px.
+- **New page "Aufnahme":** how regions are picked, the countdown's place and click, the GNOME extension. "Allgemein" keeps language, advanced mode, tray and quitting.
+- Escape, ✕ or a click beside the card close it; every change applies at once, nothing is lost. While it is open, the window behind takes no input, its shortcuts rest, Tab stays in the overlay, and the global hotkeys wait. Opened from the tray, the main window comes up first.
+**Rationale:** It always fits, whatever the screen, scale or window size, and looks the same on every desktop; the window manager's title bar no longer matters.
+**Rejected:** A smaller window sized to the screen (the GNOME title bar problem stays); a side sheet sliding in from the right (too narrow for the countdown picture and the hotkey table).
+**Consequences:**
+- `SettingsDialog::exec()` waits in its own event loop, like QDialog did; questions from inside it (AppDialog) open on top of it.
+- D-030's "tabs" are now pages in the navigation.

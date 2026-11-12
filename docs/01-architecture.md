@@ -88,7 +88,7 @@ The editor is object-based (D-012): the captured image stays unchanged, annotati
 |---|---|
 | `docs/` | This documentation |
 | `CMakeLists.txt`, `src/` | The app (C++20, Qt 6.8, D-013) |
-| `src/app/` | Main window, top bar, tool rail, properties panel, shortcuts, global hotkeys on Windows (`GlobalHotkeys`, D-035), settings (`Settings`, `SettingsDialog`, stored with QSettings), the GTK theme check at start (`PlatformTheme`, D-033), the command line (`CommandLine`, F-48), the hand-over to a running app (`SingleInstance`, D-034), and the AppImage's self-setup (`LinuxIntegration`: menu entry, icon, `~/.local/bin/snapslash`, the GNOME extension; `GnomeExtensionSetup`: its dialog, D-041) |
+| `src/app/` | Main window, top bar, tool rail, properties panel, shortcuts, global hotkeys on Windows (`GlobalHotkeys`, D-035), settings (`Settings`, stored with QSettings; `SettingsDialog`, an overlay in the window, D-044), the GTK theme check at start (`PlatformTheme`, D-033), the command line (`CommandLine`, F-48), the hand-over to a running app (`SingleInstance`, D-034), and the AppImage's self-setup (`LinuxIntegration`: menu entry, icon, `~/.local/bin/snapslash`, the GNOME extension; `GnomeExtensionSetup`: its dialog, D-041) |
 | `src/capture/` | `CaptureBackend` interface, `PickGeometry`, and the platform backends (`gnome/`, `windows/`, `wayland/`, `portal/`; `macos/` later) |
 | `protocols/` | Wayland protocol files for the Wayland backend |
 | `flake.nix`, `nix/` | Nix package and development shell (NixOS) |
