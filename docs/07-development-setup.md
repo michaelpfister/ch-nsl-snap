@@ -113,7 +113,7 @@ The new texts appear in the file as `type="unfinished"`: translate them in Qt Li
 
 ### Building the AppImage
 
-The Linux package (D-041) is built by one script; CI runs it on Ubuntu 22.04 for every pull request (`.github/workflows/appimage.yml`, the AppImage is the run's artifact `appimage-x86_64`) and for every release. On a development machine, with the packages of step 1 and `libglib2.0-bin`:
+The Linux package (D-041) is built by one script; CI runs it on Ubuntu 22.04 for every pull request (`.github/workflows/appimage.yml`, the AppImage is the run's artifact `appimage-x86_64`) and for every release. On a development machine, with the packages of step 1, `libglib2.0-bin` and `librsvg2-bin`:
 
 ```bash
 QT_DIR=$HOME/Qt/6.8.3/gcc_64 scripts/build-appimage.sh

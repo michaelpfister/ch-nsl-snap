@@ -6,6 +6,9 @@
 #
 # Usage: scripts/build-appimage.sh [output.AppImage]
 #
+# Needs, besides the build tools: glib-compile-schemas (libglib2.0-bin) and
+# rsvg-convert (librsvg2-bin).
+#
 # Environment:
 #   QT_DIR          Qt 6.8.3 for gcc_64 (default: ~/Qt/6.8.3/gcc_64)
 #   VERSION_SUFFIX  pre-release part of the version, e.g. beta.1 (default: none)
@@ -160,6 +163,14 @@ if ls "$appdir/usr/lib" | grep -q '^libpipewire'; then
 fi
 
 # --- The AppImage ---------------------------------------------------------
+
+# The AppImage's own icon, which file managers show for the file (through
+# a thumbnailer): .DirIcon, a PNG by the AppImage specification. linuxdeploy
+# links it to the SVG, which thumbnailers do not read.
+png=$appdir/usr/share/icons/hicolor/256x256/apps/ch.netslash.Snapslash.png
+mkdir -p "$(dirname "$png")"
+rsvg-convert --width 256 --height 256 "$repo/resources/icons/logo.svg" --output "$png"
+ln -sfn "usr/share/icons/hicolor/256x256/apps/ch.netslash.Snapslash.png" "$appdir/.DirIcon"
 
 rm -f "$output"
 "$tools/appimagetool-x86_64.AppImage" --no-appstream --runtime-file "$tools/runtime-x86_64" \
