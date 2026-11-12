@@ -1,5 +1,7 @@
 #include "ui/Theme.h"
 
+#include "ui/ColorScheme.h"
+
 #include <QApplication>
 #include <QFont>
 #include <QList>
@@ -48,7 +50,8 @@ Theme Theme::darkTheme()
 
 Theme Theme::current()
 {
-    return QGuiApplication::styleHints()->colorScheme() == Qt::ColorScheme::Dark ? darkTheme() : light();
+    // The settings' choice or the system's (ColorScheme, D-045).
+    return ColorScheme::instance()->isDark() ? darkTheme() : light();
 }
 
 QString Theme::styleSheet() const
@@ -178,6 +181,26 @@ QPushButton[role="destructive"]:pressed { background: @dangerPressed; }
 #UpdateBar QPushButton[role="primary"] { min-height: 30px; padding: 0 12px; }
 #UpdateBarClose { background: transparent; border: none; border-radius: 6px; color: @softText; padding: 4px 8px; }
 #UpdateBarClose:hover { background: @hover; }
+
+/* The settings as an overlay in the window (SettingsDialog, D-044): a card
+   with the pages on the left (on top when narrow) and the page on the right. */
+#SettingsCard { background: @panel; border: 1px solid @border; border-radius: 14px; }
+#SettingsNav { background: @bg; border-right: 1px solid @border;
+               border-top-left-radius: 14px; border-bottom-left-radius: 14px; }
+#SettingsCard[narrow="true"] #SettingsNav { background: transparent; border: none; border-bottom: 1px solid @hover;
+                                            border-radius: 0; }
+QLabel[role="settingsTitle"] { font-size: 15px; font-weight: 600; }
+QLabel[role="pageTitle"] { font-size: 18px; font-weight: 600; }
+QPushButton[role="nav"] {
+    background: transparent; color: @text; border: none; border-radius: 8px;
+    padding: 0 10px; min-height: 36px; text-align: left;
+}
+#SettingsCard[narrow="true"] QPushButton[role="nav"] { min-height: 32px; padding: 0 12px; }
+QPushButton[role="nav"]:hover { background: @hover; }
+QPushButton[role="nav"]:checked { background: @soft; color: @softText; font-weight: 600; }
+QPushButton[role="nav"]:focus { border: 2px solid @accent; }
+#SettingsClose { background: transparent; border: none; border-radius: 8px; color: @muted; padding: 6px 10px; font-size: 14px; }
+#SettingsClose:hover { background: @hover; color: @text; }
 
 /* Inputs. */
 QComboBox {

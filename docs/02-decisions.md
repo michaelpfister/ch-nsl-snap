@@ -605,3 +605,28 @@ Each entry: context, decision, rationale, consequences. Entries marked **(assump
 **Consequences:**
 - The countdown's look changed on all platforms (D-025); its text "Aufnahme in N s" is translated by the app.
 - The GNOME countdown's look is not yet seen on a real desktop (headless shell: no screenshots).
+
+## D-044 Settings as an overlay in the window
+
+**Context:** On GNOME the settings window took the screen's whole height (its "Allgemein" tab had grown long); moved, it reached past the screen, and Qt's own title bar on Wayland could not be held on screen (2026-11-12). The tabs along the top also crowded on small windows. Drafted in the design mockup ("Einstellungen") and approved.
+**Decision:**
+- "Einstellungen" (F2) is no window of its own but an **overlay over the main window** (`SettingsDialog`, now a widget): a card over the dimmed window, like the dialogs (D-042), at most 880 × 640 px and never larger than the window minus 24 px. Each page scrolls inside the card, so nothing can reach past the screen.
+- **Navigation on the left** (Allgemein, Aufnahme, Speichern, Farben und Stile, Tastenkürzel on Windows, Updates), the page's name and ✕ above the page. When the card is narrower than 720 px, the navigation becomes a row on top that scrolls sideways, and the card fills the window minus 16 px.
+- **New page "Aufnahme":** how regions are picked, the countdown's place and click, the GNOME extension. "Allgemein" keeps language, advanced mode, tray and quitting.
+- Escape, ✕ or a click beside the card close it; every change applies at once, nothing is lost. While it is open, the window behind takes no input, its shortcuts rest, Tab stays in the overlay, and the global hotkeys wait. Opened from the tray, the main window comes up first.
+**Rationale:** It always fits, whatever the screen, scale or window size, and looks the same on every desktop; the window manager's title bar no longer matters.
+**Rejected:** A smaller window sized to the screen (the GNOME title bar problem stays); a side sheet sliding in from the right (too narrow for the countdown picture and the hotkey table).
+**Consequences:**
+- `SettingsDialog::exec()` waits in its own event loop, like QDialog did; questions from inside it (AppDialog) open on top of it.
+- D-030's "tabs" are now pages in the navigation.
+
+## D-045 Light or dark: a setting, and the system's choice from the desktop portal
+
+**Context:** The AppImage stayed light on a dark GNOME (2026-11-12). Qt learns the colour scheme from its platform theme; on GNOME it prefers its GTK theme plugin, which the build from source has (Qt from aqtinstall) but the AppImage does not carry (it would pull GTK in). Without it Qt reports "unknown", which the app took as light. The settings also had no way to choose.
+**Decision:**
+- **Setting** "Erscheinungsbild" in Einstellungen › Allgemein: "Wie das System" (default), "Hell", "Dunkel"; applies at once (`Settings::appearance`).
+- **The system's choice** comes from `ui/ColorScheme`: on Linux the app asks the desktop portal itself (`org.freedesktop.portal.Settings`, `org.freedesktop.appearance` `color-scheme`: 1 dark, 2 light, 0 no preference = light) and follows its `SettingChanged` signal, whatever platform theme Qt found. Without a portal (and on Windows and macOS) Qt's answer counts, as before.
+- `Theme::current()` asks `ColorScheme`; the whole app switches live (main window, dialogs, settings overlay, trim window).
+**Rationale:** The portal is how GNOME, KDE and the wlroots portals publish light and dark today, also to sandboxed apps; asking it directly needs no GTK in the AppImage.
+**Rejected:** Bundling Qt's GTK theme plugin (pulls GTK 3 and its dependencies into the AppImage, the classic source of AppImage breakage); reading GNOME's gsettings key (GNOME-only).
+**Consequences:** On a desktop without a portal and without Qt's GTK theme, "Wie das System" stays light; the setting still offers dark.

@@ -88,14 +88,14 @@ The editor is object-based (D-012): the captured image stays unchanged, annotati
 |---|---|
 | `docs/` | This documentation |
 | `CMakeLists.txt`, `src/` | The app (C++20, Qt 6.8, D-013) |
-| `src/app/` | Main window, top bar, tool rail, properties panel, shortcuts, global hotkeys on Windows (`GlobalHotkeys`, D-035), settings (`Settings`, `SettingsDialog`, stored with QSettings), the GTK theme check at start (`PlatformTheme`, D-033), the command line (`CommandLine`, F-48), the hand-over to a running app (`SingleInstance`, D-034), and the AppImage's self-setup (`LinuxIntegration`: menu entry, icon, `~/.local/bin/snapslash`, the GNOME extension; `GnomeExtensionSetup`: its dialog, D-041) |
+| `src/app/` | Main window, top bar, tool rail, properties panel, shortcuts, global hotkeys on Windows (`GlobalHotkeys`, D-035), settings (`Settings`, stored with QSettings; `SettingsDialog`, an overlay in the window, D-044), the GTK theme check at start (`PlatformTheme`, D-033), the command line (`CommandLine`, F-48), the hand-over to a running app (`SingleInstance`, D-034), and the AppImage's self-setup (`LinuxIntegration`: menu entry, icon, `~/.local/bin/snapslash`, the GNOME extension; `GnomeExtensionSetup`: its dialog, D-041) |
 | `src/capture/` | `CaptureBackend` interface, `PickGeometry`, and the platform backends (`gnome/`, `windows/`, `wayland/`, `portal/`; `macos/` later) |
 | `protocols/` | Wayland protocol files for the Wayland backend |
 | `flake.nix`, `nix/` | Nix package and development shell (NixOS) |
 | `scripts/build-appimage.sh` (D-041) | The Linux AppImage of a release: the app, Qt with Qt Multimedia, LayerShellQt and the GNOME extension in one file (PipeWire and VA-API from the system) |
 | `.github/workflows/` | CI (`ci.yml`), the release on a version tag (`release.yml`, D-037) and the AppImage build both call (`appimage.yml`, D-041) |
 | `src/editor/` | Editor view (`QGraphicsView`), later the annotation items (D-012) |
-| `src/ui/` | Theme (colour tokens, style sheet, light/dark), SVG icons (D-014), the app's own dialog (`AppDialog`, D-042), the moving mark (`LogoMark`, D-043) and the system's animation setting (`Motion`) |
+| `src/ui/` | Theme (colour tokens, style sheet, light/dark), SVG icons (D-014), the app's own dialog (`AppDialog`, D-042), the moving mark (`LogoMark`, D-043), the system's animation setting (`Motion`) and light or dark (`ColorScheme`, D-045) |
 | `translations/` | The English translation of the interface (`snapslash_en.ts`, D-038); `scripts/update-translations.sh` refreshes it |
 | `resources/icons/` | Line icons, drawn with `currentColor`, and the logo (D-036) |
 | `resources/ch.netslash.Snapslash.desktop` | Desktop entry for Linux, installed with the logo as icon (D-036) |

@@ -130,6 +130,8 @@ add_library(nsl_snap_core STATIC
     src/recording/VideoTrimmer.h
     src/ui/AppDialog.cpp
     src/ui/AppDialog.h
+    src/ui/ColorScheme.cpp
+    src/ui/ColorScheme.h
     src/ui/ColorPopup.cpp
     src/ui/ColorPopup.h
     src/ui/ColorWheel.cpp
@@ -190,6 +192,8 @@ if(LINUX)
     target_sources(nsl_snap_core PRIVATE
         src/capture/gnome/GnomeShellBackend.cpp
         src/capture/gnome/GnomeShellBackend.h
+        src/ui/linux/PortalColorScheme.cpp
+        src/ui/linux/PortalColorScheme.h
     )
     target_link_libraries(nsl_snap_core PUBLIC Qt6::DBus)
     target_compile_definitions(nsl_snap_core PUBLIC NSL_HAVE_GNOME_BACKEND)

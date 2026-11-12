@@ -1394,10 +1394,6 @@ Click to open in the editor</translation>
         <translation>Updates</translation>
     </message>
     <message>
-        <source>Schliessen</source>
-        <translation>Close</translation>
-    </message>
-    <message>
         <source>Diese Tasten nehmen auf, auch wenn Snapslash im Infobereich läuft oder ein anderes Programm aktiv ist. Ein eingestellter Timer gilt auch hier.</source>
         <translation>These keys capture even while Snapslash runs in the tray or another program is active. A timer that is set applies here too.</translation>
     </message>
@@ -1580,6 +1576,34 @@ Click to open in the editor</translation>
     <message>
         <source>Abbrechen</source>
         <translation>Cancel</translation>
+    </message>
+    <message>
+        <source>Schliessen (Esc)</source>
+        <translation>Close (Esc)</translation>
+    </message>
+    <message>
+        <source>Einstellungen schliessen</source>
+        <translation>Close the settings</translation>
+    </message>
+    <message>
+        <source>Aufnahme</source>
+        <translation>Capture</translation>
+    </message>
+    <message>
+        <source>Erscheinungsbild</source>
+        <translation>Appearance</translation>
+    </message>
+    <message>
+        <source>Wie das System</source>
+        <translation>Same as the system</translation>
+    </message>
+    <message>
+        <source>Hell</source>
+        <translation>Light</translation>
+    </message>
+    <message>
+        <source>Dunkel</source>
+        <translation>Dark</translation>
     </message>
 </context>
 <context>

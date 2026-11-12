@@ -604,7 +604,7 @@ void MainWindow::createGlobalHotkeys()
         m_hotkeys->setKey(action, Settings::globalHotkey(action));
     connect(m_hotkeys, &GlobalHotkeys::triggered, this, [this](GlobalHotkeys::Action action) {
         // Not while a dialog of the app waits for an answer.
-        if (QApplication::activeModalWidget() || AppDialog::isOpen())
+        if (QApplication::activeModalWidget() || AppDialog::isOpen() || SettingsDialog::isOpen())
             return;
         switch (action) {
         case GlobalHotkeys::Action::LastMode: captureLastMode(); break;
@@ -1596,6 +1596,10 @@ void MainWindow::copyFilePath()
 
 void MainWindow::showSettings()
 {
+    // The settings live in this window (D-044): from the tray it comes up first.
+    if (SettingsDialog::isOpen())
+        return;
+    showEditor();
     SettingsDialog dialog(m_hotkeys, m_capture->countdownHasEscape(), this);
     connect(&dialog, &SettingsDialog::autoSaveChanged, this, [this](bool enabled) {
         statusBar()->showMessage(enabled ? tr("Serienaufnahme an: Aufnahmen werden sofort im Ordner gespeichert.")
