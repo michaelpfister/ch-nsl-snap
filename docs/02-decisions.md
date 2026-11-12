@@ -287,6 +287,7 @@ Each entry: context, decision, rationale, consequences. Entries marked **(assump
 - **Escape** goes to the window that has the focus, not to the shell or the app. So while the countdown runs, Escape is a global key: on GNOME a keybinding of the extension (`cancel-countdown` in its new settings schema, `Main.wm.addKeybinding`), on Windows `RegisterHotKey`. Both are removed as soon as the countdown ends. Meanwhile Escape does not reach applications (e.g. to close a menu); accepted.
 - GNOME: option `delay` (seconds) of `Capture`, extension API version 5 (`countdown.js`). The app (Windows, later macOS): `Countdown` widget.
 - Since 2026-11-11 the place (middle or a corner) and whether a click cancels are settings (D-040).
+- Since 2026-11-12 the countdown is a dark pill with a ring and the app's mark that runs down like an egg timer, "Aufnahme in N s" and the hint (D-043); the extension gets the title as hint `countdown-title` ("%1" for the seconds).
 **Rationale:** A grab of all input would make the timer useless; the temporary global key is the least intrusive way to keep Escape.
 **Consequences:**
 - The extension now has a settings schema, compiled by `scripts/dev-install.sh` (the compiled file is not in the repository); CI checks that it compiles. The global hotkeys (F-42) will use the same schema.
@@ -589,3 +590,18 @@ Each entry: context, decision, rationale, consequences. Entries marked **(assump
 **Consequences:**
 - New questions use `AppDialog`, not QMessageBox.
 - A card is no separate window for screen readers; it carries its title and text as accessible name and description (still to check with Orca and Narrator).
+
+## D-043 The mark moves: start, update and countdown
+
+**Context:** The user wished the app a little playfulness, decent and never in the way (2026-11-12): the logo as a kind of small avatar. Drafted in the design mockup ("Logo-Animationen") and approved after two rounds: without the coloured tile, only the logo's three strokes, so the mark takes the colour of its place and is no foreign body in the countdown.
+**Decision:**
+- **The mark** is the logo's three strokes (top-left frame corner, bottom-right corner, slash), drawn by the app (`src/ui/LogoMark`: `LogoPose`, `LogoMark::paint`, `LogoAnimator`) and by the extension (`countdown.js`, Cairo), in the colour of the place where it stands.
+- **Start:** in the empty editor, once per start of the app (about 1.2 s): the frames move out from the middle, the slash springs up in the centre, then a short flash and the frames twitch inwards like a shutter, as if the slash were photographed. The app can be used at once.
+- **Update:** the first time the update bar shows a version (`Settings::announcedUpdate`): the bar grows by 16 px, the mark turns 45° counterclockwise so the right corner becomes an arrowhead ">", the slash lies flat and joins it as the shaft while the left corner fades, the arrow nudges twice to the right (towards the button), then everything turns back and the bar shrinks (about 2.7 s).
+- **Countdown** (app and extension alike): an egg timer. Each second the mark turns a share of a full turn counterclockwise (one full turn in all, upright again at zero) while the ring empties in step, with the same small spring; over the last half of the time the ring turns from blue to red. Late in the last second the frame corners close like a shutter, still before the countdown goes away: the capture is not delayed (D-011), and the countdown is never in the picture (D-004).
+- **Rules:** each animation at most once per occasion, short, no sound, never delaying work, never in a capture. The system's "fewer animations" counts (`ui/Motion`: GNOME `enable-animations`, Windows client-area animations; in the extension `St.Settings.enable_animations`): then the end states appear without movement. `NSL_REDUCED_MOTION=1` or `0` overrides it for tests.
+**Rationale:** The mark gives the app a face without decoration; drawing it from strokes lets it change shape (arrow, timer) instead of swapping pictures, and keeps it sharp at every size and in light and dark.
+**Rejected:** A splash screen at start (delays work); the coloured tile in the countdown and the bar (looked like a foreign body); a continuous hand in the countdown instead of the turning mark (first draft).
+**Consequences:**
+- The countdown's look changed on all platforms (D-025); its text "Aufnahme in N s" is translated by the app.
+- The GNOME countdown's look is not yet seen on a real desktop (headless shell: no screenshots).

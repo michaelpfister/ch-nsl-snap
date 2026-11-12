@@ -31,23 +31,165 @@ export const Position = Object.freeze({
     BOTTOM_RIGHT: 'bottom-right',
 });
 
+// The countdown's ring and the app's mark, the three strokes of the logo,
+// which turns like an egg timer (D-043): each second a share of a full
+// turn counterclockwise while the ring empties in step, blue turning red
+// over the last half; in the last second the frame corners close like a
+// shutter. Drawn as the app draws it (src/ui/LogoMark.cpp, Countdown.cpp).
+const RING = 56;
+const MARK = 28;
+const TICK_MS = 450;
+const BLUE = [76, 141, 255];
+const RED = [240, 82, 82];
+
+// Ease out with a little spring past the end (as QEasingCurve::OutBack).
+function easeOutBack(t, overshoot = 1.6) {
+    const u = t - 1;
+    return 1 + u * u * ((overshoot + 1) * u + overshoot);
+}
+
+function ringColor(rest) {
+    const t = Math.min(1, Math.max(0, (0.5 - rest) / 0.5));
+    return BLUE.map((v, i) => (v + (RED[i] - v) * t) / 255);
+}
+
+// The strokes of logo.svg, turned by `turn` degrees around the centre
+// (negative: counterclockwise); the corners moved by `shut` towards it.
+function drawMark(cr, size, turn, shut) {
+    cr.save();
+    cr.scale(size / 44, size / 44);
+    cr.translate(-10, -10);
+    cr.translate(32, 32);
+    cr.rotate(turn * Math.PI / 180);
+    cr.translate(-32, -32);
+    cr.setSourceRGB(0xE9 / 255, 0xEC / 255, 0xEF / 255);
+    cr.setLineWidth(5);
+    cr.setLineCap(1); // round
+    cr.setLineJoin(1); // round
+
+    cr.save();
+    cr.translate(shut, shut);
+    cr.moveTo(15, 31);
+    cr.lineTo(15, 18);
+    cr.arc(18, 18, 3, Math.PI, 1.5 * Math.PI);
+    cr.lineTo(31, 15);
+    cr.stroke();
+    cr.restore();
+
+    cr.save();
+    cr.translate(-shut, -shut);
+    cr.moveTo(49, 33);
+    cr.lineTo(49, 46);
+    cr.arc(46, 46, 3, 0, 0.5 * Math.PI);
+    cr.lineTo(33, 49);
+    cr.stroke();
+    cr.restore();
+
+    cr.moveTo(23, 41);
+    cr.lineTo(41, 23);
+    cr.stroke();
+    cr.restore();
+}
+
 const CountdownDisplay = GObject.registerClass(
 class CountdownDisplay extends St.BoxLayout {
-    _init(hint, position, clickCancels, onClick) {
+    _init(hints, position, clickCancels, onClick) {
         // Not reactive: the shell's pick skips it, so clicks reach the window below.
-        super._init({style_class: 'nsl-snap-countdown', vertical: true, reactive: clickCancels});
+        super._init({style_class: 'nsl-snap-countdown', reactive: clickCancels});
         this._position = position;
         this._onClick = onClick;
-        this._number = new St.Label({style_class: 'nsl-snap-countdown-number', x_align: Clutter.ActorAlign.CENTER});
-        this.add_child(this._number);
-        this.add_child(new St.Label({
-            style_class: 'nsl-snap-countdown-hint', x_align: Clutter.ActorAlign.CENTER,
-            text: hint,
-        }));
+        this._titleTemplate = hints['countdown-title'];
+        this._total = 1;
+        this._rest = 1;     // shown now, 1 → 0
+        this._shut = 0;     // corners moved in, in logo units
+        this._timeline = null;
+
+        this._ring = new St.DrawingArea({width: RING, height: RING, y_align: Clutter.ActorAlign.CENTER});
+        this._ring.connect('repaint', area => this._paint(area));
+        this.add_child(this._ring);
+        const texts = new St.BoxLayout({vertical: true, y_align: Clutter.ActorAlign.CENTER});
+        this._title = new St.Label({style_class: 'nsl-snap-countdown-title'});
+        texts.add_child(this._title);
+        texts.add_child(new St.Label({style_class: 'nsl-snap-countdown-hint', text: hints.countdown}));
+        this.add_child(texts);
+        this.connect('destroy', () => this._stopTimeline());
     }
 
-    show(seconds) {
-        this._number.text = `${seconds}`;
+    _paint(area) {
+        const cr = area.get_context();
+        const [width, height] = area.get_surface_size();
+        const c = width / 2;
+        const r = (Math.min(width, height) - 4) / 2;
+        cr.setLineWidth(4);
+        cr.setSourceRGB(0x3A / 255, 0x3F / 255, 0x46 / 255);
+        cr.arc(c, height / 2, r, 0, 2 * Math.PI);
+        cr.stroke();
+        if (this._rest > 0) {
+            // From the top, clockwise; it empties counterclockwise.
+            cr.setSourceRGB(...ringColor(this._rest));
+            cr.setLineCap(1);
+            cr.arc(c, height / 2, r, -Math.PI / 2, -Math.PI / 2 + this._rest * 2 * Math.PI);
+            cr.stroke();
+        }
+        cr.translate((width - MARK) / 2, (height - MARK) / 2);
+        drawMark(cr, MARK, -360 * (1 - this._rest), this._shut);
+        cr.$dispose();
+    }
+
+    _stopTimeline() {
+        if (this._timeline) {
+            this._timeline.stop();
+            this._timeline = null;
+        }
+    }
+
+    // Animates this._rest and this._shut with `curve` from their current
+    // values; without animations (accessibility setting) it jumps.
+    _animate(rest, shut, ms, curve, done) {
+        this._stopTimeline();
+        if (!St.Settings.get().enable_animations) {
+            [this._rest, this._shut] = [rest, shut];
+            this._ring.queue_repaint();
+            done?.();
+            return;
+        }
+        const [fromRest, fromShut] = [this._rest, this._shut];
+        this._timeline = new Clutter.Timeline({actor: this, duration: ms});
+        this._timeline.connect('new-frame', timeline => {
+            const t = curve(timeline.get_progress());
+            this._rest = Math.max(0, Math.min(1, fromRest + (rest - fromRest) * t));
+            this._shut = fromShut + (shut - fromShut) * t;
+            this._ring.queue_repaint();
+        });
+        this._timeline.connect('completed', () => {
+            [this._rest, this._shut] = [rest, shut];
+            this._ring.queue_repaint();
+            this._timeline = null;
+            done?.();
+        });
+        this._timeline.start();
+    }
+
+    start(seconds) {
+        this._total = Math.max(1, seconds);
+        this._rest = 1;
+        this._title.text = this._titleTemplate.replace('%1', `${seconds}`);
+        this._place();
+        super.show();
+    }
+
+    tick(left) {
+        this._title.text = this._titleTemplate.replace('%1', `${left}`);
+        this._animate(left / this._total, 0, TICK_MS, t => easeOutBack(t));
+    }
+
+    // The shutter in the last second: corners in and out again.
+    snap() {
+        const t = t2 => t2 * (2 - t2);
+        this._animate(this._rest, 6, 120, t, () => this._animate(this._rest, 0, 150, t));
+    }
+
+    _place() {
         const monitor = Main.layoutManager.primaryMonitor;
         const [, width] = this.get_preferred_width(-1);
         const [, height] = this.get_preferred_height(width);
@@ -66,7 +208,6 @@ class CountdownDisplay extends St.BoxLayout {
         case Position.BOTTOM_RIGHT: [x, y] = [right, bottom]; break;
         }
         this.set_position(Math.round(x), Math.round(y));
-        super.show();
     }
 
     vfunc_button_press_event() {
@@ -81,20 +222,21 @@ class CountdownDisplay extends St.BoxLayout {
  *
  * @param {number} seconds - the delay
  * @param {Gio.Settings} settings - the extension's settings (keybinding)
- * @param {string} hint - the text under the number, from the app (D-038)
+ * @param {object} hints - the texts from the app (D-038): countdown, countdown-title
  * @param {string} position - one of Position
  * @param {boolean} clickCancels - false: clicks go through, only Escape cancels
  * @returns {{promise: Promise<boolean>, cancel: Function}}
  */
-export function countdown(seconds, settings, hint, position = Position.CENTER, clickCancels = true) {
+export function countdown(seconds, settings, hints, position = Position.CENTER, clickCancels = true) {
     let finish;
     const promise = new Promise(resolve => {
         let left = seconds;
         let timer = 0;
         let done = false;
-        const display = new CountdownDisplay(hint, position, clickCancels, () => finish(false));
+        let snapTimer = 0;
+        const display = new CountdownDisplay(hints, position, clickCancels, () => finish(false));
         Main.layoutManager.uiGroup.add_child(display);
-        display.show(left);
+        display.start(left);
         Main.wm.addKeybinding(KEYBINDING, settings, Meta.KeyBindingFlags.IGNORE_AUTOREPEAT,
             Shell.ActionMode.ALL, () => finish(false));
 
@@ -104,6 +246,8 @@ export function countdown(seconds, settings, hint, position = Position.CENTER, c
             done = true;
             if (timer)
                 GLib.source_remove(timer);
+            if (snapTimer)
+                GLib.source_remove(snapTimer);
             Main.wm.removeKeybinding(KEYBINDING);
             display.destroy();
             if (!ok) {
@@ -123,7 +267,16 @@ export function countdown(seconds, settings, hint, position = Position.CENTER, c
                 finish(true);
                 return GLib.SOURCE_REMOVE;
             }
-            display.show(left);
+            display.tick(left);
+            // The shutter late in the last second, still before the
+            // display goes away: it must not delay the capture.
+            if (left === 1) {
+                snapTimer = GLib.timeout_add(GLib.PRIORITY_DEFAULT, 650, () => {
+                    snapTimer = 0;
+                    display.snap();
+                    return GLib.SOURCE_REMOVE;
+                });
+            }
             return GLib.SOURCE_CONTINUE;
         });
     });

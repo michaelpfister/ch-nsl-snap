@@ -1,6 +1,7 @@
 #include "capture/Countdown.h"
 
 #include "capture/CaptureHints.h"
+#include "ui/LogoMark.h"
 
 #ifdef NSL_HAVE_WAYLAND_BACKEND
 #include "capture/wayland/LayerShell.h"
@@ -10,6 +11,8 @@
 #include <QKeyEvent>
 #include <QPainter>
 #include <QScreen>
+
+#include <algorithm>
 
 #ifdef Q_OS_WIN
 #ifndef NOMINMAX
@@ -23,6 +26,22 @@ namespace {
 // After the display is hidden, wait this long (ms) before the freeze, so the
 // compositor has drawn a frame without it.
 constexpr int kSettleMs = 150;
+// The pill: ring on the left, text to its right (mockup "Timer").
+constexpr int kPad = 10;
+constexpr int kRing = 56;
+constexpr int kGap = 12;
+constexpr int kHeight = kRing + 2 * kPad;
+
+// Blue, and over the last half of the time slowly red.
+QColor ringColor(qreal rest)
+{
+    const qreal t = std::clamp((0.5 - rest) / 0.5, 0.0, 1.0);
+    const QColor blue(76, 141, 255);
+    const QColor red(240, 82, 82);
+    return QColor::fromRgbF(blue.redF() + (red.redF() - blue.redF()) * t,
+                            blue.greenF() + (red.greenF() - blue.greenF()) * t,
+                            blue.blueF() + (red.blueF() - blue.blueF()) * t);
+}
 #ifdef Q_OS_WIN
 constexpr int kEscapeHotkey = 0x4E53; // any id, unique within this window
 #endif
@@ -38,7 +57,9 @@ Countdown::Countdown(QWidget *parent)
     setAttribute(Qt::WA_ShowWithoutActivating);
     // Fixed: tiling Wayland compositors (Sway, Hyprland) float windows
     // that cannot be resized, instead of tiling them across the monitor.
-    setFixedSize(220, 140);
+    fitToText();
+    m_mark = new LogoAnimator(this);
+    connect(m_mark, &LogoAnimator::changed, this, qOverload<>(&QWidget::update));
     m_tick.setInterval(1000);
     setOptions({});
     connect(&m_tick, &QTimer::timeout, this, &Countdown::tick);
@@ -58,6 +79,19 @@ bool Countdown::hasGlobalEscape()
 #endif
 }
 
+void Countdown::fitToText()
+{
+    // As wide as the longer of title and hint; the title for two digits.
+    QFont title = font();
+    title.setPixelSize(14);
+    title.setWeight(QFont::DemiBold);
+    QFont hint = font();
+    hint.setPixelSize(12);
+    const int text = std::max(QFontMetrics(title).horizontalAdvance(CaptureHints::countdownTitle(88)),
+                              QFontMetrics(hint).horizontalAdvance(CaptureHints::countdown(m_options.clickCancels)));
+    setFixedSize(kPad + kRing + kGap + text + 2 * kPad, kHeight);
+}
+
 void Countdown::setOptions(const CountdownOptions &options)
 {
     m_options = options;
@@ -70,6 +104,8 @@ void Countdown::setOptions(const CountdownOptions &options)
     if (!m_shown)
         setWindowFlag(Qt::WindowTransparentForInput, !m_options.clickCancels);
     setAttribute(Qt::WA_TransparentForMouseEvents, !m_options.clickCancels);
+    if (!m_shown)
+        fitToText();
     if (m_options.clickCancels) {
         setCursor(Qt::PointingHandCursor);
         setToolTip(tr("Klicken zum Abbrechen"));
@@ -82,7 +118,9 @@ void Countdown::setOptions(const CountdownOptions &options)
 void Countdown::start(int seconds)
 {
     m_left = seconds;
+    m_total = std::max(1, seconds);
     m_running = true;
+    m_mark->setPose(LogoMark::timer(1));
     if (QScreen *screen = QGuiApplication::primaryScreen()) {
         move(CountdownOptions::place(m_options.position, screen->geometry(), screen->availableGeometry(), size()));
 #ifdef NSL_HAVE_WAYLAND_BACKEND
@@ -125,6 +163,20 @@ void Countdown::cancel()
 void Countdown::tick()
 {
     if (--m_left > 0) {
+        const qreal rest = qreal(m_left) / m_total;
+        m_mark->play(LogoAnimator::timerSteps(rest));
+        // In the last second the corners close like a shutter, still
+        // before the countdown goes away (it must not delay the capture).
+        if (m_left == 1) {
+            QTimer::singleShot(m_tick.interval() * 65 / 100, this, [this, rest] {
+                if (!m_running)
+                    return;
+                LogoPose shut = LogoMark::timer(rest);
+                shut.c1Offset = QPointF(6, 6);
+                shut.c2Offset = QPointF(-6, -6);
+                m_mark->play({{shut, 120, QEasingCurve::InOutQuad}, {LogoMark::timer(rest), 150, QEasingCurve::OutCubic}});
+            });
+        }
         update();
         return;
     }
@@ -135,26 +187,44 @@ void Countdown::tick()
 
 void Countdown::paintEvent(QPaintEvent *)
 {
-    // The look of the GNOME countdown (stylesheet.css): a dark rounded box
-    // with the seconds and a hint.
+    // The look of the GNOME countdown (countdown.js, stylesheet.css): a dark
+    // pill with the ring and the mark, the title and the hint.
     QPainter painter(this);
     painter.setRenderHint(QPainter::Antialiasing);
     painter.setPen(Qt::NoPen);
-    painter.setBrush(QColor(30, 30, 30, 225));
-    painter.drawRoundedRect(QRectF(rect()), 24, 24);
+    painter.setBrush(QColor(22, 24, 28, 235));
+    painter.drawRoundedRect(QRectF(rect()), 16, 16);
 
-    QFont number = font();
-    number.setPixelSize(64);
-    number.setBold(true);
-    painter.setFont(number);
-    painter.setPen(Qt::white);
-    painter.drawText(QRect(0, 8, width(), 90), Qt::AlignCenter, QString::number(m_left));
+    // The ring: a grey track, and the rest of the time from the top,
+    // clockwise; it empties counterclockwise, as the mark turns.
+    const LogoPose &pose = m_mark->pose();
+    const QRectF ring(kPad + 2.5, kPad + 2.5, kRing - 5, kRing - 5);
+    painter.setBrush(Qt::NoBrush);
+    painter.setPen(QPen(QColor(0x3A, 0x3F, 0x46), 4));
+    painter.drawEllipse(ring);
+    if (pose.ring > 0) {
+        painter.setPen(QPen(ringColor(pose.ring), 4, Qt::SolidLine, Qt::RoundCap));
+        // Qt counts in 1/16 degree, counterclockwise from three o'clock.
+        painter.drawArc(ring, 90 * 16, -qRound(pose.ring * 360 * 16));
+    }
+    const qreal mark = 28;
+    LogoMark::paint(painter, QRectF(kPad + (kRing - mark) / 2, kPad + (kRing - mark) / 2, mark, mark), pose,
+                    QColor(0xE9, 0xEC, 0xEF), 5);
 
+    const int textLeft = kPad + kRing + kGap;
+    QFont title = font();
+    title.setPixelSize(14);
+    title.setWeight(QFont::DemiBold);
+    painter.setFont(title);
+    painter.setPen(QColor(0xE9, 0xEC, 0xEF));
+    painter.drawText(QRect(textLeft, kPad + 8, width() - textLeft, 20), Qt::AlignLeft | Qt::AlignVCenter,
+                     CaptureHints::countdownTitle(m_left));
     QFont hint = font();
     hint.setPixelSize(12);
     painter.setFont(hint);
-    painter.setPen(QColor(255, 255, 255, 190));
-    painter.drawText(QRect(0, 98, width(), 30), Qt::AlignCenter, CaptureHints::countdown(m_options.clickCancels));
+    painter.setPen(QColor(0xA2, 0xA9, 0xB3));
+    painter.drawText(QRect(textLeft, kPad + 30, width() - textLeft, 18), Qt::AlignLeft | Qt::AlignVCenter,
+                     CaptureHints::countdown(m_options.clickCancels));
 }
 
 void Countdown::mousePressEvent(QMouseEvent *event)

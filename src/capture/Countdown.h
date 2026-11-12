@@ -2,11 +2,15 @@
 
 #include "capture/CountdownOptions.h"
 
+class LogoAnimator;
+
 #include <QTimer>
 #include <QWidget>
 
 // Countdown of a delayed capture (F-04, D-025) where the app draws the
-// overlay itself (Windows, Wayland without GNOME; later macOS): a small
+// overlay itself (Windows, Wayland without GNOME; later macOS). It looks
+// like the extension's (countdown.js): a ring with the app's mark that
+// runs down like an egg timer, the seconds and a hint (D-043). A small
 // top-most display on the primary monitor (in the middle or a corner, as
 // set) that never takes the focus, so the user can keep working (open a
 // menu, hover) until it runs out. Escape cancels, and a click on it unless
@@ -49,10 +53,14 @@ protected:
 private:
     void tick();
     void stop();
+    void fitToText();
 
     CountdownOptions m_options;
     QTimer m_tick;
     int m_left = 0;
+    int m_total = 0;
+    // The mark as an egg timer (D-043): turns and empties the ring each second.
+    LogoAnimator *m_mark = nullptr;
     bool m_running = false;
     bool m_shown = false;
 };

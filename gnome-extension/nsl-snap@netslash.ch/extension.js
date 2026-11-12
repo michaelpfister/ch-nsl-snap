@@ -297,7 +297,7 @@ class SnapService {
             // After the countdown, if any: the countdown is gone before the
             // freeze (F-04).
             if (delay > 0) {
-                this._countdown = countdown(delay, this._settings, hints.countdown, position, clickCancels);
+                this._countdown = countdown(delay, this._settings, hints, position, clickCancels);
                 const go = await this._countdown.promise;
                 this._countdown = null;
                 if (!go)

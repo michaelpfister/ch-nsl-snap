@@ -8,6 +8,7 @@
 #include "editor/RedactItem.h"
 #include "editor/ReplaceItem.h"
 #include "editor/TextItem.h"
+#include "ui/LogoMark.h"
 
 #include <QDragEnterEvent>
 #include <QDropEvent>
@@ -67,6 +68,11 @@ EditorView::EditorView(QUndoStack *undoStack, QWidget *parent)
     , m_scene(new EditorScene(undoStack, this))
 {
     setScene(m_scene);
+    m_emptyMark = new LogoAnimator(this);
+    connect(m_emptyMark, &LogoAnimator::changed, this, [this] {
+        if (!hasImage())
+            viewport()->update();
+    });
     setAcceptDrops(true);
     setDragMode(QGraphicsView::RubberBandDrag);
     setTransformationAnchor(QGraphicsView::NoAnchor); // applyZoom anchors itself
@@ -960,16 +966,39 @@ void EditorView::drawForeground(QPainter *painter, const QRectF &rect)
             painter->restore();
         }
     } else {
-        // Empty state hint, drawn in viewport coordinates.
+        // Empty state, drawn in viewport coordinates: the mark (D-043) and
+        // a hint below it.
         painter->save();
         painter->resetTransform();
+        const QRect area = viewport()->rect();
+        const LogoPose &pose = m_emptyMark->pose();
+        if (pose.flash > 0) {
+            QColor flash(Qt::white);
+            flash.setAlphaF(pose.flash);
+            painter->fillRect(area, flash);
+        }
+        constexpr int kMark = 64;
+        const QPointF centre = QRectF(area).center();
+        LogoMark::paint(*painter, QRectF(centre.x() - kMark / 2.0, centre.y() - kMark - 4, kMark, kMark), pose,
+                        palette().color(QPalette::WindowText), 4.5);
         painter->setPen(palette().color(QPalette::PlaceholderText));
-        painter->drawText(viewport()->rect(), Qt::AlignCenter,
+        painter->drawText(QRect(area.left(), int(centre.y()) + 16, area.width(), 24), Qt::AlignHCenter | Qt::AlignTop,
                           tr("Fenster aufnehmen oder ein Bild hierher ziehen"));
         painter->restore();
     }
     if (m_pickingColor)
         drawColorPickLoupe(painter); // on top of everything
+}
+
+void EditorView::showEvent(QShowEvent *event)
+{
+    QGraphicsView::showEvent(event);
+    // Once per start of the app, in the empty editor.
+    static bool played = false;
+    if (!played && !hasImage()) {
+        played = true;
+        m_emptyMark->play(LogoAnimator::startSteps());
+    }
 }
 
 void EditorView::wheelEvent(QWheelEvent *event)
