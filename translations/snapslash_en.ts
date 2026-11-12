@@ -2025,6 +2025,10 @@ On GNOME, then install the extension again (`scripts/dev-install.sh`) and log ou
         <source>Das Video konnte nicht geschrieben werden.</source>
         <translation>The video could not be written.</translation>
     </message>
+    <message>
+        <source>Das Video konnte nicht geschrieben werden: %1</source>
+        <translation>The video could not be written: %1</translation>
+    </message>
 </context>
 <context>
     <name>VideoTrimmer</name>

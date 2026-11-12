@@ -6,8 +6,11 @@
 #include <QString>
 
 #include <deque>
+#include <memory>
 
+class FfmpegH264Writer;
 class QMediaCaptureSession;
+class QThread;
 class QMediaRecorder;
 class QVideoFrameInput;
 
@@ -18,6 +21,10 @@ class QVideoFrameInput;
 // every platform; which H.264 encoder Qt finds depends on the machine
 // (Q-28: on Linux, Qt's own FFmpeg only has the graphics card's, VA-API or
 // NVENC).
+//
+// On Linux the frames go to FfmpegH264Writer instead, on a thread of its
+// own, when it can open an encoder: it can ask VA-API for its low-power
+// mode, the only H.264 mode of many Intel chips, which Qt cannot.
 class VideoEncoder : public QObject
 {
     Q_OBJECT
@@ -28,7 +35,8 @@ public:
     explicit VideoEncoder(QObject *parent = nullptr);
     ~VideoEncoder() override;
 
-    // Whether Qt Multimedia can encode H.264 into MP4 on this machine.
+    // Whether H.264 can be encoded into MP4 on this machine (our own
+    // FFmpeg writer on Linux, or Qt Multimedia).
     static bool canEncodeH264();
 
     // For the tests, which run where no H.264 encoder exists: another
@@ -76,6 +84,14 @@ private:
     void sendPending();
     void fail(const QString &message);
 
+    // Our own FFmpeg writer (Linux): used for H.264, or for the tests'
+    // codec in NSL_FFMPEG_TEST_CODEC.
+    bool useFfmpeg() const;
+    void startFfmpeg(const QString &path);
+    void sendToWriter(Frame frame);
+    void pumpWriter();
+    void stopThread();
+
     QMediaFormat::VideoCodec m_codec = QMediaFormat::VideoCodec::H264;
     QMediaCaptureSession *m_session = nullptr;
     QMediaRecorder *m_recorder = nullptr;
@@ -86,4 +102,10 @@ private:
     bool m_running = false;
     bool m_finishing = false;
     int m_written = 0;
+
+    std::shared_ptr<FfmpegH264Writer> m_writer; // shared with its thread
+    QThread *m_thread = nullptr;
+    QObject *m_worker = nullptr; // lives in m_thread; work is queued to it
+    int m_inFlight = 0;          // frames handed to the writer, not yet done
+    bool m_closing = false;
 };
