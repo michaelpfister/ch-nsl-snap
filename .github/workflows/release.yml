@@ -3,7 +3,8 @@
 #   git tag v0.2.0 && git push origin v0.2.0
 # A tag with a pre-release part (v0.3.0-beta.1) becomes a pre-release.
 # The app's update check reads these releases; the Windows ZIPs are what the
-# portable version installs, for updates and downgrades alike.
+# portable version installs, for updates and downgrades alike; the AppImage
+# becomes the same for Linux (D-041).
 
 name: Release
 
@@ -135,9 +136,16 @@ jobs:
           path: ${{ env.PACKAGE }}
           if-no-files-found: error
 
+  linux:
+    name: Linux package
+    needs: version
+    uses: ./.github/workflows/appimage.yml
+    with:
+      version-suffix: ${{ needs.version.outputs.suffix }}
+
   publish:
     name: Publish the release
-    needs: [version, windows]
+    needs: [version, windows, linux]
     runs-on: ubuntu-24.04
     permissions:
       contents: write
@@ -150,7 +158,7 @@ jobs:
       # Checksums for the app (it also reads GitHub's own digests).
       - name: Checksums
         working-directory: dist
-        run: sha256sum *.zip > SHA256SUMS.txt && cat SHA256SUMS.txt
+        run: sha256sum *.zip *.AppImage > SHA256SUMS.txt && cat SHA256SUMS.txt
 
       - name: Create the release
         env:

@@ -111,6 +111,20 @@ scripts/update-translations.sh
 
 The new texts appear in the file as `type="unfinished"`: translate them in Qt Linguist (`~/Qt/6.8.3/gcc_64/bin/linguist translations/snapslash_en.ts`) or directly in the file, then commit it with the change. CI fails while the file is out of date or a text is untranslated. To try the English interface: settings, "Allgemein", "Sprache", then restart the app.
 
+### Building the AppImage
+
+The Linux package (D-041) is built by one script; CI runs it on Ubuntu 22.04 for every pull request (`.github/workflows/appimage.yml`, the AppImage is the run's artifact `appimage-x86_64`) and for every release. On a development machine, with the packages of step 1 and `libglib2.0-bin`:
+
+```bash
+QT_DIR=$HOME/Qt/6.8.3/gcc_64 scripts/build-appimage.sh
+```
+
+- It downloads linuxdeploy, its Qt plugin, appimagetool and the static AppImage runtime, plus the sources of KDE's ECM and LayerShellQt, each with a fixed version and SHA-256 sum, into `build-appimage/`. LayerShellQt is built once against this Qt; delete `build-appimage/deps` to build it again.
+- The result is `build-appimage/snapslash-<version>-linux-x86_64.AppImage` (`VERSION_SUFFIX=beta.1` for a pre-release). The script checks that it starts and reports its version.
+- libpipewire and libva are not in the AppImage, they come from the system (D-041). An AppImage built on Ubuntu 24.04 needs glibc 2.39; the one from CI runs from glibc 2.35 on.
+- The GNOME extension is inside, under `usr/share/snapslash/gnome-extension`. Until the app installs it itself (D-041, step 2), install it as in step 4.
+- Without FUSE (containers) the AppImage unpacks itself first: `--appimage-extract-and-run` or `APPIMAGE_EXTRACT_AND_RUN=1`.
+
 ## Installing on Linux
 
 For using Snapslash rather than working on it, on a Linux without Nix (Ubuntu, Zorin OS, …). There is no package for these distributions yet: build a release from source and install it for your user. System packages and Qt as in steps 1 and 2 above, then:
