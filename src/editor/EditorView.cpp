@@ -12,7 +12,6 @@
 #include "ui/Theme.h"
 
 #include <QDragEnterEvent>
-#include <QRadialGradient>
 #include <QDropEvent>
 #include <QMimeData>
 #include <QKeyEvent>
@@ -977,18 +976,13 @@ void EditorView::drawForeground(QPainter *painter, const QRectF &rect)
         constexpr int kMark = 64;
         const QPointF centre = QRectF(area).center();
         if (pose.flash > 0) {
-            // The "photo": a soft glow around the mark, not a flash over the
-            // whole view (light-sensitive people, WCAG 2.3). Small, fading
-            // out to the edge, rising and falling slowly (LogoAnimator).
-            const QPointF markCentre(centre.x(), centre.y() - kMark / 2.0 - 4);
-            QRadialGradient glow(markCentre, 130);
-            QColor inner(Qt::white);
-            inner.setAlphaF(pose.flash * (Theme::current().dark ? 0.14 : 0.8));
-            QColor outer = inner;
-            outer.setAlphaF(0);
-            glow.setColorAt(0, inner);
-            glow.setColorAt(1, outer);
-            painter->fillRect(QRectF(markCentre - QPointF(130, 130), QSizeF(260, 260)), glow);
+            // The "photo": the whole view brightens and darkens again, softly
+            // (rising in 180 ms, fading in 500 ms) and far below a flash's
+            // white: one gentle change is harmless (WCAG 2.3 counts more than
+            // three flashes a second), a hard full-white flash would not be kind.
+            QColor flash(Qt::white);
+            flash.setAlphaF(pose.flash * (Theme::current().dark ? 0.25 : 0.45));
+            painter->fillRect(area, flash);
         }
         LogoMark::paint(*painter, QRectF(centre.x() - kMark / 2.0, centre.y() - kMark - 4, kMark, kMark), pose,
                         palette().color(QPalette::WindowText), 4.5);
