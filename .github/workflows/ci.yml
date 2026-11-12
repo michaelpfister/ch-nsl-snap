@@ -68,6 +68,11 @@ jobs:
             exit 1
           }
 
+  # The Linux package (D-041); the AppImage is a workflow artifact of the run.
+  appimage:
+    name: Linux package
+    uses: ./.github/workflows/appimage.yml
+
   # No capture backend on Windows yet; this checks that the editor builds
   # and its tests pass with MSVC on both Windows architectures.
   windows:

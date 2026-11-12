@@ -1,0 +1,75 @@
+# Builds the Linux AppImage (D-041) with scripts/build-appimage.sh. Called
+# by the CI workflow (every pull request gets an AppImage to try, as a
+# workflow artifact) and by the release workflow (the AppImage of the
+# release).
+#
+# Built on Ubuntu 22.04, the oldest Ubuntu LTS that Qt 6.8 supports: the
+# AppImage carries its libraries but uses the system's glibc, so it runs on
+# systems with this glibc (2.35) or a newer one.
+
+name: AppImage
+
+on:
+  workflow_call:
+    inputs:
+      version-suffix:
+        description: Pre-release part of the version (beta.1), empty for none
+        type: string
+        default: ''
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  appimage:
+    name: AppImage (Linux x86_64)
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@v4
+
+      # Build tools; the libraries Qt's plugins load, so linuxdeploy can copy
+      # them (libxcb-*, libpulse); glib-compile-schemas for the extension.
+      # GCC 12: Ubuntu 22.04's GCC 11 lacks parts of C++20.
+      - name: Install system packages
+        run: >
+          scripts/ci-apt-install.sh
+          ninja-build g++-12 libgl-dev libegl-dev libopengl-dev libxkbcommon-dev libvulkan-dev
+          libwayland-dev wayland-protocols libpipewire-0.3-dev libglib2.0-bin
+          libxkbcommon-x11-0 libxcb-cursor0 libxcb-icccm4 libxcb-image0 libxcb-keysyms1 libxcb-randr0
+          libxcb-render-util0 libxcb-shape0 libxcb-xkb1 libpulse0
+
+      - name: Install Qt
+        uses: jurplel/install-qt-action@v4
+        with:
+          version: 6.8.3
+          host: linux
+          target: desktop
+          arch: linux_gcc_64
+          modules: qtimageformats qtmultimedia
+          cache: true
+
+      # Downloads and LayerShellQt, kept between runs (the script checks
+      # the downloads' SHA-256 sums again).
+      - name: Cache downloads and LayerShellQt
+        uses: actions/cache@v4
+        with:
+          path: |
+            build-appimage/tools
+            build-appimage/*.tar.xz
+            build-appimage/deps
+          key: appimage-deps-${{ hashFiles('scripts/build-appimage.sh') }}
+
+      - name: Build the AppImage
+        env:
+          CC: gcc-12
+          CXX: g++-12
+          QT_DIR: ${{ env.QT_ROOT_DIR }}
+          VERSION_SUFFIX: ${{ inputs.version-suffix }}
+        run: scripts/build-appimage.sh
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: appimage-x86_64
+          path: build-appimage/snapslash-*-linux-x86_64.AppImage
+          if-no-files-found: error

@@ -92,7 +92,7 @@ The editor is object-based (D-012): the captured image stays unchanged, annotati
 | `src/capture/` | `CaptureBackend` interface, `PickGeometry`, and the platform backends (`gnome/`, `windows/`, `wayland/`, `portal/`; `macos/` later) |
 | `protocols/` | Wayland protocol files for the Wayland backend |
 | `flake.nix`, `nix/` | Nix package and development shell (NixOS) |
-| `scripts/build-appimage.sh` (planned, D-041) | The Linux AppImage of a release: the app, Qt, PipeWire and the GNOME extension in one file |
+| `scripts/build-appimage.sh` (D-041) | The Linux AppImage of a release: the app, Qt with Qt Multimedia, LayerShellQt and the GNOME extension in one file (PipeWire and VA-API from the system) |
 | `.github/workflows/` | CI (`ci.yml`) and the release on a version tag (`release.yml`, D-037) |
 | `src/editor/` | Editor view (`QGraphicsView`), later the annotation items (D-012) |
 | `src/ui/` | Theme (colour tokens, style sheet, light/dark) and SVG icons (D-014) |
