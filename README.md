@@ -69,7 +69,7 @@ Or add the flake as an input and `inputs.snapslash.packages.${pkgs.system}.defau
 
 ### Linux with GNOME (Ubuntu, Zorin OS, …)
 
-There is no Linux package yet: build the release from source, install it for your user, and add the Shell extension. [docs/07-development-setup.md](docs/07-development-setup.md#installing-on-linux) walks through it: Qt 6.8 from aqtinstall, `cmake --install` into `~/.local` (with a desktop entry and icon), then `scripts/dev-install.sh` and log out and in again.
+There is no Linux package yet (an AppImage that sets itself up and updates itself is planned, D-041): build the release from source, install it for your user, and add the Shell extension. [docs/07-development-setup.md](docs/07-development-setup.md#installing-on-linux) walks through it: Qt 6.8 from aqtinstall, `cmake --install` into `~/.local` (with a desktop entry and icon), then `scripts/dev-install.sh` and log out and in again.
 
 ## Command line
 
