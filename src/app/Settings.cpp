@@ -156,6 +156,16 @@ void setCloseToTray(bool enabled)
     QSettings().setValue("tray/closeToTray", enabled);
 }
 
+bool confirmQuitUnsaved()
+{
+    return QSettings().value("general/confirmQuitUnsaved", true).toBool();
+}
+
+void setConfirmQuitUnsaved(bool enabled)
+{
+    QSettings().setValue("general/confirmQuitUnsaved", enabled);
+}
+
 bool trayHintShown()
 {
     return QSettings().value("tray/hintShown", false).toBool();

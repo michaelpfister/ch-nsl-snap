@@ -4,6 +4,7 @@
 #include "app/FileNames.h"
 #include "app/GlobalHotkeys.h"
 #include "app/GnomeExtensionSetup.h"
+#include "ui/AppDialog.h"
 #include "app/Language.h"
 #include "app/Settings.h"
 #include "update/UpdateChecker.h"
@@ -26,7 +27,6 @@
 #include <QLabel>
 #include <QLineEdit>
 #include <QLocale>
-#include <QMessageBox>
 #include <QPushButton>
 #include <QSystemTrayIcon>
 #include <QTabWidget>
@@ -147,6 +147,17 @@ SettingsDialog::SettingsDialog(GlobalHotkeys *hotkeys, bool countdownHasEscape, 
     tray->setEnabled(hasTray);
     connect(tray, &QCheckBox::toggled, this, [](bool enabled) { Settings::setCloseToTray(enabled); });
 
+    // The question before quitting with unsaved work; the dialog's checkbox
+    // "in Zukunft nicht mehr nachfragen" turns it off, this turns it on again.
+    layout->addSpacing(16);
+    auto *quitTitle = new QLabel(tr("Beenden"), this);
+    quitTitle->setProperty("role", QStringLiteral("section"));
+    layout->addWidget(quitTitle);
+    auto *confirmQuit = new QCheckBox(tr("Nachfragen, wenn das Bild weder gespeichert noch kopiert ist"), this);
+    confirmQuit->setChecked(Settings::confirmQuitUnsaved());
+    layout->addWidget(confirmQuit);
+    connect(confirmQuit, &QCheckBox::toggled, this, [](bool enabled) { Settings::setConfirmQuitUnsaved(enabled); });
+
     // The extension inside the AppImage (D-041): its state, and setting it
     // up again, e.g. after "Später" or when it was removed.
     if (GnomeExtensionSetup::isAvailable()) {
@@ -266,14 +277,12 @@ SettingsDialog::SettingsDialog(GlobalHotkeys *hotkeys, bool countdownHasEscape, 
     layout->addSpacing(4);
     layout->addLayout(resetRow);
     connect(reset, &QPushButton::clicked, this, [this, reset] {
-        QMessageBox box(QMessageBox::Question, tr("Farben und Stile zurücksetzen"),
-                        tr("Farben und Stile zurücksetzen?"), QMessageBox::NoButton, this);
-        box.setInformativeText(tr("Farben, Linienstärken und Schriftgrössen für neue Objekte gehen auf den "
-                                  "Standard zurück, und die zuletzt verwendeten eigenen Farben werden vergessen."));
-        QPushButton *confirm = box.addButton(tr("Zurücksetzen"), QMessageBox::DestructiveRole);
-        box.setDefaultButton(box.addButton(QMessageBox::Cancel));
-        box.exec();
-        if (box.clickedButton() != confirm)
+        AppDialog dialog(this, AppDialog::Kind::Question, tr("Farben und Stile zurücksetzen?"),
+                         tr("Farben, Linienstärken und Schriftgrössen für neue Objekte gehen auf den "
+                            "Standard zurück, und die zuletzt verwendeten eigenen Farben werden vergessen."));
+        dialog.addButton(tr("Abbrechen"), AppDialog::Role::Cancel);
+        QPushButton *confirm = dialog.addButton(tr("Zurücksetzen"), AppDialog::Role::Destructive);
+        if (dialog.exec() != confirm)
             return;
         Settings::resetStyles();
         emit stylesReset();

@@ -154,6 +154,24 @@ QDialogButtonBox QPushButton:default {
 QDialogButtonBox QPushButton:default:hover { background: @accentHover; }
 QDialogButtonBox QPushButton:default:pressed { background: @accentPressed; }
 
+/* The app's own dialogs (AppDialog, design mockup "Dialoge"): a card with
+   a bold title, a muted explanation and buttons at the right; the red
+   button throws something away. A focused button gets a ring. */
+#DialogCard { background: @panel; border: 1px solid @border; border-radius: 14px; }
+QLabel[role="dialogTitle"] { font-size: 15px; font-weight: 600; }
+QLabel[role="dialogText"] { color: @muted; font-size: 13px; }
+#DialogCard QPushButton { min-height: 36px; padding: 0 16px; }
+QPushButton[role="destructive"] {
+    background: @danger; color: #FFFFFF; border: none; border-radius: 8px;
+    padding: 0 16px; min-height: 34px; font-weight: 600;
+}
+QPushButton[role="destructive"]:hover { background: @dangerHover; }
+QPushButton[role="destructive"]:pressed { background: @dangerPressed; }
+#DialogCard QPushButton[role="secondary"]:focus { border: 2px solid @accent; }
+#DialogCard QPushButton[role="primary"]:focus, #DialogCard QPushButton[role="destructive"]:focus {
+    border: 2px solid @focusOnColor;
+}
+
 /* Inputs. */
 QComboBox {
     background: @panel; color: @text; border: 1px solid @border; border-radius: 8px;
@@ -188,6 +206,11 @@ QScrollBar::add-line, QScrollBar::sub-line { width: 0; height: 0; }
 )");
     const QList<std::pair<QString, QColor>> tokens = {
         // Longest names first, so "@accentHover" is not hit by "@accent".
+        {QStringLiteral("@dangerPressed"), QColor(0xDC2626).darker(125)},
+        {QStringLiteral("@dangerHover"), QColor(0xDC2626).darker(112)},
+        {QStringLiteral("@danger"), QColor(0xDC2626)},
+        // A focus ring on a blue or red button: light, half transparent.
+        {QStringLiteral("@focusOnColor"), QColor(255, 255, 255, 170)},
         {QStringLiteral("@accentPressed"), accent.darker(125)},
         {QStringLiteral("@accentHover"), accent.darker(112)},
         {QStringLiteral("@success"), success},
@@ -203,7 +226,9 @@ QScrollBar::add-line, QScrollBar::sub-line { width: 0; height: 0; }
         {QStringLiteral("@bg"), bg},
     };
     for (const auto &[name, color] : tokens)
-        qss.replace(name, color.name());
+        qss.replace(name, color.alpha() < 255 ? QStringLiteral("rgba(%1, %2, %3, %4)")
+                                                    .arg(color.red()).arg(color.green()).arg(color.blue()).arg(color.alpha())
+                                              : color.name());
     qss.replace(QStringLiteral("@chevron"),
                 dark ? QStringLiteral(":/icons/chevron-down-dark.svg") : QStringLiteral(":/icons/chevron-down-light.svg"));
     return qss;

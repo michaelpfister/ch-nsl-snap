@@ -2,6 +2,13 @@
 <!DOCTYPE TS>
 <TS version="2.1" language="en_US" sourcelanguage="de">
 <context>
+    <name>AppDialog</name>
+    <message>
+        <source>OK</source>
+        <translation>OK</translation>
+    </message>
+</context>
+<context>
     <name>ArrowItem</name>
     <message>
         <source>Pfeil</source>
@@ -316,26 +323,6 @@
 <context>
     <name>GnomeExtensionSetup</name>
     <message>
-        <source>Die installierte GNOME-Erweiterung «Snapslash» passt nicht zu dieser Version der App.</source>
-        <translation>The installed GNOME extension “Snapslash” does not match this version of the app.</translation>
-    </message>
-    <message>
-        <source>Unter GNOME nimmt Snapslash über die eigene GNOME-Erweiterung auf: Nur sie darf Fenster und Bereiche auswählen lassen und das Bild an die App geben.</source>
-        <translation>On GNOME, Snapslash captures through its own GNOME extension: only the extension may let you pick windows and regions and hand the picture to the app.</translation>
-    </message>
-    <message>
-        <source>GNOME-Erweiterung</source>
-        <translation>GNOME extension</translation>
-    </message>
-    <message>
-        <source>Die App ersetzt sie durch die mitgelieferte Version.</source>
-        <translation>The app replaces it with the version it brings along.</translation>
-    </message>
-    <message>
-        <source>Die App kopiert die mitgelieferte Erweiterung in den eigenen Benutzerordner und schaltet sie ein.</source>
-        <translation>The app copies the extension it brings along into your user folder and turns it on.</translation>
-    </message>
-    <message>
         <source>GNOME lädt Erweiterungen nur bei der Anmeldung: Danach einmal ab- und wieder anmelden.</source>
         <translation>GNOME loads extensions only at login: log out and in again once afterwards.</translation>
     </message>
@@ -356,10 +343,6 @@
         <translation>The extension could not be set up.</translation>
     </message>
     <message>
-        <source>Die Erweiterung ist eingerichtet. Bitte jetzt ab- und wieder anmelden, damit GNOME sie lädt.</source>
-        <translation>The extension is set up. Please log out and in again now, so GNOME loads it.</translation>
-    </message>
-    <message>
         <source>Nicht installiert.</source>
         <translation>Not installed.</translation>
     </message>
@@ -370,6 +353,30 @@
     <message>
         <source>Installiert, aber in einer anderen Version als die App.</source>
         <translation>Installed, but in another version than the app.</translation>
+    </message>
+    <message>
+        <source>Die installierte Erweiterung passt nicht zu dieser Version der App. Die App ersetzt sie durch die mitgelieferte Version.</source>
+        <translation>The installed extension does not match this version of the app. The app replaces it with the version it brings along.</translation>
+    </message>
+    <message>
+        <source>Unter GNOME wählt Snapslash Fenster und Bereiche über die eigene Erweiterung aus. Die App kopiert sie in den eigenen Benutzerordner und schaltet sie ein.</source>
+        <translation>On GNOME, Snapslash picks windows and regions through its own extension. The app copies it into your user folder and turns it on.</translation>
+    </message>
+    <message>
+        <source>GNOME-Erweiterung aktualisieren?</source>
+        <translation>Update the GNOME extension?</translation>
+    </message>
+    <message>
+        <source>GNOME-Erweiterung einrichten?</source>
+        <translation>Set up the GNOME extension?</translation>
+    </message>
+    <message>
+        <source>Die Erweiterung ist eingerichtet.</source>
+        <translation>The extension is set up.</translation>
+    </message>
+    <message>
+        <source>Bitte jetzt ab- und wieder anmelden, damit GNOME sie lädt.</source>
+        <translation>Please log out and in again now, so GNOME loads it.</translation>
     </message>
 </context>
 <context>
@@ -638,10 +645,6 @@ Ctrl+S saves straight into the folder from the settings</translation>
         <translation>Quit</translation>
     </message>
     <message>
-        <source>Druck-Taste</source>
-        <translation>Print key</translation>
-    </message>
-    <message>
         <source>Windows öffnet mit der Druck-Taste das Snipping Tool, deshalb erreicht die Taste Snapslash nicht.</source>
         <translation>Windows opens the Snipping Tool with the Print key, so the key does not reach Snapslash.</translation>
     </message>
@@ -664,14 +667,6 @@ Ctrl+S saves straight into the folder from the settings</translation>
     <message>
         <source>Aufnehmen und Öffnen über das Symbol im Infobereich. Beenden ebenfalls dort; das Verhalten lässt sich in den Einstellungen ändern.</source>
         <translation>Capture and open through the icon in the tray. Quit there as well; the settings can change this.</translation>
-    </message>
-    <message>
-        <source>Snapslash beenden</source>
-        <translation>Quit Snapslash</translation>
-    </message>
-    <message>
-        <source>Trotzdem beenden?</source>
-        <translation>Quit anyway?</translation>
     </message>
     <message>
         <source>Rahmen</source>
@@ -822,20 +817,8 @@ Ctrl+S saves straight into the folder from the settings</translation>
         <translation>Restart</translation>
     </message>
     <message>
-        <source>Trotzdem neu starten?</source>
-        <translation>Restart anyway?</translation>
-    </message>
-    <message>
         <source>Das Update liess sich nicht starten (PowerShell fehlt).</source>
         <translation>The update could not be started (PowerShell is missing).</translation>
-    </message>
-    <message>
-        <source>Editor leeren</source>
-        <translation>Clear editor</translation>
-    </message>
-    <message>
-        <source>Trotzdem leeren?</source>
-        <translation>Clear anyway?</translation>
     </message>
     <message>
         <source>Videoaufnahme abgebrochen.</source>
@@ -902,14 +885,6 @@ Ctrl+S saves straight into the folder from the settings</translation>
         <translation>“%1” no longer exists.</translation>
     </message>
     <message>
-        <source>Aufnahme öffnen</source>
-        <translation>Open capture</translation>
-    </message>
-    <message>
-        <source>Trotzdem die Aufnahme öffnen?</source>
-        <translation>Open the capture anyway?</translation>
-    </message>
-    <message>
         <source>Serienaufnahme an: Aufnahmen werden sofort im Ordner gespeichert.</source>
         <translation>Series capture on: captures are saved to the folder right away.</translation>
     </message>
@@ -928,6 +903,30 @@ Ctrl+S saves straight into the folder from the settings</translation>
     <message>
         <source>Leeren</source>
         <translation>Clear</translation>
+    </message>
+    <message>
+        <source>Aufnahme öffnen?</source>
+        <translation>Open the capture?</translation>
+    </message>
+    <message>
+        <source>Beenden und in Zukunft nicht mehr nachfragen</source>
+        <translation>Quit and do not ask again</translation>
+    </message>
+    <message>
+        <source>Abbrechen</source>
+        <translation>Cancel</translation>
+    </message>
+    <message>
+        <source>Snapslash beenden?</source>
+        <translation>Quit Snapslash?</translation>
+    </message>
+    <message>
+        <source>Neu starten?</source>
+        <translation>Restart?</translation>
+    </message>
+    <message>
+        <source>Editor leeren?</source>
+        <translation>Clear the editor?</translation>
     </message>
 </context>
 <context>
@@ -1391,10 +1390,6 @@ Click to open in the editor</translation>
         <translation>Reset to default</translation>
     </message>
     <message>
-        <source>Farben und Stile zurücksetzen</source>
-        <translation>Reset colours and styles</translation>
-    </message>
-    <message>
         <source>Zurückgesetzt</source>
         <translation>Reset</translation>
     </message>
@@ -1578,6 +1573,18 @@ Click to open in the editor</translation>
         <source>Zurücksetzen</source>
         <translation>Reset</translation>
     </message>
+    <message>
+        <source>Beenden</source>
+        <translation>Quit</translation>
+    </message>
+    <message>
+        <source>Nachfragen, wenn das Bild weder gespeichert noch kopiert ist</source>
+        <translation>Ask when the image is neither saved nor copied</translation>
+    </message>
+    <message>
+        <source>Abbrechen</source>
+        <translation>Cancel</translation>
+    </message>
 </context>
 <context>
     <name>TextItem</name>
@@ -1746,16 +1753,16 @@ Click to open in the editor</translation>
         <translation>The part could not be saved: %1</translation>
     </message>
     <message>
-        <source>Video verwerfen</source>
-        <translation>Discard video</translation>
-    </message>
-    <message>
         <source>Video verwerfen?</source>
         <translation>Discard the video?</translation>
     </message>
     <message>
         <source>Die Aufnahme ist nicht gespeichert.</source>
         <translation>The recording has not been saved.</translation>
+    </message>
+    <message>
+        <source>Abbrechen</source>
+        <translation>Cancel</translation>
     </message>
 </context>
 <context>

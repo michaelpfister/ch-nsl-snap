@@ -67,6 +67,10 @@ void setRecentCapturesPinned(bool pinned);
 // Tray icon (F-45): closing the window keeps the app running in the tray.
 bool closeToTray();
 void setCloseToTray(bool enabled);
+// Ask before quitting while the image is neither saved nor copied; off
+// after "Beenden und in Zukunft nicht mehr nachfragen".
+bool confirmQuitUnsaved();
+void setConfirmQuitUnsaved(bool enabled);
 // Whether the "still running in the tray" message was shown once.
 bool trayHintShown();
 void setTrayHintShown(bool shown);

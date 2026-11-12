@@ -125,7 +125,10 @@ private:
     void markHandedOff();
     bool hasUnsavedChanges() const;
     // "… weder gespeichert noch kopiert. <question>" with Yes / Cancel.
-    bool confirmDiscard(const QString &title, const QString &question, const QString &action);
+    // Asks before throwing away an image that is neither saved nor copied;
+    // `offerDontAsk` adds the checkbox that turns the question off (quit).
+    bool confirmDiscard(const QString &question, const QString &action, bool offerDontAsk = false);
+    bool confirmQuit();
     // Feedback on Kopieren / Speichern: check mark and text for a moment.
     void showDone(QPushButton *button, const QString &text);
     void restoreButton(QPushButton *button);

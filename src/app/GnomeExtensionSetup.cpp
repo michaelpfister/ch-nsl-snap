@@ -2,8 +2,8 @@
 
 #include "app/LinuxIntegration.h"
 #include "app/Settings.h"
+#include "ui/AppDialog.h"
 
-#include <QMessageBox>
 #include <QPushButton>
 
 using LinuxIntegration::ExtensionState;
@@ -26,22 +26,18 @@ bool GnomeExtensionSetup::offer(QWidget *parent, const QString &reason)
     const LinuxIntegration::Paths paths = LinuxIntegration::currentPaths();
     const bool update = LinuxIntegration::extensionState(paths) == ExtensionState::Different;
 
-    QString text = update ? tr("Die installierte GNOME-Erweiterung «Snapslash» passt nicht zu dieser Version der App.")
-                          : tr("Unter GNOME nimmt Snapslash über die eigene GNOME-Erweiterung auf: Nur sie darf "
-                               "Fenster und Bereiche auswählen lassen und das Bild an die App geben.");
+    QString text = update ? tr("Die installierte Erweiterung passt nicht zu dieser Version der App. Die App ersetzt sie "
+                               "durch die mitgelieferte Version.")
+                          : tr("Unter GNOME wählt Snapslash Fenster und Bereiche über die eigene Erweiterung aus. Die "
+                               "App kopiert sie in den eigenen Benutzerordner und schaltet sie ein.");
+    text += QLatin1Char(' ') + tr("GNOME lädt Erweiterungen nur bei der Anmeldung: Danach einmal ab- und wieder anmelden.");
     if (!reason.isEmpty())
         text = reason + QStringLiteral("\n\n") + text;
-    QMessageBox box(QMessageBox::Question, tr("GNOME-Erweiterung"), text, QMessageBox::NoButton, parent);
-    box.setInformativeText(
-        (update ? tr("Die App ersetzt sie durch die mitgelieferte Version.")
-                : tr("Die App kopiert die mitgelieferte Erweiterung in den eigenen Benutzerordner und schaltet sie ein."))
-        + QLatin1Char(' ')
-        + tr("GNOME lädt Erweiterungen nur bei der Anmeldung: Danach einmal ab- und wieder anmelden."));
-    QPushButton *setUp = box.addButton(update ? tr("Aktualisieren") : tr("Einrichten"), QMessageBox::AcceptRole);
-    box.addButton(tr("Später"), QMessageBox::RejectRole);
-    box.setDefaultButton(setUp);
-    box.exec();
-    if (box.clickedButton() != setUp) {
+    AppDialog dialog(parent, AppDialog::Kind::Question,
+                     update ? tr("GNOME-Erweiterung aktualisieren?") : tr("GNOME-Erweiterung einrichten?"), text);
+    dialog.addButton(tr("Später"), AppDialog::Role::Cancel);
+    QPushButton *setUp = dialog.addButton(update ? tr("Aktualisieren") : tr("Einrichten"), AppDialog::Role::Primary);
+    if (dialog.exec() != setUp) {
         Settings::setGnomeExtensionDeclinedFor(QStringLiteral(NSL_VERSION));
         return false;
     }
@@ -50,13 +46,11 @@ bool GnomeExtensionSetup::offer(QWidget *parent, const QString &reason)
     if (error.isEmpty())
         error = LinuxIntegration::enableExtension();
     if (!error.isEmpty()) {
-        QMessageBox::warning(parent, tr("GNOME-Erweiterung"),
-                             tr("Die Erweiterung liess sich nicht einrichten.") + QStringLiteral("\n\n") + error);
+        AppDialog::error(parent, tr("Die Erweiterung liess sich nicht einrichten."), error);
         return false;
     }
-    QMessageBox::information(parent, tr("GNOME-Erweiterung"),
-                             tr("Die Erweiterung ist eingerichtet. Bitte jetzt ab- und wieder anmelden, "
-                                "damit GNOME sie lädt."));
+    AppDialog::information(parent, tr("Die Erweiterung ist eingerichtet."),
+                           tr("Bitte jetzt ab- und wieder anmelden, damit GNOME sie lädt."));
     return true;
 }
 
