@@ -16,8 +16,6 @@ sudo apt install build-essential cmake ninja-build libgl-dev libegl-dev libopeng
 
 `libwayland-dev` (with `wayland-scanner`) is for the Wayland backend (D-031). `libpipewire-0.3-dev` is for videos on GNOME (D-039); without it the app builds, but records no videos there. KDE's LayerShellQt is optional: with it, the capture overlay on Hyprland and Sway is a layer surface above all windows, without it a full-screen window. Ubuntu 24.04 only has it for Qt 5, so the Qt 6.8 build here runs without; the Nix package has it.
 
-Videos on Linux are encoded with FFmpeg directly (Q-28): CMake links the FFmpeg 7.1 libraries in Qt's `lib` folder and downloads FFmpeg 7.1's headers once into `build/_deps` (11 MB, checked against its SHA-256). Offline, or with `-DNSL_FFMPEG_ENCODER=OFF`, the app records through Qt Multimedia instead.
-
 Without the OpenGL headers CMake reports "Could NOT find OpenGL" and then fails to find `Qt6Gui` and `Qt6Widgets`. `libxcb-cursor0` is needed by Qt's X11 platform plugin (Xwayland fallback).
 
 ### 2. Qt 6.8 LTS
