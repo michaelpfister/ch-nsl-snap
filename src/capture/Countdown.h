@@ -53,10 +53,14 @@ protected:
 private:
     void tick();
     void stop();
+    void onMarkFinished();
     void fitToText();
 
     CountdownOptions m_options;
     QTimer m_tick;
+    // Wound up, then a turn each second, the last one to its end, the snap.
+    enum class Phase { WindUp, Ticking, LastTurn, Snap };
+    Phase m_phase = Phase::WindUp;
     int m_left = 0;
     int m_total = 0;
     // The mark as an egg timer (D-043): turns and empties the ring each second.

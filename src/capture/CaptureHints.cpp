@@ -45,14 +45,9 @@ QString countdown(bool clickCancels)
     return QCoreApplication::translate("CaptureHints", "Esc oder Klick: Abbrechen");
 }
 
-QString countdownTitleTemplate()
+QString countdownTitle()
 {
-    return QCoreApplication::translate("CaptureHints", "Aufnahme in %1 s");
-}
-
-QString countdownTitle(int seconds)
-{
-    return countdownTitleTemplate().arg(seconds);
+    return QCoreApplication::translate("CaptureHints", "Gleich wird aufgenommen");
 }
 
 QString videoWindow()
@@ -82,7 +77,7 @@ QVariantMap forExtension(bool countdownClickCancels)
         {QStringLiteral("region-second"), regionSecondCorner()},
         {QStringLiteral("region-drag"), regionDrag()},
         {QStringLiteral("countdown"), countdown(countdownClickCancels)},
-        {QStringLiteral("countdown-title"), countdownTitleTemplate()},
+        {QStringLiteral("countdown-title"), countdownTitle()},
     };
 }
 

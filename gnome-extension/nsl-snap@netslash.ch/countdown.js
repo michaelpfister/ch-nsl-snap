@@ -13,6 +13,8 @@ import Meta from 'gi://Meta';
 import Shell from 'gi://Shell';
 import St from 'gi://St';
 
+import {DEFAULT_HINTS} from './overlay.js';
+
 import * as Main from 'resource:///org/gnome/shell/ui/main.js';
 
 const KEYBINDING = 'cancel-countdown';
@@ -39,6 +41,7 @@ export const Position = Object.freeze({
 const RING = 56;
 const MARK = 28;
 const TICK_MS = 450;
+const WIND_UP_MS = 650;
 const BLUE = [76, 141, 255];
 const RED = [240, 82, 82];
 
@@ -98,7 +101,9 @@ class CountdownDisplay extends St.BoxLayout {
         super._init({style_class: 'nsl-snap-countdown', reactive: clickCancels});
         this._position = position;
         this._onClick = onClick;
-        this._titleTemplate = hints['countdown-title'];
+        // Without the seconds (D-043); an older app's "%1 s" text is skipped.
+        this._titleText = hints['countdown-title'].includes('%1')
+            ? DEFAULT_HINTS['countdown-title'] : hints['countdown-title'];
         this._total = 1;
         this._rest = 1;     // shown now, 1 → 0
         this._shut = 0;     // corners moved in, in logo units
@@ -170,23 +175,26 @@ class CountdownDisplay extends St.BoxLayout {
         this._timeline.start();
     }
 
-    start(seconds) {
+    // Shows the display empty and winds it up: the ring fills while the
+    // mark turns back, with a spring; `done` when it is wound up.
+    start(seconds, done) {
         this._total = Math.max(1, seconds);
-        this._rest = 1;
-        this._title.text = this._titleTemplate.replace('%1', `${seconds}`);
+        this._rest = 0;
+        this._title.text = this._titleText;
         this._place();
         super.show();
+        this._animate(1, 0, WIND_UP_MS, t => easeOutBack(t, 1.2), done);
     }
 
-    tick(left) {
-        this._title.text = this._titleTemplate.replace('%1', `${left}`);
-        this._animate(left / this._total, 0, TICK_MS, t => easeOutBack(t));
+    // One second less: turn and ring together; `done` at the end of it.
+    tick(left, done) {
+        this._animate(left / this._total, 0, TICK_MS, t => easeOutBack(t), done);
     }
 
-    // The shutter in the last second: corners in and out again.
-    snap() {
+    // The shutter at the end: corners in and out again, then `done`.
+    snap(done) {
         const t = t2 => t2 * (2 - t2);
-        this._animate(this._rest, 6, 120, t, () => this._animate(this._rest, 0, 150, t));
+        this._animate(this._rest, 6, 120, t, () => this._animate(this._rest, 0, 160, t, done));
     }
 
     _place() {
@@ -233,10 +241,8 @@ export function countdown(seconds, settings, hints, position = Position.CENTER, 
         let left = seconds;
         let timer = 0;
         let done = false;
-        let snapTimer = 0;
         const display = new CountdownDisplay(hints, position, clickCancels, () => finish(false));
         Main.layoutManager.uiGroup.add_child(display);
-        display.start(left);
         Main.wm.addKeybinding(KEYBINDING, settings, Meta.KeyBindingFlags.IGNORE_AUTOREPEAT,
             Shell.ActionMode.ALL, () => finish(false));
 
@@ -246,8 +252,6 @@ export function countdown(seconds, settings, hints, position = Position.CENTER, 
             done = true;
             if (timer)
                 GLib.source_remove(timer);
-            if (snapTimer)
-                GLib.source_remove(snapTimer);
             Main.wm.removeKeybinding(KEYBINDING);
             display.destroy();
             if (!ok) {
@@ -260,24 +264,25 @@ export function countdown(seconds, settings, hints, position = Position.CENTER, 
             });
         };
 
-        timer = GLib.timeout_add(GLib.PRIORITY_DEFAULT, 1000, () => {
-            left -= 1;
-            if (left <= 0) {
+        // The animation leads, the seconds only orient (D-043): wound up
+        // first, then a turn each second; the last turn runs to its end,
+        // then the snap, then the capture.
+        display.start(seconds, () => {
+            if (done)
+                return;
+            timer = GLib.timeout_add(GLib.PRIORITY_DEFAULT, 1000, () => {
+                left -= 1;
+                if (left > 0) {
+                    display.tick(left);
+                    return GLib.SOURCE_CONTINUE;
+                }
                 timer = 0;
-                finish(true);
-                return GLib.SOURCE_REMOVE;
-            }
-            display.tick(left);
-            // The shutter late in the last second, still before the
-            // display goes away: it must not delay the capture.
-            if (left === 1) {
-                snapTimer = GLib.timeout_add(GLib.PRIORITY_DEFAULT, 650, () => {
-                    snapTimer = 0;
-                    display.snap();
-                    return GLib.SOURCE_REMOVE;
+                display.tick(0, () => {
+                    if (!done)
+                        display.snap(() => finish(true));
                 });
-            }
-            return GLib.SOURCE_CONTINUE;
+                return GLib.SOURCE_REMOVE;
+            });
         });
     });
     return {promise, cancel: () => finish(false)};

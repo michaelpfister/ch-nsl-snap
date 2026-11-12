@@ -60,6 +60,7 @@ Countdown::Countdown(QWidget *parent)
     fitToText();
     m_mark = new LogoAnimator(this);
     connect(m_mark, &LogoAnimator::changed, this, qOverload<>(&QWidget::update));
+    connect(m_mark, &LogoAnimator::finished, this, &Countdown::onMarkFinished);
     m_tick.setInterval(1000);
     setOptions({});
     connect(&m_tick, &QTimer::timeout, this, &Countdown::tick);
@@ -87,7 +88,7 @@ void Countdown::fitToText()
     title.setWeight(QFont::DemiBold);
     QFont hint = font();
     hint.setPixelSize(12);
-    const int text = std::max(QFontMetrics(title).horizontalAdvance(CaptureHints::countdownTitle(88)),
+    const int text = std::max(QFontMetrics(title).horizontalAdvance(CaptureHints::countdownTitle()),
                               QFontMetrics(hint).horizontalAdvance(CaptureHints::countdown(m_options.clickCancels)));
     setFixedSize(kPad + kRing + kGap + text + 2 * kPad, kHeight);
 }
@@ -120,7 +121,8 @@ void Countdown::start(int seconds)
     m_left = seconds;
     m_total = std::max(1, seconds);
     m_running = true;
-    m_mark->setPose(LogoMark::timer(1));
+    // Empty, wound up first (D-043): the mark turns back while the ring fills.
+    m_mark->setPose(LogoMark::timer(0));
     if (QScreen *screen = QGuiApplication::primaryScreen()) {
         move(CountdownOptions::place(m_options.position, screen->geometry(), screen->availableGeometry(), size()));
 #ifdef NSL_HAVE_WAYLAND_BACKEND
@@ -137,7 +139,38 @@ void Countdown::start(int seconds)
     // Escape from anywhere: the key goes to the window with the focus.
     RegisterHotKey(reinterpret_cast<HWND>(winId()), kEscapeHotkey, MOD_NOREPEAT, VK_ESCAPE);
 #endif
-    m_tick.start();
+    m_phase = Phase::WindUp;
+    m_mark->play(LogoAnimator::windUpSteps());
+}
+
+void Countdown::onMarkFinished()
+{
+    // The animation leads, the seconds only orient (D-043): each phase
+    // starts when the mark has finished the one before.
+    if (!m_running)
+        return;
+    switch (m_phase) {
+    case Phase::WindUp:
+        m_phase = Phase::Ticking;
+        m_tick.start();
+        break;
+    case Phase::Ticking:
+        break;
+    case Phase::LastTurn: {
+        // The ring is gone: the corners snap like a shutter.
+        m_phase = Phase::Snap;
+        LogoPose shut = LogoMark::timer(0);
+        shut.c1Offset = QPointF(6, 6);
+        shut.c2Offset = QPointF(-6, -6);
+        m_mark->play({{shut, 120, QEasingCurve::InOutQuad}, {LogoMark::timer(0), 160, QEasingCurve::OutCubic}});
+        break;
+    }
+    case Phase::Snap:
+        stop();
+        // Gone from the screen before the freeze.
+        QTimer::singleShot(kSettleMs, this, &Countdown::finished);
+        break;
+    }
 }
 
 void Countdown::stop()
@@ -146,6 +179,7 @@ void Countdown::stop()
         return;
     m_running = false;
     m_tick.stop();
+    m_mark->stop();
 #ifdef Q_OS_WIN
     UnregisterHotKey(reinterpret_cast<HWND>(winId()), kEscapeHotkey);
 #endif
@@ -162,27 +196,13 @@ void Countdown::cancel()
 
 void Countdown::tick()
 {
-    if (--m_left > 0) {
-        const qreal rest = qreal(m_left) / m_total;
-        m_mark->play(LogoAnimator::timerSteps(rest));
-        // In the last second the corners close like a shutter, still
-        // before the countdown goes away (it must not delay the capture).
-        if (m_left == 1) {
-            QTimer::singleShot(m_tick.interval() * 65 / 100, this, [this, rest] {
-                if (!m_running)
-                    return;
-                LogoPose shut = LogoMark::timer(rest);
-                shut.c1Offset = QPointF(6, 6);
-                shut.c2Offset = QPointF(-6, -6);
-                m_mark->play({{shut, 120, QEasingCurve::InOutQuad}, {LogoMark::timer(rest), 150, QEasingCurve::OutCubic}});
-            });
-        }
-        update();
-        return;
+    m_left = std::max(0, m_left - 1);
+    if (m_left == 0) {
+        // The last turn runs to its end, then the snap (onMarkFinished).
+        m_tick.stop();
+        m_phase = Phase::LastTurn;
     }
-    stop();
-    // Gone from the screen before the freeze.
-    QTimer::singleShot(kSettleMs, this, &Countdown::finished);
+    m_mark->play(LogoAnimator::timerSteps(qreal(m_left) / m_total));
 }
 
 void Countdown::paintEvent(QPaintEvent *)
@@ -218,7 +238,7 @@ void Countdown::paintEvent(QPaintEvent *)
     painter.setFont(title);
     painter.setPen(QColor(0xE9, 0xEC, 0xEF));
     painter.drawText(QRect(textLeft, kPad + 8, width() - textLeft, 20), Qt::AlignLeft | Qt::AlignVCenter,
-                     CaptureHints::countdownTitle(m_left));
+                     CaptureHints::countdownTitle());
     QFont hint = font();
     hint.setPixelSize(12);
     painter.setFont(hint);

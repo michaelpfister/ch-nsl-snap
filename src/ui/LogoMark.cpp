@@ -285,6 +285,13 @@ QList<LogoAnimator::Step> LogoAnimator::timerSteps(qreal toRest)
     return {{LogoMark::timer(toRest), 450, tick}};
 }
 
+QList<LogoAnimator::Step> LogoAnimator::windUpSteps()
+{
+    QEasingCurve spring(QEasingCurve::OutBack);
+    spring.setOvershoot(1.2);
+    return {{LogoMark::timer(1), 650, spring}};
+}
+
 LogoMarkWidget::LogoMarkWidget(QWidget *parent)
     : QWidget(parent)
     , m_animator(new LogoAnimator(this))
