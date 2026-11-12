@@ -31,7 +31,7 @@ struct LogoPose
     qreal slashTurn = 0;     // degrees, the slash on its own
     qreal slashShift = 0;    // moves the slash sideways after turning it
     qreal nudge = 0;         // moves the right corner and the slash to the right
-    qreal flash = 0;         // 0..1, for the place behind the mark (start)
+    qreal flash = 0;         // 0..1, the start's brightening; the place decides how strong 1 is
     qreal ring = 1;          // 0..1, the countdown's ring (Countdown)
 
     // In between `a` and `b`; t from 0 to 1 (and beyond, for overshoot).

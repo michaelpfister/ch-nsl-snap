@@ -128,19 +128,19 @@ QT_DIR=$HOME/Qt/6.8.3/gcc_64 scripts/build-appimage.sh
 
 ## Installing on Linux
 
-For using Snapslash rather than working on it, on a Linux without Nix (Ubuntu, Zorin OS, …). There is no package for these distributions yet: build a release from source and install it for your user. System packages and Qt as in steps 1 and 2 above, then:
+For using Snapslash rather than working on it, on a Linux without Nix (Ubuntu, Zorin OS, …): the AppImage of a release sets itself up (README, D-041). To build a release from source instead and install it for your user, with the system packages and Qt of steps 1 and 2 above:
 
 ```bash
 git clone https://github.com/michaelpfister/ch-nsl-snap.git ~/snapslash
 cd ~/snapslash
-git checkout v0.3.0-beta.2
-cmake -S . -B build -G Ninja -DCMAKE_PREFIX_PATH=$HOME/Qt/6.8.3/gcc_64 -DCMAKE_BUILD_TYPE=Release -DNSL_VERSION_SUFFIX=beta.2
+git checkout v1.0.0
+cmake -S . -B build -G Ninja -DCMAKE_PREFIX_PATH=$HOME/Qt/6.8.3/gcc_64 -DCMAKE_BUILD_TYPE=Release
 cmake --build build
 cmake --install build --prefix ~/.local
 scripts/dev-install.sh
 ```
 
-- `NSL_VERSION_SUFFIX` is the part of the tag after the `-` (`beta.2`); leave it out for a release without one. The app then reports the version it was built from, which its update check compares with the releases (D-037).
+- For a pre-release add `-DNSL_VERSION_SUFFIX=beta.1`, the part of the tag after the `-`; leave it out for a release without one. The app then reports the version it was built from, which its update check compares with the releases (D-037).
 - `cmake --install` puts `snapslash` into `~/.local/bin`, the desktop entry and the icon into `~/.local/share`, so the app shows up among the applications with its quick actions (D-036). The installed program keeps the path to Qt in `~/Qt` (`CMAKE_INSTALL_RPATH_USE_LINK_PATH`, on by default).
 - `scripts/dev-install.sh` links the GNOME extension from the checkout, so keep the folder. Log out and in again afterwards: GNOME Shell only loads new extensions at login. A login also puts `~/.local/bin` on the `PATH` if the folder did not exist before.
 - Another version later: the same steps with its tag; the app's settings tab "Updates" shows them for the chosen version.
@@ -182,7 +182,7 @@ A release is a version tag; `.github/workflows/release.yml` does the rest (D-037
    git push origin v0.2.0
    ```
 
-3. The workflow checks the tag against both versions, builds the Windows ZIPs (x64, ARM64), writes `SHA256SUMS.txt` and creates the release with notes generated from the merged pull requests. A tag with `-` (`v0.3.0-beta.1`) becomes a pre-release, which the app offers only with the setting "Auch Vorabversionen anbieten".
+3. The workflow checks the tag against both versions, builds the Windows ZIPs (x64, ARM64) and the Linux AppImage, writes `SHA256SUMS.txt` and creates the release with notes generated from the merged pull requests. A tag with `-` (`v0.3.0-beta.1`) becomes a pre-release, which the app offers only with the setting "Auch Vorabversionen anbieten".
 4. Edit the notes on GitHub if needed: the app shows them in its update dialog (Markdown).
 
 To try an update before the first real one: release a pre-release, start the ZIP of an older pre-release, and enable pre-releases in the settings.

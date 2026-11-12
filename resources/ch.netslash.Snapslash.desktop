@@ -9,7 +9,10 @@ Exec=snapslash
 Icon=ch.netslash.Snapslash
 Terminal=false
 StartupNotify=true
-StartupWMClass=snapslash
+# X11/XWayland: GNOME matches the window by its WM_CLASS class, which Qt
+# sets to the application name "Snapslash" (the instance is the program's
+# name, "AppRun" inside the AppImage). Wayland matches by the file name.
+StartupWMClass=Snapslash
 SingleMainWindow=true
 Categories=Graphics;
 Keywords=Screenshot;Bildschirmfoto;Aufnahme;Fenster;Bereich;

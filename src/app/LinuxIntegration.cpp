@@ -8,6 +8,7 @@
 #include <QProcess>
 #include <QRegularExpression>
 #include <QSaveFile>
+#include <QStandardPaths>
 
 #include <optional>
 
@@ -89,6 +90,40 @@ std::optional<QString> gsettings(const QStringList &arguments, QString &error)
 }
 
 } // namespace
+
+bool iconCacheIsStale(const QString &themeDir, const QString &icon)
+{
+    // GTK and GNOME Shell trust a theme folder's icon-theme.cache as long as
+    // the folder itself is not newer. An icon added to a subfolder later
+    // (scalable/apps) leaves the folder's time alone: the cache, which
+    // does not know the icon, still counts, and the dock shows a gear.
+    const QFileInfo cache(themeDir + QStringLiteral("/icon-theme.cache"));
+    const QFileInfo iconFile(icon);
+    return cache.exists() && iconFile.exists() && iconFile.lastModified() > cache.lastModified()
+        && QFileInfo(themeDir).lastModified() <= cache.lastModified();
+}
+
+void refreshIconCache(const QString &themeDir, const QString &icon)
+{
+    if (!iconCacheIsStale(themeDir, icon))
+        return;
+    // Another app left the cache in the user's folder; rebuild it, as
+    // that app would. -t: the user's hicolor folder has no index.theme.
+    if (!QStandardPaths::findExecutable(QStringLiteral("gtk-update-icon-cache")).isEmpty()) {
+        QProcess process;
+        process.start(QStringLiteral("gtk-update-icon-cache"),
+                      {QStringLiteral("--force"), QStringLiteral("--ignore-theme-index"), QStringLiteral("--quiet"), themeDir});
+        if (process.waitForFinished(5000) && process.exitStatus() == QProcess::NormalExit && process.exitCode() == 0)
+            return;
+    }
+    // Without the tool: make the folder newer than the cache, so it is
+    // ignored and the folder is read as it is (a file made and removed).
+    QFile touch(themeDir + QStringLiteral("/.snapslash-touch"));
+    if (touch.open(QIODevice::WriteOnly)) {
+        touch.close();
+        touch.remove();
+    }
+}
 
 bool isAppImage()
 {
@@ -185,6 +220,7 @@ SetupResult setUpDesktop(const Paths &paths)
     const QByteArray icon = readAll(paths.shareDir + iconPath);
     if (!icon.isEmpty() && !writeIfDifferent(paths.dataHome + iconPath, icon, result.changed))
         result.error = QCoreApplication::translate("LinuxIntegration", "Das Symbol lässt sich nicht nach %1 schreiben.").arg(paths.dataHome);
+    refreshIconCache(paths.dataHome + QStringLiteral("/icons/hicolor"), paths.dataHome + iconPath);
     const QByteArray entry = desktopEntry(QString::fromUtf8(bundled), paths.appImage).toUtf8();
     if (!writeIfDifferent(paths.dataHome + QStringLiteral("/applications/") + entryName, entry, result.changed))
         result.error = QCoreApplication::translate("LinuxIntegration", "Der Menüeintrag lässt sich nicht nach %1 schreiben.").arg(paths.dataHome);

@@ -9,6 +9,7 @@
 #include "editor/ReplaceItem.h"
 #include "editor/TextItem.h"
 #include "ui/LogoMark.h"
+#include "ui/Theme.h"
 
 #include <QDragEnterEvent>
 #include <QDropEvent>
@@ -972,13 +973,17 @@ void EditorView::drawForeground(QPainter *painter, const QRectF &rect)
         painter->resetTransform();
         const QRect area = viewport()->rect();
         const LogoPose &pose = m_emptyMark->pose();
-        if (pose.flash > 0) {
-            QColor flash(Qt::white);
-            flash.setAlphaF(pose.flash);
-            painter->fillRect(area, flash);
-        }
         constexpr int kMark = 64;
         const QPointF centre = QRectF(area).center();
+        if (pose.flash > 0) {
+            // The "photo": the whole view brightens and darkens again, softly
+            // (rising in 180 ms, fading in 500 ms) and far below a flash's
+            // white: one gentle change is harmless (WCAG 2.3 counts more than
+            // three flashes a second), a hard full-white flash would not be kind.
+            QColor flash(Qt::white);
+            flash.setAlphaF(pose.flash * (Theme::current().dark ? 0.25 : 0.45));
+            painter->fillRect(area, flash);
+        }
         LogoMark::paint(*painter, QRectF(centre.x() - kMark / 2.0, centre.y() - kMark - 4, kMark, kMark), pose,
                         palette().color(QPalette::WindowText), 4.5);
         painter->setPen(palette().color(QPalette::PlaceholderText));

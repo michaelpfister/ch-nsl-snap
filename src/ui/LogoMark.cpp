@@ -130,7 +130,7 @@ LogoPose startShutter()
     LogoPose p;
     p.c1Offset = QPointF(2, 2);
     p.c2Offset = QPointF(-2, -2);
-    p.flash = 0.8;
+    p.flash = 1; // its strength is the place's to choose (EditorView: gentle)
     return p;
 }
 
@@ -247,8 +247,10 @@ QList<LogoAnimator::Step> LogoAnimator::startSteps()
         {LogoMark::startHidden(), 40, QEasingCurve::Linear},
         {framesOut, 400, QEasingCurve::OutCubic},
         {LogoPose(), 280, spring},
-        {LogoMark::startShutter(), 120, QEasingCurve::InOutQuad},
-        {LogoPose(), 400, QEasingCurve::OutCubic},
+        // The flash rises softly and fades slowly: a light brightening, never
+        // a hard jump (light-sensitive people, WCAG 2.3).
+        {LogoMark::startShutter(), 180, QEasingCurve::InOutQuad},
+        {LogoPose(), 500, QEasingCurve::OutCubic},
     };
 }
 

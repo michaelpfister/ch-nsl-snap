@@ -6,7 +6,7 @@ Screenshots for instructions and documentation: capture **one window** with clea
 
 ![The Snapslash editor with a captured settings window, two numbered frames and an arrow](docs/images/editor.png)
 
-> **Status:** pre-release ([v0.3.0-beta.2](https://github.com/michaelpfister/ch-nsl-snap/releases)). Usable every day on Windows, GNOME and Hyprland; macOS is planned.
+> **Status:** [1.0](https://github.com/michaelpfister/ch-nsl-snap/releases) for Windows and Linux (GNOME, Hyprland and other Wayland desktops); macOS is planned.
 
 ## Features
 
@@ -69,7 +69,12 @@ Or add the flake as an input and `inputs.snapslash.packages.${pkgs.system}.defau
 
 ### Linux with GNOME (Ubuntu, Zorin OS, …)
 
-There is no Linux package yet (an AppImage that sets itself up and updates itself is planned, D-041): build the release from source, install it for your user, and add the Shell extension. [docs/07-development-setup.md](docs/07-development-setup.md#installing-on-linux) walks through it: Qt 6.8 from aqtinstall, `cmake --install` into `~/.local` (with a desktop entry and icon), then `scripts/dev-install.sh` and log out and in again.
+Download `snapslash-<version>-linux-x86_64.AppImage` from the [latest release](https://github.com/michaelpfister/ch-nsl-snap/releases/latest) into a folder of your choice (for example `~/Apps`), tick "Allow executing file as program" in its properties, and start it. On its first start Snapslash sets itself up for your user, without administrator rights:
+
+- a menu entry with its icon, and the command `snapslash` in `~/.local/bin` for key bindings and scripts;
+- on GNOME, after you agree, the Shell extension Snapslash needs to pick windows and regions; then log out and in once.
+
+Keep the file where it is: the menu entry points to it. To update, download the new AppImage and replace the file; the app sets itself up again (updating itself is planned, D-041). It runs on systems with glibc 2.35 or newer (Ubuntu 22.04, Zorin OS 17, Fedora 36 and later). Building from source: [docs/07-development-setup.md](docs/07-development-setup.md#installing-on-linux).
 
 ## Command line
 
