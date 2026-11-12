@@ -51,6 +51,13 @@ struct SetupResult
 // from source) is left alone.
 SetupResult setUpDesktop(const Paths &paths);
 
+// The icon cache that another app may have left in the user's hicolor
+// folder no longer knows `icon` (it is older and the folder is not newer):
+// then GNOME does not find the icon. refreshIconCache() rebuilds it with
+// gtk-update-icon-cache, or makes the folder newer so it is ignored.
+bool iconCacheIsStale(const QString &themeDir, const QString &icon);
+void refreshIconCache(const QString &themeDir, const QString &icon);
+
 // --- GNOME extension -------------------------------------------------------
 
 QString extensionUuid(); // "nsl-snap@netslash.ch"

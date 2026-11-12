@@ -114,6 +114,25 @@ private slots:
         QCOMPARE(QFileInfo(moved.binDir + QStringLiteral("/snapslash")).symLinkTarget(), moved.appImage);
     }
 
+    void staleIconCacheIsRefreshed()
+    {
+        // Another app left an icon cache in the user's hicolor folder; our
+        // icon comes later, into a subfolder, which the cache does not know.
+        QTemporaryDir root;
+        const Paths paths = fakeAppImage(root.path());
+        const QString theme = paths.dataHome + QStringLiteral("/icons/hicolor");
+        QVERIFY(QDir().mkpath(theme + QStringLiteral("/scalable/apps")));
+        write(theme + QStringLiteral("/icon-theme.cache"), "an older app's cache");
+        QTest::qWait(30); // so the icon is clearly newer than the cache
+        const QString icon = theme + QStringLiteral("/scalable/apps/ch.netslash.Snapslash.svg");
+        write(icon, "<svg/>");
+        QVERIFY(iconCacheIsStale(theme, icon));
+
+        QVERIFY(setUpDesktop(paths).error.isEmpty());
+        // Rebuilt (gtk-update-icon-cache), or the folder made newer.
+        QVERIFY(!iconCacheIsStale(theme, icon));
+    }
+
     void buildFromSourceKeepsItsCommand()
     {
         QTemporaryDir root;
