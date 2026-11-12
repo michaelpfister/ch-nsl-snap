@@ -17,6 +17,8 @@ class QUndoStack;
 // Shows the document and turns mouse input into editing commands. The scene
 // works in image pixels, so annotations use the same coordinates as the
 // export.
+class LogoAnimator;
+
 class EditorView : public QGraphicsView
 {
     Q_OBJECT
@@ -105,6 +107,7 @@ protected:
     void dragEnterEvent(QDragEnterEvent *event) override;
     void dragMoveEvent(QDragMoveEvent *event) override;
     void dropEvent(QDropEvent *event) override;
+    void showEvent(QShowEvent *event) override;
 
 private:
     // Sets the zoom; `anchor` (viewport position) stays in place, or the
@@ -159,6 +162,8 @@ private:
     bool m_fitMode = true;
 
     bool m_pickingColor = false;
+    // The mark in the empty editor; it draws itself in once per start (D-043).
+    LogoAnimator *m_emptyMark = nullptr;
     QPoint m_pickPos; // viewport position of the cursor while picking
 
     QRect m_cropDraft;

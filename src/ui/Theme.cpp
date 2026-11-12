@@ -174,7 +174,7 @@ QPushButton[role="destructive"]:pressed { background: @dangerPressed; }
 
 /* The note about a newer version at the bottom of the window (UpdateBar). */
 #UpdateBar { background: @soft; border-top: 1px solid @border; }
-#UpdateBarText { color: @softText; }
+#UpdateBarText, #UpdateBarMark { color: @softText; }
 #UpdateBar QPushButton[role="primary"] { min-height: 30px; padding: 0 12px; }
 #UpdateBarClose { background: transparent; border: none; border-radius: 6px; color: @softText; padding: 4px 8px; }
 #UpdateBarClose:hover { background: @hover; }

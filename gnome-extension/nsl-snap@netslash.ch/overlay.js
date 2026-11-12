@@ -24,6 +24,8 @@ export const DEFAULT_HINTS = {
     'region-second': 'Gegenüberliegende Ecke anklicken · Rücktaste: neu beginnen · Esc: Abbrechen',
     'region-drag': 'Bereich aufziehen · Pfeiltasten und Enter: pixelgenau · W: Fenster · Esc: Abbrechen',
     'countdown': 'Esc oder Klick: Abbrechen',
+    // The countdown's title; %1 is the seconds left.
+    'countdown-title': 'Aufnahme in %1 s',
 };
 
 export const Mode = Object.freeze({WINDOW: 'window', REGION: 'region', SCREEN: 'screen'});

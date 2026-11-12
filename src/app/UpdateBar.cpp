@@ -1,10 +1,21 @@
 #include "app/UpdateBar.h"
 
+#include "ui/LogoMark.h"
+#include "ui/Motion.h"
+
 #include <QHBoxLayout>
-#include <QIcon>
 #include <QLabel>
 #include <QPushButton>
 #include <QToolButton>
+#include <QVariantAnimation>
+
+namespace {
+
+constexpr int kMarkSize = 20;   // the mark at rest
+constexpr int kMarkGrown = 28;  // while announcing
+constexpr int kGrowBy = 16;     // px the bar grows
+
+} // namespace
 
 UpdateBar::UpdateBar(QWidget *parent)
     : QFrame(parent)
@@ -17,9 +28,36 @@ UpdateBar::UpdateBar(QWidget *parent)
     layout->setContentsMargins(16, 8, 8, 8);
     layout->setSpacing(12);
 
-    auto *icon = new QLabel(this);
-    icon->setPixmap(QIcon(QStringLiteral(":/icons/dialog-information.svg")).pixmap(QSize(18, 18), devicePixelRatioF()));
-    layout->addWidget(icon);
+    // The app's mark, in the bar's blue (style sheet: #UpdateBarMark).
+    m_mark = new LogoMarkWidget(this);
+    m_mark->setObjectName(QStringLiteral("UpdateBarMark"));
+    setMarkSize(kMarkSize);
+    layout->addWidget(m_mark);
+
+    // Growing for announce(): the extra height, 0 → 1 → 0.
+    m_grow = new QVariantAnimation(this);
+    m_grow->setDuration(260);
+    m_grow->setEasingCurve(QEasingCurve::OutCubic);
+    connect(m_grow, &QVariantAnimation::valueChanged, this, [this](const QVariant &value) {
+        const qreal t = value.toReal();
+        setFixedHeight(m_restHeight + qRound(kGrowBy * t));
+        setMarkSize(kMarkSize + qRound((kMarkGrown - kMarkSize) * t));
+    });
+    connect(m_mark->animator(), &LogoAnimator::finished, this, [this] {
+        if (m_restHeight <= 0)
+            return;
+        m_grow->setStartValue(1.0);
+        m_grow->setEndValue(0.0);
+        m_grow->start();
+    });
+    connect(m_grow, &QVariantAnimation::finished, this, [this] {
+        if (m_grow->endValue().toReal() > 0)
+            return;
+        // Back at rest: the layout decides the height again.
+        setMinimumHeight(0);
+        setMaximumHeight(QWIDGETSIZE_MAX);
+        m_restHeight = 0;
+    });
 
     m_text = new QLabel(this);
     m_text->setObjectName(QStringLiteral("UpdateBarText"));
@@ -44,6 +82,25 @@ UpdateBar::UpdateBar(QWidget *parent)
     layout->addWidget(close);
 
     setVisible(false);
+}
+
+void UpdateBar::setMarkSize(int side)
+{
+    // Room on the right: the arrow's nudge reaches past the square.
+    m_mark->setFixedSize(side + side / 3, side);
+}
+
+void UpdateBar::announce()
+{
+    if (!isVisible() || m_restHeight > 0)
+        return;
+    m_restHeight = height();
+    if (Motion::reduced())
+        return; // no movement; the bar itself is the note
+    m_grow->setStartValue(0.0);
+    m_grow->setEndValue(1.0);
+    m_grow->start();
+    m_mark->animator()->play(LogoAnimator::updateSteps());
 }
 
 void UpdateBar::setVersion(const QString &version)

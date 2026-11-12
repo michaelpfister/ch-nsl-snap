@@ -99,6 +99,9 @@ void setAvailableUpdate(const QString &version);
 // The version whose note at the bottom of the window was closed (UpdateBar).
 QString dismissedUpdate();
 void setDismissedUpdate(const QString &version);
+// The version whose bar already drew attention (UpdateBar::announce).
+QString announcedUpdate();
+void setAnnouncedUpdate(const QString &version);
 
 // Global hotkeys (F-42): the key of each action; GlobalHotkeys::defaultKey
 // until changed, an empty sequence when switched off.

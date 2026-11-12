@@ -61,6 +61,10 @@
         <source>Esc: Abbrechen</source>
         <translation>Esc: cancel</translation>
     </message>
+    <message>
+        <source>Aufnahme in %1 s</source>
+        <translation>Capture in %1 s</translation>
+    </message>
 </context>
 <context>
     <name>ColorPopup</name>

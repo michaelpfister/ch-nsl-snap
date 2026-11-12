@@ -1650,6 +1650,11 @@ void MainWindow::showUpdateBar(const QString &version)
     const std::optional<Version> parsed = Version::parse(version);
     const bool show = parsed && *parsed > Version::current() && parsed->toString() != Settings::dismissedUpdate();
     m_updateBar->setVersion(show ? parsed->toString() : QString());
+    // The first time a version is shown, the bar draws attention once (D-043).
+    if (show && isVisible() && parsed->toString() != Settings::announcedUpdate()) {
+        Settings::setAnnouncedUpdate(parsed->toString());
+        m_updateBar->announce();
+    }
 }
 
 void MainWindow::openAvailableUpdate()
