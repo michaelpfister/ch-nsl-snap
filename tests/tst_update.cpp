@@ -125,6 +125,9 @@ private slots:
         QCOMPARE(Releases::installation(QStringLiteral("C:/repo/build"), true, false), Installation::Other);
         QCOMPARE(Releases::installation(QStringLiteral("/nix/store/abc-snapslash-0.2.0/bin"), false, false), Installation::Nix);
         QCOMPARE(Releases::installation(QStringLiteral("/home/user/ch-nsl-snap/build"), false, false), Installation::Other);
+        QCOMPARE(Releases::installation(QStringLiteral("/tmp/.mount_snapslXYZ/usr/bin"), false, false, true),
+                 Installation::AppImage);
+        QCOMPARE(Releases::linuxAssetName(v("0.3.0-beta.3")), QStringLiteral("snapslash-0.3.0-beta.3-linux-x86_64.AppImage"));
         QCOMPARE(Releases::windowsAssetName(v("0.2.0"), QStringLiteral("x86_64")), QStringLiteral("snapslash-0.2.0-windows-x64.zip"));
         QCOMPARE(Releases::windowsAssetName(v("0.2.0"), QStringLiteral("arm64")), QStringLiteral("snapslash-0.2.0-windows-arm64.zip"));
     }

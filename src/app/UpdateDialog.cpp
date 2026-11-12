@@ -151,6 +151,12 @@ QString UpdateDialog::instructions(Releases::Installation installation, const Re
                   "Mit `nix profile`:\n\n"
                   "```\nnix profile remove snapslash\nnix profile install %2\n```")
             .arg(release.version.toString(), flake);
+    case Releases::Installation::AppImage:
+        // Until the app replaces the file itself (D-041, step 3).
+        return tr("**Wechsel auf %1:** Auf der Release-Seite die Datei `%2` herunterladen, "
+                  "die bisherige AppImage-Datei damit ersetzen und sie starten. Menüeintrag, Befehl und "
+                  "GNOME-Erweiterung richtet die App danach selbst neu ein.")
+            .arg(release.version.toString(), Releases::linuxAssetName(release.version));
     case Releases::Installation::PortableWindows:
     case Releases::Installation::Other:
         break;

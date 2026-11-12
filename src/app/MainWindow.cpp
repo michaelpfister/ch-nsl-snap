@@ -1,6 +1,8 @@
 #include "app/MainWindow.h"
 #include "app/FileNames.h"
 #include "app/GlobalHotkeys.h"
+#include "app/GnomeExtensionSetup.h"
+#include "app/LinuxIntegration.h"
 
 #include "app/PropertiesPanel.h"
 #include "app/RecentCaptures.h"
@@ -311,6 +313,8 @@ MainWindow::MainWindow(QWidget *parent)
     createTrayIcon();
     createShortcuts();
     createGlobalHotkeys();
+    // The AppImage's menu entry and extension (D-041), once the window is up.
+    QTimer::singleShot(0, this, &MainWindow::setUpAppImage);
 
     m_updates = new UpdateChecker(this);
     connect(m_updates, &UpdateChecker::finished, this, &MainWindow::onReleasesLoaded);
@@ -610,6 +614,21 @@ void MainWindow::createGlobalHotkeys()
     });
     // After the window is on the screen.
     QTimer::singleShot(0, this, &MainWindow::showPrintKeyHint);
+}
+
+void MainWindow::setUpAppImage()
+{
+    if (!LinuxIntegration::isAppImage())
+        return;
+    // Menu entry, icon and command on every start, quietly: they follow the
+    // file when it was moved or replaced (D-041).
+    const LinuxIntegration::SetupResult result = LinuxIntegration::setUpDesktop(LinuxIntegration::currentPaths());
+    if (!result.error.isEmpty())
+        qWarning("snapslash: %s", qUtf8Printable(result.error));
+    // The extension only after the user agreed, and not in the middle of a
+    // capture started from the command line (then the window is hidden).
+    if (isVisible() && GnomeExtensionSetup::shouldOffer())
+        GnomeExtensionSetup::offer(this);
 }
 
 void MainWindow::showPrintKeyHint()
@@ -1062,7 +1081,13 @@ void MainWindow::startCapture(CaptureResult::Kind kind, int delay, bool activeWi
         return;
     }
     if (!m_capture->isAvailable()) {
-        QMessageBox::warning(isVisible() ? this : nullptr, tr("Aufnahme nicht möglich"), m_capture->unavailableReason());
+        // The AppImage on GNOME brings the missing extension along (D-041).
+        if (GnomeExtensionSetup::isAvailable()
+            && LinuxIntegration::extensionState(LinuxIntegration::currentPaths())
+                   != LinuxIntegration::ExtensionState::Current)
+            GnomeExtensionSetup::offer(isVisible() ? this : nullptr, m_capture->unavailableReason());
+        else
+            QMessageBox::warning(isVisible() ? this : nullptr, tr("Aufnahme nicht möglich"), m_capture->unavailableReason());
         modeButton(m_lastMode)->setChecked(true);
         finishRequest(CommandLine::Outcome::Failed, m_capture->unavailableReason());
         return;

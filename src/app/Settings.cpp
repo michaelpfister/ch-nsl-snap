@@ -265,6 +265,16 @@ void setPrintKeyHintShown(bool shown)
     QSettings().setValue("hotkeys/printKeyHintShown", shown);
 }
 
+QString gnomeExtensionDeclinedFor()
+{
+    return QSettings().value("linux/gnomeExtensionDeclinedFor").toString();
+}
+
+void setGnomeExtensionDeclinedFor(const QString &version)
+{
+    QSettings().setValue("linux/gnomeExtensionDeclinedFor", version);
+}
+
 namespace {
 
 // Colours are stored as "#rrggbb"; an invalid stored value gives `fallback`.

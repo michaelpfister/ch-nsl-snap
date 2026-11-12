@@ -131,10 +131,12 @@ QString portableMarkerName()
     return QStringLiteral("snapslash-portable.txt");
 }
 
-Installation installation(const QString &applicationDir, bool isWindows, bool hasPortableMarker)
+Installation installation(const QString &applicationDir, bool isWindows, bool hasPortableMarker, bool isAppImage)
 {
     if (isWindows && hasPortableMarker)
         return Installation::PortableWindows;
+    if (!isWindows && isAppImage)
+        return Installation::AppImage;
     if (applicationDir.startsWith(QLatin1String("/nix/store/")))
         return Installation::Nix;
     return Installation::Other;
@@ -148,7 +150,10 @@ Installation installation()
 #else
     const bool isWindows = false;
 #endif
-    return installation(dir, isWindows, QFileInfo::exists(dir + QLatin1Char('/') + portableMarkerName()));
+    // The AppImage runtime names its file in $APPIMAGE.
+    const QString appImage = qEnvironmentVariable("APPIMAGE");
+    return installation(dir, isWindows, QFileInfo::exists(dir + QLatin1Char('/') + portableMarkerName()),
+                        !appImage.isEmpty() && QFileInfo(appImage).isFile());
 }
 
 QString windowsAssetName(const Version &version, const QString &cpuArchitecture)
@@ -163,6 +168,11 @@ QString windowsAssetName(const Version &version)
     // The architecture this program was built for, not the machine's: an
     // x64 build running emulated on ARM is replaced by the x64 build.
     return windowsAssetName(version, QSysInfo::buildCpuArchitecture());
+}
+
+QString linuxAssetName(const Version &version)
+{
+    return QStringLiteral("snapslash-%1-linux-x86_64.AppImage").arg(version.toString());
 }
 
 } // namespace Releases

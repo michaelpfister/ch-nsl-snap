@@ -3,6 +3,7 @@
 #include "app/CountdownPositionPicker.h"
 #include "app/FileNames.h"
 #include "app/GlobalHotkeys.h"
+#include "app/GnomeExtensionSetup.h"
 #include "app/Language.h"
 #include "app/Settings.h"
 #include "update/UpdateChecker.h"
@@ -145,6 +146,34 @@ SettingsDialog::SettingsDialog(GlobalHotkeys *hotkeys, bool countdownHasEscape, 
     layout->addWidget(trayHint);
     tray->setEnabled(hasTray);
     connect(tray, &QCheckBox::toggled, this, [](bool enabled) { Settings::setCloseToTray(enabled); });
+
+    // The extension inside the AppImage (D-041): its state, and setting it
+    // up again, e.g. after "Später" or when it was removed.
+    if (GnomeExtensionSetup::isAvailable()) {
+        layout->addSpacing(16);
+        auto *extensionTitle = new QLabel(tr("GNOME-Erweiterung"), this);
+        extensionTitle->setProperty("role", QStringLiteral("section"));
+        layout->addWidget(extensionTitle);
+        auto *extensionState = new QLabel(GnomeExtensionSetup::stateText(), this);
+        extensionState->setWordWrap(true);
+        layout->addWidget(extensionState);
+        auto *extensionHint = new QLabel(tr("Über sie wählt Snapslash unter GNOME Fenster und Bereiche aus. "
+                                            "Sie kommt mit der App und wird in den eigenen Benutzerordner installiert."), this);
+        extensionHint->setProperty("role", QStringLiteral("hint"));
+        extensionHint->setWordWrap(true);
+        layout->addWidget(extensionHint);
+        layout->addSpacing(4);
+        auto *extensionRow = new QHBoxLayout;
+        auto *setUp = new QPushButton(tr("GNOME-Erweiterung einrichten …"), this);
+        setUp->setProperty("role", QStringLiteral("secondary"));
+        extensionRow->addWidget(setUp);
+        extensionRow->addStretch(1);
+        layout->addLayout(extensionRow);
+        connect(setUp, &QPushButton::clicked, this, [this, extensionState] {
+            GnomeExtensionSetup::offer(this);
+            extensionState->setText(GnomeExtensionSetup::stateText());
+        });
+    }
 
     layout->addStretch(1);
 
@@ -449,6 +478,7 @@ void SettingsDialog::createUpdatePage(QVBoxLayout *layout)
     QString kind;
     switch (Releases::installation()) {
     case Releases::Installation::PortableWindows: kind = tr("portable Windows-Version"); break;
+    case Releases::Installation::AppImage: kind = tr("AppImage"); break;
     case Releases::Installation::Nix: kind = tr("über Nix installiert"); break;
     case Releases::Installation::Other: kind = tr("selbst gebaut"); break;
     }

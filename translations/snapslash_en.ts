@@ -314,6 +314,65 @@
     </message>
 </context>
 <context>
+    <name>GnomeExtensionSetup</name>
+    <message>
+        <source>Die installierte GNOME-Erweiterung «Snapslash» passt nicht zu dieser Version der App.</source>
+        <translation>The installed GNOME extension “Snapslash” does not match this version of the app.</translation>
+    </message>
+    <message>
+        <source>Unter GNOME nimmt Snapslash über die eigene GNOME-Erweiterung auf: Nur sie darf Fenster und Bereiche auswählen lassen und das Bild an die App geben.</source>
+        <translation>On GNOME, Snapslash captures through its own GNOME extension: only the extension may let you pick windows and regions and hand the picture to the app.</translation>
+    </message>
+    <message>
+        <source>GNOME-Erweiterung</source>
+        <translation>GNOME extension</translation>
+    </message>
+    <message>
+        <source>Die App ersetzt sie durch die mitgelieferte Version.</source>
+        <translation>The app replaces it with the version it brings along.</translation>
+    </message>
+    <message>
+        <source>Die App kopiert die mitgelieferte Erweiterung in den eigenen Benutzerordner und schaltet sie ein.</source>
+        <translation>The app copies the extension it brings along into your user folder and turns it on.</translation>
+    </message>
+    <message>
+        <source>GNOME lädt Erweiterungen nur bei der Anmeldung: Danach einmal ab- und wieder anmelden.</source>
+        <translation>GNOME loads extensions only at login: log out and in again once afterwards.</translation>
+    </message>
+    <message>
+        <source>Aktualisieren</source>
+        <translation>Update</translation>
+    </message>
+    <message>
+        <source>Einrichten</source>
+        <translation>Set up</translation>
+    </message>
+    <message>
+        <source>Später</source>
+        <translation>Later</translation>
+    </message>
+    <message>
+        <source>Die Erweiterung liess sich nicht einrichten.</source>
+        <translation>The extension could not be set up.</translation>
+    </message>
+    <message>
+        <source>Die Erweiterung ist eingerichtet. Bitte jetzt ab- und wieder anmelden, damit GNOME sie lädt.</source>
+        <translation>The extension is set up. Please log out and in again now, so GNOME loads it.</translation>
+    </message>
+    <message>
+        <source>Nicht installiert.</source>
+        <translation>Not installed.</translation>
+    </message>
+    <message>
+        <source>Installiert, passend zu dieser Version der App.</source>
+        <translation>Installed, matching this version of the app.</translation>
+    </message>
+    <message>
+        <source>Installiert, aber in einer anderen Version als die App.</source>
+        <translation>Installed, but in another version than the app.</translation>
+    </message>
+</context>
+<context>
     <name>GnomeRecordingBackend</name>
     <message>
         <source>Die GNOME-Erweiterung «Snapslash» ist veraltet und kennt die Videoaufnahme noch nicht. Bitte ab- und wieder anmelden, damit die neue Version geladen wird.</source>
@@ -377,6 +436,49 @@
     <message>
         <source>Die Aufnahme konnte nicht gelesen werden.</source>
         <translation>The capture could not be read.</translation>
+    </message>
+    <message>
+        <source>Die GNOME-Erweiterung «Snapslash» ist eingerichtet, aber GNOME hat sie noch nicht geladen. Bitte ab- und wieder anmelden.</source>
+        <translation>The GNOME extension “Snapslash” is set up, but GNOME has not loaded it yet. Please log out and in again.</translation>
+    </message>
+    <message>
+        <source>Die GNOME-Erweiterung «Snapslash» läuft nicht. Sie lässt sich in den Einstellungen unter «Allgemein» einrichten; danach ab- und wieder anmelden.</source>
+        <translation>The GNOME extension “Snapslash” is not running. It can be set up in the settings under “General”; then log out and in again.</translation>
+    </message>
+</context>
+<context>
+    <name>LinuxIntegration</name>
+    <message>
+        <source>«gsettings %1» ist fehlgeschlagen: %2</source>
+        <translation>“gsettings %1” failed: %2</translation>
+    </message>
+    <message>
+        <source>Der Menüeintrag fehlt im AppImage.</source>
+        <translation>The menu entry is missing from the AppImage.</translation>
+    </message>
+    <message>
+        <source>Das Symbol lässt sich nicht nach %1 schreiben.</source>
+        <translation>The icon cannot be written to %1.</translation>
+    </message>
+    <message>
+        <source>Der Menüeintrag lässt sich nicht nach %1 schreiben.</source>
+        <translation>The menu entry cannot be written to %1.</translation>
+    </message>
+    <message>
+        <source>Der Befehl «snapslash» lässt sich nicht in %1 anlegen.</source>
+        <translation>The command “snapslash” cannot be created in %1.</translation>
+    </message>
+    <message>
+        <source>Die GNOME-Erweiterung fehlt im AppImage.</source>
+        <translation>The GNOME extension is missing from the AppImage.</translation>
+    </message>
+    <message>
+        <source>Die Erweiterung lässt sich nicht nach %1 kopieren.</source>
+        <translation>The extension cannot be copied to %1.</translation>
+    </message>
+    <message>
+        <source>Die bisherige Erweiterung in %1 lässt sich nicht ersetzen.</source>
+        <translation>The previous extension in %1 cannot be replaced.</translation>
     </message>
 </context>
 <context>
@@ -1444,6 +1546,22 @@ Click to open in the editor</translation>
         <source>Auf diesem Desktop erreicht Esc den Countdown nicht, daher bricht ein Klick immer ab.</source>
         <translation>On this desktop Esc does not reach the countdown, so a click always cancels.</translation>
     </message>
+    <message>
+        <source>GNOME-Erweiterung</source>
+        <translation>GNOME extension</translation>
+    </message>
+    <message>
+        <source>Über sie wählt Snapslash unter GNOME Fenster und Bereiche aus. Sie kommt mit der App und wird in den eigenen Benutzerordner installiert.</source>
+        <translation>Through it Snapslash picks windows and regions on GNOME. It comes with the app and is installed into your user folder.</translation>
+    </message>
+    <message>
+        <source>GNOME-Erweiterung einrichten …</source>
+        <translation>Set up GNOME extension …</translation>
+    </message>
+    <message>
+        <source>AppImage</source>
+        <translation>AppImage</translation>
+    </message>
 </context>
 <context>
     <name>TextItem</name>
@@ -1790,6 +1908,10 @@ cmake --install build --prefix ~/.local
 ```
 
 On GNOME, then install the extension again (`scripts/dev-install.sh`) and log out and in again.</translation>
+    </message>
+    <message>
+        <source>**Wechsel auf %1:** Auf der Release-Seite die Datei `%2` herunterladen, die bisherige AppImage-Datei damit ersetzen und sie starten. Menüeintrag, Befehl und GNOME-Erweiterung richtet die App danach selbst neu ein.</source>
+        <translation>**Switching to %1:** download the file `%2` from the release page, replace the previous AppImage file with it and start it. The app then sets up its menu entry, command and GNOME extension again by itself.</translation>
     </message>
 </context>
 <context>

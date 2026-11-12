@@ -63,17 +63,21 @@ QString checksumFileName();
 // How this copy was installed decides what an update can do.
 enum class Installation {
     PortableWindows, // the ZIP from a release: the app replaces its folder
+    AppImage,        // the AppImage from a release (D-041)
     Nix,             // in the Nix store: Nix updates it, the app explains how
     Other,           // built from source or packaged elsewhere: a hint only
 };
 Installation installation();
 // The same decision for given facts, for the tests.
-Installation installation(const QString &applicationDir, bool isWindows, bool hasPortableMarker);
+Installation installation(const QString &applicationDir, bool isWindows, bool hasPortableMarker,
+                          bool isAppImage = false);
 // The file the release ZIP puts next to snapslash.exe.
 QString portableMarkerName();
 
 // "snapslash-0.2.0-windows-x64.zip" for this build's CPU (x64 or arm64).
 QString windowsAssetName(const Version &version);
 QString windowsAssetName(const Version &version, const QString &cpuArchitecture);
+// "snapslash-0.3.0-linux-x86_64.AppImage" (D-041; x86_64 only so far, Q-35).
+QString linuxAssetName(const Version &version);
 
 } // namespace Releases

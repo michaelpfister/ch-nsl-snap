@@ -122,7 +122,8 @@ QT_DIR=$HOME/Qt/6.8.3/gcc_64 scripts/build-appimage.sh
 - It downloads linuxdeploy, its Qt plugin, appimagetool and the static AppImage runtime, plus the sources of KDE's ECM and LayerShellQt, each with a fixed version and SHA-256 sum, into `build-appimage/`. LayerShellQt is built once against this Qt; delete `build-appimage/deps` to build it again.
 - The result is `build-appimage/snapslash-<version>-linux-x86_64.AppImage` (`VERSION_SUFFIX=beta.1` for a pre-release). The script checks that it starts and reports its version.
 - libpipewire and libva are not in the AppImage, they come from the system (D-041). An AppImage built on Ubuntu 24.04 needs glibc 2.39; the one from CI runs from glibc 2.35 on.
-- The GNOME extension is inside, under `usr/share/snapslash/gnome-extension`. Until the app installs it itself (D-041, step 2), install it as in step 4.
+- The GNOME extension is inside, under `usr/share/snapslash/gnome-extension`. Started on GNOME, the AppImage offers to install it (D-041); it replaces a link made by `scripts/dev-install.sh`, so for working on the extension run that script again afterwards.
+- Each start of the AppImage writes `~/.local/share/applications/ch.netslash.Snapslash.desktop`, the icon and the link `~/.local/bin/snapslash`. That entry wins over one from `cmake --install --prefix ~/.local`; delete it to go back.
 - Without FUSE (containers) the AppImage unpacks itself first: `--appimage-extract-and-run` or `APPIMAGE_EXTRACT_AND_RUN=1`.
 
 ## Installing on Linux

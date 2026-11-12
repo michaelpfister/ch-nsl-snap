@@ -87,6 +87,7 @@ private:
     void createGlobalHotkeys();
     // Once on Windows: Print opens the Snipping Tool (D-035).
     void showPrintKeyHint();
+    void setUpAppImage();
     QToolButton *modeButton(CaptureResult::Kind kind) const;
     void onCaptured(const CaptureResult &result);
     void onCaptureEnded(bool showWindow = true);

@@ -101,6 +101,11 @@ void setGlobalHotkey(GlobalHotkeys::Action action, const QKeySequence &key);
 bool printKeyHintShown();
 void setPrintKeyHintShown(bool shown);
 
+// The app version for which the user answered "Später" when asked to set up
+// the GNOME extension of the AppImage (D-041); asked again after an update.
+QString gnomeExtensionDeclinedFor();
+void setGnomeExtensionDeclinedFor(const QString &version);
+
 // Styles for new objects (F-22): the last ones chosen in the panel, so a
 // restart keeps the colours, widths and sizes the user works with.
 FrameStyle frameStyle();

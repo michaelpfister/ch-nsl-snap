@@ -116,3 +116,11 @@ set_tests_properties(tst_recent PROPERTIES ENVIRONMENT "${NSL_OFFSCREEN_ENV}")
 if(WIN32)
     set_target_properties(tst_recent PROPERTIES WIN32_EXECUTABLE FALSE)
 endif()
+
+# The AppImage's self-setup (D-041): files, links and folders as on Linux.
+if(LINUX)
+    qt_add_executable(tst_linuxintegration tst_linuxintegration.cpp)
+    target_link_libraries(tst_linuxintegration PRIVATE nsl_snap_core Qt6::Test)
+    target_compile_definitions(tst_linuxintegration PRIVATE NSL_SOURCE_DIR="${PROJECT_SOURCE_DIR}")
+    add_test(NAME tst_linuxintegration COMMAND tst_linuxintegration)
+endif()
