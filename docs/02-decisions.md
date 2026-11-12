@@ -619,3 +619,14 @@ Each entry: context, decision, rationale, consequences. Entries marked **(assump
 **Consequences:**
 - `SettingsDialog::exec()` waits in its own event loop, like QDialog did; questions from inside it (AppDialog) open on top of it.
 - D-030's "tabs" are now pages in the navigation.
+
+## D-045 Light or dark: a setting, and the system's choice from the desktop portal
+
+**Context:** The AppImage stayed light on a dark GNOME (2026-11-12). Qt learns the colour scheme from its platform theme; on GNOME it prefers its GTK theme plugin, which the build from source has (Qt from aqtinstall) but the AppImage does not carry (it would pull GTK in). Without it Qt reports "unknown", which the app took as light. The settings also had no way to choose.
+**Decision:**
+- **Setting** "Erscheinungsbild" in Einstellungen › Allgemein: "Wie das System" (default), "Hell", "Dunkel"; applies at once (`Settings::appearance`).
+- **The system's choice** comes from `ui/ColorScheme`: on Linux the app asks the desktop portal itself (`org.freedesktop.portal.Settings`, `org.freedesktop.appearance` `color-scheme`: 1 dark, 2 light, 0 no preference = light) and follows its `SettingChanged` signal, whatever platform theme Qt found. Without a portal (and on Windows and macOS) Qt's answer counts, as before.
+- `Theme::current()` asks `ColorScheme`; the whole app switches live (main window, dialogs, settings overlay, trim window).
+**Rationale:** The portal is how GNOME, KDE and the wlroots portals publish light and dark today, also to sandboxed apps; asking it directly needs no GTK in the AppImage.
+**Rejected:** Bundling Qt's GTK theme plugin (pulls GTK 3 and its dependencies into the AppImage, the classic source of AppImage breakage); reading GNOME's gsettings key (GNOME-only).
+**Consequences:** On a desktop without a portal and without Qt's GTK theme, "Wie das System" stays light; the setting still offers dark.

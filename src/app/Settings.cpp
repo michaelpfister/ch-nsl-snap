@@ -196,6 +196,16 @@ void setLanguage(const QString &language)
     QSettings().setValue("ui/language", language);
 }
 
+QString appearance()
+{
+    return QSettings().value("general/appearance", QStringLiteral("system")).toString();
+}
+
+void setAppearance(const QString &appearance)
+{
+    QSettings().setValue("general/appearance", appearance);
+}
+
 bool checkForUpdates()
 {
     return QSettings().value("updates/check", true).toBool();

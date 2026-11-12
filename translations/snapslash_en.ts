@@ -1589,6 +1589,22 @@ Click to open in the editor</translation>
         <source>Aufnahme</source>
         <translation>Capture</translation>
     </message>
+    <message>
+        <source>Erscheinungsbild</source>
+        <translation>Appearance</translation>
+    </message>
+    <message>
+        <source>Wie das System</source>
+        <translation>Same as the system</translation>
+    </message>
+    <message>
+        <source>Hell</source>
+        <translation>Light</translation>
+    </message>
+    <message>
+        <source>Dunkel</source>
+        <translation>Dark</translation>
+    </message>
 </context>
 <context>
     <name>TextItem</name>

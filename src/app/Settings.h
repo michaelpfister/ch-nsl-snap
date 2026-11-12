@@ -85,6 +85,10 @@ void setContinueNumbering(bool enabled);
 QString language();
 void setLanguage(const QString &language);
 
+// Light or dark: "system" (default), "light" or "dark" (D-045).
+QString appearance();
+void setAppearance(const QString &appearance);
+
 // Updates (F-49, D-037): ask GitHub at start, at most once a day; offer
 // pre-releases too. The time of the last check, and the newest version
 // found then that is newer than the installed one ("" if none).

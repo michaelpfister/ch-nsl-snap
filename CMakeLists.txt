@@ -130,6 +130,8 @@ add_library(nsl_snap_core STATIC
     src/recording/VideoTrimmer.h
     src/ui/AppDialog.cpp
     src/ui/AppDialog.h
+    src/ui/ColorScheme.cpp
+    src/ui/ColorScheme.h
     src/ui/ColorPopup.cpp
     src/ui/ColorPopup.h
     src/ui/ColorWheel.cpp

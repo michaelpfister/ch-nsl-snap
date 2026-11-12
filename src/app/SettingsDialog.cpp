@@ -9,6 +9,7 @@
 #include "app/Settings.h"
 #include "update/UpdateChecker.h"
 #include "update/UpdateInstaller.h"
+#include "ui/ColorScheme.h"
 #include "ui/Icons.h"
 #include "ui/Theme.h"
 
@@ -167,6 +168,28 @@ SettingsDialog::SettingsDialog(GlobalHotkeys *hotkeys, bool countdownHasEscape, 
     layout->addWidget(languageHint);
     connect(language, &QComboBox::currentIndexChanged, this,
             [language] { Settings::setLanguage(language->currentData().toString()); });
+    layout->addSpacing(16);
+
+    // Light or dark (D-045): applies at once.
+    auto *appearanceTitle = new QLabel(tr("Erscheinungsbild"), this);
+    appearanceTitle->setProperty("role", QStringLiteral("section"));
+    layout->addWidget(appearanceTitle);
+    auto *appearance = new QComboBox(this);
+    appearance->setAccessibleName(tr("Erscheinungsbild"));
+    appearance->addItem(tr("Wie das System"), ColorScheme::toString(ColorScheme::Choice::System));
+    appearance->addItem(tr("Hell"), ColorScheme::toString(ColorScheme::Choice::Light));
+    appearance->addItem(tr("Dunkel"), ColorScheme::toString(ColorScheme::Choice::Dark));
+    appearance->setCurrentIndex(
+        std::max(0, appearance->findData(ColorScheme::toString(ColorScheme::instance()->choice()))));
+    auto *appearanceRow = new QHBoxLayout;
+    appearanceRow->addWidget(appearance);
+    appearanceRow->addStretch(1);
+    layout->addLayout(appearanceRow);
+    connect(appearance, &QComboBox::currentIndexChanged, this, [appearance] {
+        const QString value = appearance->currentData().toString();
+        Settings::setAppearance(value);
+        ColorScheme::instance()->setChoice(ColorScheme::fromString(value));
+    });
     layout->addSpacing(16);
 
 
@@ -386,6 +409,12 @@ SettingsDialog::SettingsDialog(GlobalHotkeys *hotkeys, bool countdownHasEscape, 
             checkForUpdates();
     });
     showPage(0);
+
+    // Light or dark changed while open: the scrim and the icons follow.
+    connect(ColorScheme::instance(), &ColorScheme::changed, this, [this] {
+        applyNavIcons();
+        update();
+    });
 
     connect(m_advanced, &QCheckBox::toggled, this, [this](bool enabled) {
         Settings::setAdvancedMode(enabled);

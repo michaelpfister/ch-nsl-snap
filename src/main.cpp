@@ -4,6 +4,7 @@
 #include "app/PlatformTheme.h"
 #include "app/Settings.h"
 #include "app/SingleInstance.h"
+#include "ui/ColorScheme.h"
 #include "ui/Theme.h"
 
 #include <QApplication>
@@ -97,6 +98,7 @@ int main(int argc, char *argv[])
     }
 
     Settings::migrateFromFormerName();
+    ColorScheme::instance()->setChoice(ColorScheme::fromString(Settings::appearance()));
     MainWindow window;
     const auto applyTheme = [&app, &window] {
         const Theme theme = Theme::current();
@@ -105,8 +107,9 @@ int main(int argc, char *argv[])
     };
     applyTheme();
     Theme::installDialogPolish(app);
-    // Follow the system when the user switches between light and dark.
-    QObject::connect(QGuiApplication::styleHints(), &QStyleHints::colorSchemeChanged, &window, applyTheme);
+    // Follow the system when the user switches between light and dark, or
+    // the choice in the settings (D-045).
+    QObject::connect(ColorScheme::instance(), &ColorScheme::changed, &window, applyTheme);
 
     // Later starts hand their command line to this one.
     SingleInstance instance;

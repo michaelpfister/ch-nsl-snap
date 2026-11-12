@@ -1,5 +1,7 @@
 #include "ui/Theme.h"
 
+#include "ui/ColorScheme.h"
+
 #include <QApplication>
 #include <QFont>
 #include <QList>
@@ -48,7 +50,8 @@ Theme Theme::darkTheme()
 
 Theme Theme::current()
 {
-    return QGuiApplication::styleHints()->colorScheme() == Qt::ColorScheme::Dark ? darkTheme() : light();
+    // The settings' choice or the system's (ColorScheme, D-045).
+    return ColorScheme::instance()->isDark() ? darkTheme() : light();
 }
 
 QString Theme::styleSheet() const
