@@ -9,8 +9,10 @@
 #include "editor/ReplaceItem.h"
 #include "editor/TextItem.h"
 #include "ui/LogoMark.h"
+#include "ui/Theme.h"
 
 #include <QDragEnterEvent>
+#include <QRadialGradient>
 #include <QDropEvent>
 #include <QMimeData>
 #include <QKeyEvent>
@@ -972,13 +974,22 @@ void EditorView::drawForeground(QPainter *painter, const QRectF &rect)
         painter->resetTransform();
         const QRect area = viewport()->rect();
         const LogoPose &pose = m_emptyMark->pose();
-        if (pose.flash > 0) {
-            QColor flash(Qt::white);
-            flash.setAlphaF(pose.flash);
-            painter->fillRect(area, flash);
-        }
         constexpr int kMark = 64;
         const QPointF centre = QRectF(area).center();
+        if (pose.flash > 0) {
+            // The "photo": a soft glow around the mark, not a flash over the
+            // whole view (light-sensitive people, WCAG 2.3). Small, fading
+            // out to the edge, rising and falling slowly (LogoAnimator).
+            const QPointF markCentre(centre.x(), centre.y() - kMark / 2.0 - 4);
+            QRadialGradient glow(markCentre, 130);
+            QColor inner(Qt::white);
+            inner.setAlphaF(pose.flash * (Theme::current().dark ? 0.14 : 0.8));
+            QColor outer = inner;
+            outer.setAlphaF(0);
+            glow.setColorAt(0, inner);
+            glow.setColorAt(1, outer);
+            painter->fillRect(QRectF(markCentre - QPointF(130, 130), QSizeF(260, 260)), glow);
+        }
         LogoMark::paint(*painter, QRectF(centre.x() - kMark / 2.0, centre.y() - kMark - 4, kMark, kMark), pose,
                         palette().color(QPalette::WindowText), 4.5);
         painter->setPen(palette().color(QPalette::PlaceholderText));
