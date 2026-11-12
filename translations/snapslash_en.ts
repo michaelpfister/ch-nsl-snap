@@ -62,8 +62,8 @@
         <translation>Esc: cancel</translation>
     </message>
     <message>
-        <source>Aufnahme in %1 s</source>
-        <translation>Capture in %1 s</translation>
+        <source>Gleich wird aufgenommen</source>
+        <translation>About to capture</translation>
     </message>
 </context>
 <context>

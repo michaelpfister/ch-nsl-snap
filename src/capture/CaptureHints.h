@@ -16,10 +16,9 @@ QString regionSecondCorner();
 QString regionDrag();
 // `clickCancels`: "Esc oder Klick", else only "Esc" (F-04).
 QString countdown(bool clickCancels = true);
-// The countdown's title, "Aufnahme in 3 s"; the template keeps "%1" for
-// the extension, which fills in the seconds itself.
-QString countdownTitle(int seconds);
-QString countdownTitleTemplate();
+// The countdown's title. Without the seconds: the egg timer shows the time,
+// and its animation runs to its end (D-043).
+QString countdownTitle();
 // Picking for a video (F-50): no region.
 QString videoWindow();
 QString videoScreens();

@@ -79,6 +79,9 @@ public:
     static QList<Step> startSteps();
     static QList<Step> updateSteps();
     static QList<Step> timerSteps(qreal toRest);
+    // The countdown's start: from empty (one turn on), the ring fills while
+    // the mark turns back, with a spring, like winding an egg timer.
+    static QList<Step> windUpSteps();
 
 signals:
     void changed();
