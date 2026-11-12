@@ -261,6 +261,66 @@ if(LINUX)
         message(STATUS "PipeWire not found: no videos on GNOME")
     endif()
 
+    # Videos on Linux: our own H.264 writer through FFmpeg (D-039, Q-28),
+    # because Qt cannot ask VA-API for its low-power mode, the only H.264
+    # mode of many Intel chips. It uses the FFmpeg libraries Qt Multimedia
+    # loads anyway: a distribution's Qt (Nix) brings them with pkg-config;
+    # Qt from aqtinstall brings FFmpeg 7.1's libraries but not its headers,
+    # which are then downloaded once (fixed version and checksum).
+    option(NSL_FFMPEG_ENCODER "Encode videos with FFmpeg directly on Linux" ON)
+    if(NSL_FFMPEG_ENCODER)
+        pkg_check_modules(FFMPEG IMPORTED_TARGET libavcodec>=61 libavformat libavutil libswscale)
+        if(FFMPEG_FOUND)
+            set(NSL_FFMPEG_TARGET PkgConfig::FFMPEG)
+        else()
+            # Qt's own FFmpeg next to libQt6Core.
+            get_target_property(nsl_qt_core Qt6::Core LOCATION)
+            get_filename_component(nsl_qt_lib_dir "${nsl_qt_core}" DIRECTORY)
+            set(nsl_ffmpeg_libs)
+            foreach(lib avcodec avformat avutil swscale)
+                find_library(NSL_FFMPEG_${lib} NAMES ${lib} PATHS "${nsl_qt_lib_dir}" NO_DEFAULT_PATH)
+                list(APPEND nsl_ffmpeg_libs "${NSL_FFMPEG_${lib}}")
+            endforeach()
+            if(NSL_FFMPEG_avcodec AND NSL_FFMPEG_avformat AND NSL_FFMPEG_avutil AND NSL_FFMPEG_swscale)
+                # The headers of exactly that version (libavcodec 61.19 = FFmpeg 7.1).
+                set(nsl_ffmpeg_dir "${CMAKE_BINARY_DIR}/_deps/ffmpeg-7.1")
+                set(nsl_ffmpeg_tarball "${CMAKE_BINARY_DIR}/_deps/ffmpeg-7.1.tar.xz")
+                if(NOT EXISTS "${nsl_ffmpeg_dir}/libavcodec/avcodec.h")
+                    file(DOWNLOAD https://ffmpeg.org/releases/ffmpeg-7.1.tar.xz "${nsl_ffmpeg_tarball}"
+                        EXPECTED_HASH SHA256=40973d44970dbc83ef302b0609f2e74982be2d85916dd2ee7472d30678a7abe6
+                        STATUS nsl_ffmpeg_download)
+                    list(GET nsl_ffmpeg_download 0 nsl_ffmpeg_download_code)
+                    if(nsl_ffmpeg_download_code EQUAL 0)
+                        file(ARCHIVE_EXTRACT INPUT "${nsl_ffmpeg_tarball}" DESTINATION "${CMAKE_BINARY_DIR}/_deps"
+                            PATTERNS "ffmpeg-7.1/libavcodec/*.h" "ffmpeg-7.1/libavformat/*.h"
+                                     "ffmpeg-7.1/libavutil/*.h" "ffmpeg-7.1/libswscale/*.h")
+                        # Written by FFmpeg's configure, so not in the sources.
+                        file(WRITE "${nsl_ffmpeg_dir}/libavutil/avconfig.h"
+                            "#ifndef AVUTIL_AVCONFIG_H\n#define AVUTIL_AVCONFIG_H\n"
+                            "#define AV_HAVE_BIGENDIAN 0\n#define AV_HAVE_FAST_UNALIGNED 1\n#endif\n")
+                    endif()
+                endif()
+                if(EXISTS "${nsl_ffmpeg_dir}/libavcodec/avcodec.h")
+                    add_library(nsl_ffmpeg INTERFACE)
+                    target_include_directories(nsl_ffmpeg SYSTEM INTERFACE "${nsl_ffmpeg_dir}")
+                    target_link_libraries(nsl_ffmpeg INTERFACE ${nsl_ffmpeg_libs})
+                    set(NSL_FFMPEG_TARGET nsl_ffmpeg)
+                endif()
+            endif()
+        endif()
+        if(NSL_FFMPEG_TARGET)
+            target_sources(nsl_snap_core PRIVATE
+                src/recording/ffmpeg/FfmpegH264Writer.cpp
+                src/recording/ffmpeg/FfmpegH264Writer.h
+            )
+            target_link_libraries(nsl_snap_core PRIVATE ${NSL_FFMPEG_TARGET})
+            target_compile_definitions(nsl_snap_core PUBLIC NSL_HAVE_FFMPEG_ENCODER)
+            message(STATUS "FFmpeg found: own H.264 writer (VA-API with low power, NVENC)")
+        else()
+            message(STATUS "FFmpeg headers or libraries not found: videos through Qt Multimedia only")
+        endif()
+    endif()
+
     # Optional: KDE's LayerShellQt puts the overlay above all windows on
     # Hyprland, Sway & co. Without it the overlay is shown full screen.
     find_package(LayerShellQt 6 CONFIG QUIET)
