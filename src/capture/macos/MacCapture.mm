@@ -1,5 +1,6 @@
 #include "capture/macos/MacCapture.h"
 
+#include <QGuiApplication>
 #include <QScreen>
 #include <QWidget>
 
@@ -257,7 +258,10 @@ std::unique_ptr<Freeze> Freeze::capture(const QList<QScreen *> &screens, int tim
 
 void raiseAboveAll(QWidget *widget)
 {
-    // On macOS a widget's window id is its NSView.
+    // On macOS a widget's window id is its NSView, but only with Qt's
+    // Cocoa platform (the tests draw offscreen, where it is something else).
+    if (QGuiApplication::platformName() != QLatin1String("cocoa"))
+        return;
     NSView *view = (__bridge NSView *)reinterpret_cast<void *>(widget->winId());
     NSWindow *window = view.window;
     if (!window)
