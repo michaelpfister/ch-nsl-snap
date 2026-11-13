@@ -1624,6 +1624,18 @@ Click to open in the editor</translation>
         <source>Dunkel</source>
         <translation>Dark</translation>
     </message>
+    <message>
+        <source>Diese Tasten nehmen auf, auch wenn Snapslash nur in der Menüleiste läuft oder ein anderes Programm aktiv ist. Ein eingestellter Timer gilt auch hier. Cmd + Shift + 3, 4 und 5 gehören macOS.</source>
+        <translation>These keys capture even when Snapslash only runs in the menu bar or another program is active. A set timer applies here too. Cmd + Shift + 3, 4 and 5 belong to macOS.</translation>
+    </message>
+    <message>
+        <source>Belegt durch ein anderes Programm oder durch macOS.</source>
+        <translation>Taken by another program or by macOS.</translation>
+    </message>
+    <message>
+        <source>macOS-App</source>
+        <translation>macOS app</translation>
+    </message>
 </context>
 <context>
     <name>TextItem</name>
@@ -1993,6 +2005,14 @@ On GNOME, then install the extension again (`scripts/dev-install.sh`) and log ou
     <message>
         <source>**Wechsel auf %1:** Auf der Release-Seite die Datei `%2` herunterladen, die bisherige AppImage-Datei damit ersetzen und sie starten. Menüeintrag, Befehl und GNOME-Erweiterung richtet die App danach selbst neu ein.</source>
         <translation>**Switching to %1:** download the file `%2` from the release page, replace the previous AppImage file with it and start it. The app then sets up its menu entry, command and GNOME extension again by itself.</translation>
+    </message>
+    <message>
+        <source>**Wechsel auf %1:** Auf der Release-Seite die Datei `%2` herunterladen und öffnen, dann Snapslash in den Ordner «Programme» ziehen und die bisherige Version ersetzen.
+
+Danach in den Systemeinstellungen unter «Datenschutz &amp; Sicherheit › Bildschirm- &amp; Systemaudioaufnahme» Snapslash aus- und wieder einschalten: Die neue Version braucht die Berechtigung noch einmal.</source>
+        <translation>**Switch to %1:** Download the file `%2` from the release page and open it, then drag Snapslash into the “Applications” folder, replacing the previous version.
+
+Afterwards turn Snapslash off and on again in System Settings under “Privacy &amp; Security › Screen &amp; System Audio Recording”: the new version needs the permission once more.</translation>
     </message>
 </context>
 <context>

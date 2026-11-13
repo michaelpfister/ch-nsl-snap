@@ -151,6 +151,9 @@ private slots:
         QCOMPARE(Releases::installation(QStringLiteral("/home/user/ch-nsl-snap/build"), false, false), Installation::Other);
         QCOMPARE(Releases::installation(QStringLiteral("/tmp/.mount_snapslXYZ/usr/bin"), false, false, true),
                  Installation::AppImage);
+        QCOMPARE(Releases::installation(QStringLiteral("/Applications/Snapslash.app/Contents/MacOS"), false, false),
+                 Installation::MacApp);
+        QCOMPARE(Releases::macosAssetName(v("0.3.0")), QStringLiteral("snapslash-0.3.0-macos.dmg"));
         QCOMPARE(Releases::linuxAssetName(v("0.3.0-beta.3")), QStringLiteral("snapslash-0.3.0-beta.3-linux-x86_64.AppImage"));
         QCOMPARE(Releases::windowsAssetName(v("0.2.0"), QStringLiteral("x86_64")), QStringLiteral("snapslash-0.2.0-windows-x64.zip"));
         QCOMPARE(Releases::windowsAssetName(v("0.2.0"), QStringLiteral("arm64")), QStringLiteral("snapslash-0.2.0-windows-arm64.zip"));
@@ -171,6 +174,10 @@ private slots:
         const QString nix = UpdateDialog::instructions(Releases::Installation::Nix, release);
         QVERIFY(nix.contains(QStringLiteral("github:michaelpfister/ch-nsl-snap/v0.2.0")));
         QVERIFY(UpdateDialog::instructions(Releases::Installation::Other, release).contains(QStringLiteral("0.2.0")));
+        // macOS: the disk image of that version, not the steps for Linux (GNOME).
+        const QString mac = UpdateDialog::instructions(Releases::Installation::MacApp, release);
+        QVERIFY(mac.contains(QStringLiteral("snapslash-0.2.0-macos.dmg")));
+        QVERIFY(!mac.contains(QStringLiteral("GNOME")));
     }
 
     void missingPackageFails()

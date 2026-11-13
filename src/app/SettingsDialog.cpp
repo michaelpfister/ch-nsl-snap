@@ -666,8 +666,14 @@ void SettingsDialog::createCountdownSection(QVBoxLayout *layout, bool hasEscape)
 
 void SettingsDialog::createHotkeyPage(QVBoxLayout *layout)
 {
+#ifdef Q_OS_MACOS
+    auto *intro = new QLabel(tr("Diese Tasten nehmen auf, auch wenn Snapslash nur in der Menüleiste läuft oder ein "
+                                "anderes Programm aktiv ist. Ein eingestellter Timer gilt auch hier. Cmd + Shift + 3, "
+                                "4 und 5 gehören macOS."), this);
+#else
     auto *intro = new QLabel(tr("Diese Tasten nehmen auf, auch wenn Snapslash im Infobereich läuft oder ein anderes "
                                 "Programm aktiv ist. Ein eingestellter Timer gilt auch hier."), this);
+#endif
     intro->setProperty("role", QStringLiteral("hint"));
     intro->setWordWrap(true);
     layout->addWidget(intro);
@@ -741,7 +747,11 @@ void SettingsDialog::createHotkeyPage(QVBoxLayout *layout)
             if (!key.isEmpty() && !GlobalHotkeys::toNative(key, modifiers, virtualKey))
                 text = tr("Diese Taste kann nicht global verwendet werden.");
             else if (m_hotkeys->isTaken(actions[i]))
+#ifdef Q_OS_MACOS
+                text = tr("Belegt durch ein anderes Programm oder durch macOS.");
+#else
                 text = tr("Belegt durch ein anderes Programm oder durch Windows.");
+#endif
             states[i]->setText(text);
             states[i]->setVisible(!text.isEmpty());
         }
@@ -777,6 +787,7 @@ void SettingsDialog::createUpdatePage(QVBoxLayout *layout)
     case Releases::Installation::PortableWindows: kind = tr("portable Windows-Version"); break;
     case Releases::Installation::AppImage: kind = tr("AppImage"); break;
     case Releases::Installation::Nix: kind = tr("über Nix installiert"); break;
+    case Releases::Installation::MacApp: kind = tr("macOS-App"); break;
     case Releases::Installation::Other: kind = tr("selbst gebaut"); break;
     }
     layout->addWidget(new QLabel(tr("Snapslash %1 · %2").arg(Version::current().toString(), kind), this));

@@ -229,7 +229,7 @@ The `PATH` line lets the app and the tests find the Qt DLLs. The tests draw offs
 
 ## macOS (14 or later)
 
-Window, region and screen capture work with ScreenCaptureKit (D-047); videos and global hotkeys do not yet.
+Window, region and screen capture work with ScreenCaptureKit (D-047), global hotkeys with Carbon (D-048).
 
 ### 1. Tools
 

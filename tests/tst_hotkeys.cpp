@@ -14,11 +14,20 @@
 #endif
 #include <windows.h>
 #endif
+#ifdef Q_OS_MACOS
+#define __ASSERT_MACROS_DEFINE_VERSIONS_WITHOUT_UNDERSCORES 0
+#include <Carbon/Carbon.h>
+#endif
 
 namespace {
 
 // A key nobody else uses, so the tests do not collide with the desktop.
+// Macs have no F24; F19 is the highest key every Mac keyboard layout knows.
+#ifdef Q_OS_MACOS
+const QKeySequence kRareKey(Qt::CTRL | Qt::ALT | Qt::SHIFT | Qt::Key_F19);
+#else
 const QKeySequence kRareKey(Qt::CTRL | Qt::ALT | Qt::SHIFT | Qt::Key_F24);
+#endif
 
 } // namespace
 
@@ -42,6 +51,12 @@ private slots:
 
     void defaultsLikeWinSnap()
     {
+#ifdef Q_OS_MACOS
+        // No Print key on a Mac: Cmd + Shift + 6 to 9 (Q-16).
+        QCOMPARE(GlobalHotkeys::defaultKey(GlobalHotkeys::Action::LastMode), QKeySequence(Qt::CTRL | Qt::SHIFT | Qt::Key_6));
+        QCOMPARE(GlobalHotkeys::defaultKey(GlobalHotkeys::Action::Region), QKeySequence(Qt::CTRL | Qt::SHIFT | Qt::Key_9));
+        return;
+#endif
         QCOMPARE(GlobalHotkeys::defaultKey(GlobalHotkeys::Action::LastMode), QKeySequence(Qt::Key_Print));
         QCOMPARE(GlobalHotkeys::defaultKey(GlobalHotkeys::Action::Screen), QKeySequence(Qt::SHIFT | Qt::Key_Print));
         QCOMPARE(GlobalHotkeys::defaultKey(GlobalHotkeys::Action::ActiveWindow), QKeySequence(Qt::ALT | Qt::Key_Print));
@@ -75,6 +90,22 @@ private slots:
         QCOMPARE(virtualKey, unsigned(VK_F13));
         // Two keys in a row cannot be a hotkey.
         QVERIFY(!GlobalHotkeys::toNative(QKeySequence(Qt::CTRL | Qt::Key_K, Qt::CTRL | Qt::Key_C), modifiers, virtualKey));
+#elif defined(Q_OS_MACOS)
+        unsigned modifiers = 0;
+        unsigned keyCode = 0;
+        // Qt's Ctrl is the Command key on macOS, Meta the Control key.
+        QVERIFY(GlobalHotkeys::toNative(QKeySequence(Qt::CTRL | Qt::SHIFT | Qt::Key_F13), modifiers, keyCode));
+        QCOMPARE(modifiers, unsigned(cmdKey | shiftKey));
+        QCOMPARE(keyCode, unsigned(kVK_F13));
+        QVERIFY(GlobalHotkeys::toNative(QKeySequence(Qt::META | Qt::ALT | Qt::Key_Space), modifiers, keyCode));
+        QCOMPARE(modifiers, unsigned(controlKey | optionKey));
+        QCOMPARE(keyCode, unsigned(kVK_Space));
+        // Letters and digits: the key of the current layout.
+        QVERIFY(GlobalHotkeys::toNative(QKeySequence(Qt::CTRL | Qt::SHIFT | Qt::Key_6), modifiers, keyCode));
+        QVERIFY(GlobalHotkeys::toNative(QKeySequence(Qt::CTRL | Qt::Key_S), modifiers, keyCode));
+        // No Print key on a Mac, and two keys in a row are no hotkey.
+        QVERIFY(!GlobalHotkeys::toNative(QKeySequence(Qt::Key_Print), modifiers, keyCode));
+        QVERIFY(!GlobalHotkeys::toNative(QKeySequence(Qt::CTRL | Qt::Key_K, Qt::CTRL | Qt::Key_C), modifiers, keyCode));
 #else
         QSKIP("Global hotkeys are registered by the GNOME extension (D-011).");
 #endif

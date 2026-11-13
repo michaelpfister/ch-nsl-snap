@@ -655,9 +655,19 @@ Each entry: context, decision, rationale, consequences. Entries marked **(assump
 - **Pick:** the app's own `CaptureOverlay`, as on Windows (D-022, D-023, D-024): window highlight, region with magnifier, screen. Its windows are lifted above the menu bar and the Dock (`NSScreenSaverWindowLevel`, on every Space). Qt's screens are in points; the overlay works in pixels, laid out with `PickGeometry::nativeLayout` as on Wayland (D-031).
 - **Result:** the window picture is the window itself, no margin to crop (`cornerRadius` 0: the corners are already in the picture); the shared core trims and cleans as on every platform (D-009, D-010). Colours are converted to sRGB. Alt + Print's "active window" is the topmost window of another app, as the app itself is hidden.
 - **Permission:** without "Screen Recording" macOS shows only the desktop picture. The backend then asks macOS once (`CGRequestScreenCaptureAccess`, which also puts Snapslash into the list) and says where to switch it on; macOS applies it after a restart of the app.
-- Videos (F-50) and global hotkeys (F-42, Q-16) on macOS are not part of this step.
+- Videos (F-50) and global hotkeys (F-42, Q-16) on macOS are not part of this step (hotkeys: D-048).
 **Rationale:** One way for all three modes, and the same overlay and behaviour as on Windows. ScreenCaptureKit's single-window filter gives exactly what D-004 asks for, without a shadow to cut off.
 **Rejected:** `CGWindowListCreateImage` (deprecated, removed in macOS 15). The system's own picker (`SCContentSharingPicker`): another look, no region mode, no frozen screen. Capturing only the picked window after the pick: the window could have changed since the freeze (D-011).
 **Consequences:**
 - With the ad-hoc signature (D-046) macOS ties the permission to the exact build: after installing another build it must be switched off and on again, or reset with `tccutil reset ScreenCapture ch.netslash.Snapslash` (Q-36).
 - Freezing many windows at Retina resolution takes memory for a moment; the pictures are dropped right after the pick.
+
+## D-048 macOS: global hotkeys with Carbon, Cmd + Shift + 6 to 9; updates by disk image
+
+**Context:** The macOS app captures (D-047), but the hotkeys of F-42 and a way to update were missing (2026-11-13). Macs have no Print key, and Cmd + Shift + 3, 4 and 5 are the system's own screenshot keys (Q-16). The update dialog showed the steps for a build from source, with GNOME, also on a Mac.
+**Decision:**
+- **Hotkeys:** Carbon's `RegisterEventHotKey`, exclusive, so a key another app holds shows as taken, as on Windows (D-035). Defaults: **Cmd + Shift + 6** (last mode), **7** (screen), **8** (active window), **9** (region); changeable in the same settings tab. Letters and digits are looked up on the current keyboard layout (a Swiss keyboard has Y and Z swapped, a French one the digits on Shift); function, arrow and similar keys have fixed codes.
+- **Updates:** a new installation kind *macOS app* (the program runs from `….app/Contents/MacOS`). The update dialog explains the disk image of the chosen version: download, open, drag into Programme, switch the screen recording permission off and on again. The release workflow publishes `snapslash-<version>-macos.dmg` with the other files.
+**Rationale:** `RegisterEventHotKey` needs no permission; the alternatives do. The keys right after the system's own are easy to remember and free in common apps. A self-replacing update makes little sense while every new ad-hoc-signed build needs the permission again (Q-36).
+**Rejected:** An event tap (`CGEventTapCreate`) or `NSEvent` global monitors: they need the accessibility or input monitoring permission, a third prompt. Replacing the bundle from the app: later, with a Developer ID.
+**Consequences:** Carbon is old but still the documented way for global hotkeys; if Apple removes it, the hotkeys go with it. The Escape key during the countdown is not global on macOS yet; a click cancels it (D-025).

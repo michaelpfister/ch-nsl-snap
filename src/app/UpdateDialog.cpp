@@ -157,6 +157,15 @@ QString UpdateDialog::instructions(Releases::Installation installation, const Re
                   "die bisherige AppImage-Datei damit ersetzen und sie starten. Menüeintrag, Befehl und "
                   "GNOME-Erweiterung richtet die App danach selbst neu ein.")
             .arg(release.version.toString(), Releases::linuxAssetName(release.version));
+    case Releases::Installation::MacApp:
+        // The permission belongs to the build while the app is signed ad hoc
+        // (D-047, Q-36).
+        return tr("**Wechsel auf %1:** Auf der Release-Seite die Datei `%2` herunterladen und öffnen, "
+                  "dann Snapslash in den Ordner «Programme» ziehen und die bisherige Version ersetzen.\n\n"
+                  "Danach in den Systemeinstellungen unter «Datenschutz & Sicherheit › Bildschirm- & "
+                  "Systemaudioaufnahme» Snapslash aus- und wieder einschalten: Die neue Version braucht "
+                  "die Berechtigung noch einmal.")
+            .arg(release.version.toString(), Releases::macosAssetName(release.version));
     case Releases::Installation::PortableWindows:
     case Releases::Installation::Other:
         break;
