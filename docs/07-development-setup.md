@@ -1,6 +1,6 @@
 # Development setup
 
-How to set up a machine to build Snapslash (D-013: C++20, Qt 6.8 LTS, CMake). Linux (Ubuntu/Zorin and NixOS) and Windows are described; macOS follows when its backend is built.
+How to set up a machine to build Snapslash (D-013: C++20, Qt 6.8 LTS, CMake). Linux (Ubuntu/Zorin and NixOS), Windows and macOS are described.
 
 ## Linux (Zorin OS 18 / Ubuntu 24.04, GNOME 46)
 
@@ -48,6 +48,7 @@ GitHub Actions (`.github/workflows/ci.yml`) runs on every pull request and on `m
 
 - **Build and test:** Ubuntu 24.04, Qt 6.8.3 via aqtinstall (`jurplel/install-qt-action`, cached), Debug build with `-Wall -Wextra` and warnings as errors, then `ctest` with `QT_QPA_PLATFORM=offscreen`.
 - **Windows x64 and ARM64:** `windows-2022` and `windows-11-arm`, Qt 6.8.3 via aqtinstall per architecture (cached), MSVC for the runner's own architecture, Debug build with warnings as errors at MSVC's default level, then `ctest` offscreen. There is no Windows capture backend yet, so this covers the editor and the shared core.
+- **macOS:** `macos-15` (arm64), Qt 6.8.3 for macOS (universal), Debug build with `-Wall -Wextra` and warnings as errors, then `ctest` offscreen. No capture backend yet (D-046). `macos.yml` builds the disk image (artifact `macos-universal`).
 - **Extension and tools:** `node --check` on `.mjs` copies of the extension files, `py_compile` of `tools/nsl-snap-pick`, `bash -n` of the scripts.
 
 The same build locally, warnings as errors:
@@ -225,3 +226,45 @@ build\snapslash.exe
 
 The `PATH` line lets the app and the tests find the Qt DLLs. The tests draw offscreen; on Windows that platform looks for fonts in Qt's own `lib\fonts` folder, which Qt does not ship, so `ctest` points `QT_QPA_FONTDIR` to `C:\Windows\Fonts` (`tests/CMakeLists.txt`). Set it yourself when starting a test program directly. Alternatively `windeployqt build\snapslash.exe` copies them next to the executable, so it also starts with a double click. The Qt DLLs in `build` then look for plugins there and find only `platforms\qwindows`, so the offscreen tests stop with a "no Qt platform plugin" dialog; set `QT_PLUGIN_PATH=C:\Qt\6.8.3\msvc2022_arm64\plugins` before `ctest`.
 
+
+## macOS (14 or later)
+
+There is no macOS capture backend yet (D-046): the capture modes say that capturing is not supported on this platform. The editor works: paste a capture (Cmd + Shift + Ctrl + 4 copies a region), drag an image onto the window, or open it with Cmd + O.
+
+### 1. Tools
+
+Xcode's command line tools (`xcode-select --install`), and CMake and Ninja, for example with Homebrew: `brew install cmake ninja`.
+
+### 2. Qt 6.8 LTS
+
+With aqtinstall, as on Linux:
+
+```bash
+python3 -m venv ~/Qt/aqt-venv
+~/Qt/aqt-venv/bin/pip install aqtinstall
+~/Qt/aqt-venv/bin/aqt install-qt mac desktop 6.8.3 clang_64 -m qtimageformats qtmultimedia -O ~/Qt
+```
+
+Qt ends up in `~/Qt/6.8.3/macos`; its libraries are universal (arm64 and x86_64).
+
+### 3. Configure, build, run
+
+```bash
+cmake -S . -B build -G Ninja -DCMAKE_PREFIX_PATH=$HOME/Qt/6.8.3/macos -DCMAKE_BUILD_TYPE=Debug
+cmake --build build
+ctest --test-dir build --output-on-failure
+open build/Snapslash.app
+```
+
+The program is the bundle `build/Snapslash.app`; the command line (F-48) is `build/Snapslash.app/Contents/MacOS/Snapslash --help`. The tests are plain programs, not bundles.
+
+### Building the disk image
+
+```bash
+QT_DIR=$HOME/Qt/6.8.3/macos scripts/build-macos-app.sh
+```
+
+- The result is `build-macos/snapslash-<version>-macos.dmg` with a universal `Snapslash.app` (`ARCHITECTURES=arm64` for a faster build of one architecture, `VERSION_SUFFIX=beta.1` for a pre-release).
+- `macdeployqt` puts Qt into the bundle; the script adds Qt's German texts, signs the bundle ad hoc and checks that it reports its version.
+- CI builds the same for every pull request (`.github/workflows/macos.yml`, artifact `macos-universal`).
+- Opening a downloaded build: macOS blocks it the first time, as it has no Developer ID signature (Q-36). Drag `Snapslash.app` to Programme, open it once, then Systemeinstellungen › Datenschutz & Sicherheit › "Dennoch öffnen". Or remove the download mark: `xattr -dr com.apple.quarantine /Applications/Snapslash.app`.

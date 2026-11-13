@@ -630,3 +630,17 @@ Each entry: context, decision, rationale, consequences. Entries marked **(assump
 **Rationale:** The portal is how GNOME, KDE and the wlroots portals publish light and dark today, also to sandboxed apps; asking it directly needs no GTK in the AppImage.
 **Rejected:** Bundling Qt's GTK theme plugin (pulls GTK 3 and its dependencies into the AppImage, the classic source of AppImage breakage); reading GNOME's gsettings key (GNOME-only).
 **Consequences:** On a desktop without a portal and without Qt's GTK theme, "Wie das System" stays light; the setting still offers dark.
+
+## D-046 First macOS build: an app bundle in a disk image, built in CI, signed ad hoc
+
+**Context:** macOS is a target since D-002, but nothing was built for it yet (2026-11-13). Before the ScreenCaptureKit backend is written, the editor and the shared core should build and run on a Mac, so that problems with Apple's Clang, the bundle layout and Qt's deployment show up early. Nobody on the team builds on a Mac day to day.
+**Decision:**
+- **Bundle:** on macOS the program is `Snapslash.app` (`MACOSX_BUNDLE`, bundle id `ch.netslash.Snapslash`, the app id of D-036), with `resources/macos/Info.plist.in` and the icon `resources/macos/Snapslash.icns` (the logo on Apple's icon grid: 824 of 1024 px). Minimum macOS 14 (D-002), set as `CMAKE_OSX_DEPLOYMENT_TARGET`.
+- **Package:** `scripts/build-macos-app.sh` builds one **universal** program (arm64 and x86_64; Qt for macOS is universal), puts Qt into the bundle with `macdeployqt`, adds Qt's German texts under `Contents/Resources/translations`, signs the bundle **ad hoc** (`codesign --sign -`), checks that it reports its version and packs it with a link to `/Applications` into `snapslash-<version>-macos.dmg`.
+- **CI:** the CI workflow builds and tests on `macos-15` (arm64, Debug, `-Wall -Wextra`, warnings as errors), and `macos.yml` builds the disk image for every pull request as a workflow artifact, like the AppImage (D-041).
+- **Not yet:** no capture backend ("Fenster", "Bereich" and "Bildschirm" say that capturing is not supported, as on Windows before D-022), no global hotkeys, no update path (installation kind *Other*), no macOS file in the releases.
+**Rationale:** The build is cheap to keep green in CI and gives a Mac user something to open: paste, drag & drop and the editor work. A universal program means one file for Apple silicon and Intel Macs.
+**Rejected:** Developer ID signing and notarisation now (needs the paid Apple account, Q-36; the screen recording permission only matters once the backend exists). Two separate programs per architecture (twice the files for no gain).
+**Consequences:**
+- Without a Developer ID macOS refuses to open the downloaded app at first; the user allows it once (macOS 15: Systemeinstellungen › Datenschutz & Sicherheit › "Dennoch öffnen"). The app is signed ad hoc, so it runs on Apple silicon.
+- Next: the ScreenCaptureKit backend (`src/capture/macos/`, Objective-C++), then signing (Q-36), then the disk image in the releases.

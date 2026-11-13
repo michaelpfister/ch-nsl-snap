@@ -1,0 +1,51 @@
+# Builds the macOS package (D-046) with scripts/build-macos-app.sh: one
+# universal Snapslash.app (Apple silicon and Intel) in a disk image, signed
+# ad hoc. Called by the CI workflow (every pull request gets a disk image to
+# try, as a workflow artifact).
+
+name: macOS package
+
+on:
+  workflow_call:
+    inputs:
+      version-suffix:
+        description: Pre-release part of the version (beta.1), empty for none
+        type: string
+        default: ''
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  dmg:
+    name: Disk image (macOS universal)
+    runs-on: macos-15
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Ninja
+        run: brew install ninja
+
+      # Qt for macOS is universal (arm64 and x86_64).
+      - name: Install Qt
+        uses: jurplel/install-qt-action@v4
+        with:
+          version: 6.8.3
+          host: mac
+          target: desktop
+          arch: clang_64
+          modules: qtimageformats qtmultimedia
+          cache: true
+
+      - name: Build the disk image
+        env:
+          QT_DIR: ${{ env.QT_ROOT_DIR }}
+          VERSION_SUFFIX: ${{ inputs.version-suffix }}
+        run: scripts/build-macos-app.sh
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: macos-universal
+          path: build-macos/snapslash-*-macos.dmg
+          if-no-files-found: error

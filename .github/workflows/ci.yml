@@ -162,6 +162,48 @@ jobs:
             if (Test-Path $log) { Get-Content $log | Select-Object -Last 40 | Out-Host }
           }
 
+  # No capture backend on macOS yet (D-046); this checks that the editor
+  # builds without warnings with Apple's Clang and its tests pass.
+  macos:
+    name: Build and test (macOS arm64, Qt 6.8.3)
+    runs-on: macos-15
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Ninja
+        run: brew install ninja
+
+      - name: Install Qt
+        uses: jurplel/install-qt-action@v4
+        with:
+          version: 6.8.3
+          host: mac
+          target: desktop
+          arch: clang_64
+          modules: qtimageformats qtmultimedia
+          cache: true
+
+      - name: Configure
+        run: >
+          cmake -S . -B build -G Ninja
+          -DCMAKE_PREFIX_PATH="$QT_ROOT_DIR"
+          -DCMAKE_BUILD_TYPE=Debug
+          -DCMAKE_CXX_FLAGS="-Wall -Wextra"
+          -DCMAKE_COMPILE_WARNING_AS_ERROR=ON
+
+      - name: Build
+        run: cmake --build build
+
+      - name: Test
+        env:
+          QT_QPA_PLATFORM: offscreen
+        run: ctest --test-dir build --output-on-failure
+
+  # The macOS package (D-046); the disk image is a workflow artifact of the run.
+  macos-package:
+    name: macOS package
+    uses: ./.github/workflows/macos.yml
+
   extension:
     name: Check GNOME extension and tools
     runs-on: ubuntu-24.04

@@ -1,5 +1,11 @@
 cmake_minimum_required(VERSION 3.21)
 
+# macOS 14 or later (D-002: ScreenCaptureKit's SCScreenshotManager). Must be
+# set before project(), which reads it.
+if(APPLE AND NOT DEFINED CMAKE_OSX_DEPLOYMENT_TARGET)
+    set(CMAKE_OSX_DEPLOYMENT_TARGET "14.0" CACHE STRING "Oldest macOS the app runs on")
+endif()
+
 project(Snapslash VERSION 1.0.1 LANGUAGES CXX)
 
 set(CMAKE_CXX_STANDARD 20)
@@ -310,11 +316,30 @@ if(WIN32)
     set_target_properties(snapslash PROPERTIES WIN32_EXECUTABLE TRUE)
     target_sources(snapslash PRIVATE resources/windows/snapslash.rc)
 endif()
+if(APPLE)
+    # An app bundle, Snapslash.app, with its icon and Info.plist (D-046).
+    # The icon is resources/icons/logo.svg on Apple's grid (824 of 1024 px).
+    set(NSL_MACOS_ICON ${CMAKE_CURRENT_SOURCE_DIR}/resources/macos/Snapslash.icns)
+    set_source_files_properties(${NSL_MACOS_ICON} PROPERTIES MACOSX_PACKAGE_LOCATION Resources)
+    target_sources(snapslash PRIVATE ${NSL_MACOS_ICON})
+    set_target_properties(snapslash PROPERTIES
+        MACOSX_BUNDLE TRUE
+        OUTPUT_NAME Snapslash
+        MACOSX_BUNDLE_INFO_PLIST ${CMAKE_CURRENT_SOURCE_DIR}/resources/macos/Info.plist.in
+        MACOSX_BUNDLE_GUI_IDENTIFIER ch.netslash.Snapslash
+        MACOSX_BUNDLE_BUNDLE_NAME Snapslash
+        MACOSX_BUNDLE_ICON_FILE Snapslash.icns
+        MACOSX_BUNDLE_SHORT_VERSION_STRING ${PROJECT_VERSION}
+        MACOSX_BUNDLE_BUNDLE_VERSION ${PROJECT_VERSION}
+        MACOSX_BUNDLE_COPYRIGHT "Copyright (c) 2026 Michael Pfister, MIT License")
+endif()
 target_link_libraries(snapslash PRIVATE nsl_snap_core)
 
 # `cmake --install`, used by packages (e.g. the Nix package in nix/).
 include(GNUInstallDirs)
-install(TARGETS snapslash RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR})
+install(TARGETS snapslash
+    RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR}
+    BUNDLE DESTINATION .)
 if(LINUX)
     # Desktop entry and icon, so launchers list the app (D-036). The icon
     # name matches the app id (QGuiApplication::desktopFileName in main.cpp).
