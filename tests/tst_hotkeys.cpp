@@ -15,8 +15,17 @@
 #include <windows.h>
 #endif
 #ifdef Q_OS_MACOS
-#define __ASSERT_MACROS_DEFINE_VERSIONS_WITHOUT_UNDERSCORES 0
-#include <Carbon/Carbon.h>
+// Carbon's values (Events.h, HIToolbox): its headers cannot be included
+// here, they define a TextStyle of their own, which clashes with the
+// editor's (included through Settings.h).
+namespace Carbon {
+constexpr unsigned cmdKey = 0x0100;
+constexpr unsigned shiftKey = 0x0200;
+constexpr unsigned optionKey = 0x0800;
+constexpr unsigned controlKey = 0x1000;
+constexpr unsigned kVK_F13 = 0x69;
+constexpr unsigned kVK_Space = 0x31;
+} // namespace Carbon
 #endif
 
 namespace {
@@ -95,11 +104,11 @@ private slots:
         unsigned keyCode = 0;
         // Qt's Ctrl is the Command key on macOS, Meta the Control key.
         QVERIFY(GlobalHotkeys::toNative(QKeySequence(Qt::CTRL | Qt::SHIFT | Qt::Key_F13), modifiers, keyCode));
-        QCOMPARE(modifiers, unsigned(cmdKey | shiftKey));
-        QCOMPARE(keyCode, unsigned(kVK_F13));
+        QCOMPARE(modifiers, Carbon::cmdKey | Carbon::shiftKey);
+        QCOMPARE(keyCode, Carbon::kVK_F13);
         QVERIFY(GlobalHotkeys::toNative(QKeySequence(Qt::META | Qt::ALT | Qt::Key_Space), modifiers, keyCode));
-        QCOMPARE(modifiers, unsigned(controlKey | optionKey));
-        QCOMPARE(keyCode, unsigned(kVK_Space));
+        QCOMPARE(modifiers, Carbon::controlKey | Carbon::optionKey);
+        QCOMPARE(keyCode, Carbon::kVK_Space);
         // Letters and digits: the key of the current layout.
         QVERIFY(GlobalHotkeys::toNative(QKeySequence(Qt::CTRL | Qt::SHIFT | Qt::Key_6), modifiers, keyCode));
         QVERIFY(GlobalHotkeys::toNative(QKeySequence(Qt::CTRL | Qt::Key_S), modifiers, keyCode));
