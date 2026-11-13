@@ -643,4 +643,5 @@ Each entry: context, decision, rationale, consequences. Entries marked **(assump
 **Rejected:** Developer ID signing and notarisation now (needs the paid Apple account, Q-36; the screen recording permission only matters once the backend exists). Two separate programs per architecture (twice the files for no gain).
 **Consequences:**
 - Without a Developer ID macOS refuses to open the downloaded app at first; the user allows it once (macOS 15: Systemeinstellungen › Datenschutz & Sicherheit › "Dennoch öffnen"). The app is signed ad hoc, so it runs on Apple silicon.
+- Tried on a Mac on 2026-11-13: the disk image from CI opens, the editor works.
 - Next: the ScreenCaptureKit backend (`src/capture/macos/`, Objective-C++), then signing (Q-36), then the disk image in the releases.
