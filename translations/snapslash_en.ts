@@ -493,6 +493,25 @@
     </message>
 </context>
 <context>
+    <name>MacBackend</name>
+    <message>
+        <source>Der Bildschirm konnte nicht aufgenommen werden.</source>
+        <translation>The screen could not be captured.</translation>
+    </message>
+    <message>
+        <source>Es wurde kein Fenster gefunden, das aufgenommen werden kann.</source>
+        <translation>No window was found that can be captured.</translation>
+    </message>
+    <message>
+        <source>Das Fenster konnte nicht gelesen werden.</source>
+        <translation>The window could not be read.</translation>
+    </message>
+    <message>
+        <source>Snapslash braucht die Berechtigung zur Bildschirmaufnahme. Bitte in den Systemeinstellungen unter «Datenschutz &amp; Sicherheit › Bildschirm- &amp; Systemaudioaufnahme» einschalten und Snapslash danach neu starten.</source>
+        <translation>Snapslash needs the permission to record the screen. Please turn it on in System Settings under “Privacy &amp; Security › Screen &amp; System Audio Recording” and then restart Snapslash.</translation>
+    </message>
+</context>
+<context>
     <name>MainWindow</name>
     <message>
         <source>Klicken, um die Farbe zu übernehmen · Esc bricht ab</source>

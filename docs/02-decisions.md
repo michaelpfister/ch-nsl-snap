@@ -638,10 +638,25 @@ Each entry: context, decision, rationale, consequences. Entries marked **(assump
 - **Bundle:** on macOS the program is `Snapslash.app` (`MACOSX_BUNDLE`, bundle id `ch.netslash.Snapslash`, the app id of D-036), with `resources/macos/Info.plist.in` and the icon `resources/macos/Snapslash.icns` (the logo on Apple's icon grid: 824 of 1024 px). Minimum macOS 14 (D-002), set as `CMAKE_OSX_DEPLOYMENT_TARGET`.
 - **Package:** `scripts/build-macos-app.sh` builds one **universal** program (arm64 and x86_64; Qt for macOS is universal), puts Qt into the bundle with `macdeployqt`, adds Qt's German texts under `Contents/Resources/translations`, signs the bundle **ad hoc** (`codesign --sign -`), checks that it reports its version and packs it with a link to `/Applications` into `snapslash-<version>-macos.dmg`.
 - **CI:** the CI workflow builds and tests on `macos-15` (arm64, Debug, `-Wall -Wextra`, warnings as errors), and `macos.yml` builds the disk image for every pull request as a workflow artifact, like the AppImage (D-041).
-- **Not yet:** no capture backend ("Fenster", "Bereich" and "Bildschirm" say that capturing is not supported, as on Windows before D-022), no global hotkeys, no update path (installation kind *Other*), no macOS file in the releases.
+- **Not yet:** no capture backend ("Fenster", "Bereich" and "Bildschirm" say that capturing is not supported, as on Windows before D-022; since D-047 there is one), no global hotkeys, no update path (installation kind *Other*), no macOS file in the releases.
 **Rationale:** The build is cheap to keep green in CI and gives a Mac user something to open: paste, drag & drop and the editor work. A universal program means one file for Apple silicon and Intel Macs.
 **Rejected:** Developer ID signing and notarisation now (needs the paid Apple account, Q-36; the screen recording permission only matters once the backend exists). Two separate programs per architecture (twice the files for no gain).
 **Consequences:**
 - Without a Developer ID macOS refuses to open the downloaded app at first; the user allows it once (macOS 15: Systemeinstellungen › Datenschutz & Sicherheit › "Dennoch öffnen"). The app is signed ad hoc, so it runs on Apple silicon.
 - Tried on a Mac on 2026-11-13: the disk image from CI opens, the editor works.
-- Next: the ScreenCaptureKit backend (`src/capture/macos/`, Objective-C++), then signing (Q-36), then the disk image in the releases.
+- Next: the ScreenCaptureKit backend (D-047), then signing (Q-36), then the disk image in the releases.
+
+## D-047 macOS capture: ScreenCaptureKit freezes everything, the app's own overlay picks
+
+**Context:** The first macOS build (D-046) runs the editor; capture was missing (2026-11-13). D-002 chose ScreenCaptureKit; D-011 asks for a frozen screen before the user selects, D-004 for windows without shadow.
+**Decision:**
+- **Freeze:** right after the countdown, `MacCapture::Freeze` asks ScreenCaptureKit for the displays and the windows on screen and requests, all at once, one `SCScreenshotManager` picture per monitor and one per window (`SCContentFilter` with a single window, `ignoreShadowsSingleWindow`, not opaque): each window alone, also where it is covered, without shadow and with its rounded corners transparent. Pickable are the normal windows (layer 0) of other apps, at least 20 × 20 points; the order (topmost first) and the frames come from Core Graphics' window list, which ScreenCaptureKit does not give. The window pictures stay as Core Graphics images until one is picked.
+- **Pick:** the app's own `CaptureOverlay`, as on Windows (D-022, D-023, D-024): window highlight, region with magnifier, screen. Its windows are lifted above the menu bar and the Dock (`NSScreenSaverWindowLevel`, on every Space). Qt's screens are in points; the overlay works in pixels, laid out with `PickGeometry::nativeLayout` as on Wayland (D-031).
+- **Result:** the window picture is the window itself, no margin to crop (`cornerRadius` 0: the corners are already in the picture); the shared core trims and cleans as on every platform (D-009, D-010). Colours are converted to sRGB. Alt + Print's "active window" is the topmost window of another app, as the app itself is hidden.
+- **Permission:** without "Screen Recording" macOS shows only the desktop picture. The backend then asks macOS once (`CGRequestScreenCaptureAccess`, which also puts Snapslash into the list) and says where to switch it on; macOS applies it after a restart of the app.
+- Videos (F-50) and global hotkeys (F-42, Q-16) on macOS are not part of this step.
+**Rationale:** One way for all three modes, and the same overlay and behaviour as on Windows. ScreenCaptureKit's single-window filter gives exactly what D-004 asks for, without a shadow to cut off.
+**Rejected:** `CGWindowListCreateImage` (deprecated, removed in macOS 15). The system's own picker (`SCContentSharingPicker`): another look, no region mode, no frozen screen. Capturing only the picked window after the pick: the window could have changed since the freeze (D-011).
+**Consequences:**
+- With the ad-hoc signature (D-046) macOS ties the permission to the exact build: after installing another build it must be switched off and on again, or reset with `tccutil reset ScreenCapture ch.netslash.Snapslash` (Q-36).
+- Freezing many windows at Retina resolution takes memory for a moment; the pictures are dropped right after the pick.

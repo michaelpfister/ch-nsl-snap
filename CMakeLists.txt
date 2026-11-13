@@ -297,6 +297,22 @@ if(WIN32)
     target_compile_definitions(nsl_snap_core PUBLIC NSL_HAVE_WINDOWS_BACKEND)
 endif()
 
+if(APPLE)
+    # ScreenCaptureKit and AppKit through Objective-C++ (D-002, D-047),
+    # with automatic reference counting for the Objective-C objects.
+    enable_language(OBJCXX)
+    target_sources(nsl_snap_core PRIVATE
+        src/capture/macos/MacBackend.cpp
+        src/capture/macos/MacBackend.h
+        src/capture/macos/MacCapture.h
+        src/capture/macos/MacCapture.mm
+    )
+    set_source_files_properties(src/capture/macos/MacCapture.mm PROPERTIES COMPILE_OPTIONS "-fobjc-arc")
+    target_link_libraries(nsl_snap_core PUBLIC
+        "-framework AppKit" "-framework CoreGraphics" "-framework ScreenCaptureKit")
+    target_compile_definitions(nsl_snap_core PUBLIC NSL_HAVE_MACOS_BACKEND)
+endif()
+
 # Translations (D-038): the texts in the code are German; lrelease turns
 # translations/*.ts into .qm files in the resources (":/i18n/"), which
 # Language::install() loads. scripts/update-translations.sh refreshes the
