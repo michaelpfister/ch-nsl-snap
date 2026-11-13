@@ -4,7 +4,7 @@ What each platform lets an application do, and the way we use. "Extension" means
 
 ## Capture
 
-macOS (ScreenCaptureKit, macOS 14+) supports everything in the Windows column except scrolling capture, after the user has granted the "Screen Recording" permission (D-002).
+macOS (ScreenCaptureKit, macOS 14+) supports everything in the Windows column except scrolling capture, after the user has granted the "Screen Recording" permission (D-002). Window, region and screen capture are built (D-047): ScreenCaptureKit freezes every monitor and every window alone, the app's own overlay picks above the menu bar.
 
 | Capability | Windows | GNOME / Wayland | Hyprland (D-031) | Other wlroots (Sway, ...) | Other Wayland (KDE, ...) |
 |---|---|---|---|---|---|

@@ -48,7 +48,7 @@ GitHub Actions (`.github/workflows/ci.yml`) runs on every pull request and on `m
 
 - **Build and test:** Ubuntu 24.04, Qt 6.8.3 via aqtinstall (`jurplel/install-qt-action`, cached), Debug build with `-Wall -Wextra` and warnings as errors, then `ctest` with `QT_QPA_PLATFORM=offscreen`.
 - **Windows x64 and ARM64:** `windows-2022` and `windows-11-arm`, Qt 6.8.3 via aqtinstall per architecture (cached), MSVC for the runner's own architecture, Debug build with warnings as errors at MSVC's default level, then `ctest` offscreen. There is no Windows capture backend yet, so this covers the editor and the shared core.
-- **macOS:** `macos-15` (arm64), Qt 6.8.3 for macOS (universal), Debug build with `-Wall -Wextra` and warnings as errors, then `ctest` offscreen. No capture backend yet (D-046). `macos.yml` builds the disk image (artifact `macos-universal`).
+- **macOS:** `macos-15` (arm64), Qt 6.8.3 for macOS (universal), Debug build with `-Wall -Wextra` (also for the Objective-C++) and warnings as errors, then `ctest` offscreen. The capture needs the screen recording permission and is tried by hand (D-047). `macos.yml` builds the disk image (artifact `macos-universal`).
 - **Extension and tools:** `node --check` on `.mjs` copies of the extension files, `py_compile` of `tools/nsl-snap-pick`, `bash -n` of the scripts.
 
 The same build locally, warnings as errors:
@@ -229,7 +229,7 @@ The `PATH` line lets the app and the tests find the Qt DLLs. The tests draw offs
 
 ## macOS (14 or later)
 
-There is no macOS capture backend yet (D-046): the capture modes say that capturing is not supported on this platform. The editor works: paste a capture (Cmd + Shift + Ctrl + 4 copies a region), drag an image onto the window, or open it with Cmd + O.
+Window, region and screen capture and videos work with ScreenCaptureKit (D-047, D-049), global hotkeys with Carbon (D-048).
 
 ### 1. Tools
 
@@ -255,6 +255,8 @@ cmake --build build
 ctest --test-dir build --output-on-failure
 open build/Snapslash.app
 ```
+
+The first capture asks for the "Screen Recording" permission: switch Snapslash on in Systemeinstellungen › Datenschutz & Sicherheit › Bildschirm- & Systemaudioaufnahme, then start it again. The builds are signed ad hoc, so macOS ties the permission to one build: after a new build switch it off and on again, or start over with `tccutil reset ScreenCapture ch.netslash.Snapslash` (D-047).
 
 The program is the bundle `build/Snapslash.app`; the command line (F-48) is `build/Snapslash.app/Contents/MacOS/Snapslash --help`. The tests are plain programs, not bundles.
 

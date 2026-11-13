@@ -162,8 +162,9 @@ jobs:
             if (Test-Path $log) { Get-Content $log | Select-Object -Last 40 | Out-Host }
           }
 
-  # No capture backend on macOS yet (D-046); this checks that the editor
-  # builds without warnings with Apple's Clang and its tests pass.
+  # Builds without warnings with Apple's Clang, also the Objective-C++ of the
+  # capture backend (D-047), and runs the tests. The capture itself needs
+  # the screen recording permission and is tried by hand on a Mac.
   macos:
     name: Build and test (macOS arm64, Qt 6.8.3)
     runs-on: macos-15
@@ -189,6 +190,7 @@ jobs:
           -DCMAKE_PREFIX_PATH="$QT_ROOT_DIR"
           -DCMAKE_BUILD_TYPE=Debug
           -DCMAKE_CXX_FLAGS="-Wall -Wextra"
+          -DCMAKE_OBJCXX_FLAGS="-Wall -Wextra"
           -DCMAKE_COMPILE_WARNING_AS_ERROR=ON
 
       - name: Build

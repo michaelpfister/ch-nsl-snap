@@ -178,21 +178,28 @@ QPainterPath FrameItem::shape() const
     return path;
 }
 
+QPainterPath FrameItem::lineCentre() const
+{
+    // The line lies inside the rectangle, like a CSS border.
+    const qreal w = penWidth();
+    const QRectF line = rect().adjusted(w / 2, w / 2, -w / 2, -w / 2);
+    QPainterPath path;
+    if (m_style.rounded) {
+        const qreal radius = std::min({FrameStyle::kRadius * imageScale(), line.width() / 2, line.height() / 2});
+        path.addRoundedRect(line, radius, radius);
+    } else {
+        path.addRect(line);
+    }
+    return path;
+}
+
 void FrameItem::paint(QPainter *painter, const QStyleOptionGraphicsItem *, QWidget *)
 {
     painter->setRenderHint(QPainter::Antialiasing);
 
-    // The line lies inside the rectangle, like a CSS border.
-    const qreal w = penWidth();
-    const QRectF line = rect().adjusted(w / 2, w / 2, -w / 2, -w / 2);
-    painter->setPen(QPen(m_style.color, w, Qt::SolidLine, Qt::SquareCap, Qt::MiterJoin));
+    painter->setPen(QPen(m_style.color, penWidth(), Qt::SolidLine, Qt::SquareCap, Qt::MiterJoin));
     painter->setBrush(Qt::NoBrush);
-    if (m_style.rounded) {
-        const qreal radius = std::min({FrameStyle::kRadius * imageScale(), line.width() / 2, line.height() / 2});
-        painter->drawRoundedRect(line, radius, radius);
-    } else {
-        painter->drawRect(line);
-    }
+    painter->drawPath(lineCentre());
 
     if (isNumbered()) {
         const QRectF badge = badgeRect();

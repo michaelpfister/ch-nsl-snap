@@ -6,7 +6,7 @@ if(APPLE AND NOT DEFINED CMAKE_OSX_DEPLOYMENT_TARGET)
     set(CMAKE_OSX_DEPLOYMENT_TARGET "14.0" CACHE STRING "Oldest macOS the app runs on")
 endif()
 
-project(Snapslash VERSION 1.0.1 LANGUAGES CXX)
+project(Snapslash VERSION 1.1.0 LANGUAGES CXX)
 
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
@@ -295,6 +295,26 @@ if(WIN32)
     # GuiPrivate: the monitors' physical geometry (QPlatformScreen).
     target_link_libraries(nsl_snap_core PUBLIC Qt6::GuiPrivate d3d11 dxgi dwmapi windowsapp)
     target_compile_definitions(nsl_snap_core PUBLIC NSL_HAVE_WINDOWS_BACKEND)
+endif()
+
+if(APPLE)
+    # ScreenCaptureKit and AppKit through Objective-C++ (D-002, D-047),
+    # with automatic reference counting for the Objective-C objects; Carbon
+    # for the global hotkeys (D-048).
+    enable_language(OBJCXX)
+    target_sources(nsl_snap_core PRIVATE
+        src/capture/macos/MacBackend.cpp
+        src/capture/macos/MacBackend.h
+        src/capture/macos/MacCapture.h
+        src/capture/macos/MacCapture.mm
+        src/recording/macos/MacRecordingBackend.cpp
+        src/recording/macos/MacRecordingBackend.h
+    )
+    set_source_files_properties(src/capture/macos/MacCapture.mm PROPERTIES COMPILE_OPTIONS "-fobjc-arc")
+    target_link_libraries(nsl_snap_core PUBLIC
+        "-framework AppKit" "-framework Carbon" "-framework CoreGraphics" "-framework CoreMedia"
+        "-framework CoreVideo" "-framework ScreenCaptureKit")
+    target_compile_definitions(nsl_snap_core PUBLIC NSL_HAVE_MACOS_BACKEND)
 endif()
 
 # Translations (D-038): the texts in the code are German; lrelease turns

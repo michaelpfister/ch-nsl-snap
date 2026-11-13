@@ -78,7 +78,7 @@ Added on 2026-11-11 after issue #17, for short tutorial videos (D-039).
 
 | ID | Feature | Hyprland | Windows | GNOME | Effort | Status |
 |---|---|---|---|---|---|---|
-| F-50 | **Video recording** of one window or one monitor (or all monitors), with the mouse pointer, without audio | ✓ (window only on Hyprland; Sway & co.: screen) | ✓ | ✓ Ext. | L | **Step 1 done on Hyprland and wlroots desktops** (2026-11-11, D-039): "Video" in the top bar and the tray, `--record-window` / `--record-screen`, pick on the frozen screen, countdown, indicator with time and stop, limit of 10 minutes, MP4 into the save folder. Trimming (F-51) done too. **Windows done** (2026-11-11): window or monitors with Windows.Graphics.Capture, indicator left out of the video. **GNOME done** (2026-11-11): the extension picks, Mutter's screen cast records, PipeWire delivers. Next: the ScreenCast portal for other Wayland desktops; macOS with its backend. |
+| F-50 | **Video recording** of one window or one monitor (or all monitors), with the mouse pointer, without audio | ✓ (window only on Hyprland; Sway & co.: screen) | ✓ | ✓ Ext. | L | **Step 1 done on Hyprland and wlroots desktops** (2026-11-11, D-039): "Video" in the top bar and the tray, `--record-window` / `--record-screen`, pick on the frozen screen, countdown, indicator with time and stop, limit of 10 minutes, MP4 into the save folder. Trimming (F-51) done too. **Windows done** (2026-11-11): window or monitors with Windows.Graphics.Capture, indicator left out of the video. **GNOME done** (2026-11-11): the extension picks, Mutter's screen cast records, PipeWire delivers. **macOS done** (2026-11-13, D-049): the overlay picks, a ScreenCaptureKit stream records, the indicator left out of monitor recordings; recording and trimming tried on a Mac with 1.1.0-beta.1. Next: the ScreenCast portal for other Wayland desktops. |
 | F-51 | **Trim** a recording: cut off the start and the end before saving | ✓ | ✓ | ✓ | M | **Done** (2026-11-11, D-039): after every recording, except from the command line without `--open`. |
 
 ### F-50 Video recording
@@ -117,7 +117,7 @@ Modelled on [WinSnap's shortcuts](https://www.ntwind.com/software/winsnap/shortc
 - Reassignable in the settings. All global captures respect the timer setting (F-04).
 - **GNOME:** registered by the extension (D-011). GNOME itself uses Print, Shift + Print and Alt + Print for its screenshot UI; the extension takes them over while enabled (Q-14).
 - **Windows:** **Done** (2026-10-27, D-035): `RegisterHotKey`, settings tab "Tastenkürzel" (change, switch off, "Standard", taken keys marked). Windows 11 opens the Snipping Tool on Print by default; the app says so once at start with a button to the Windows setting.
-- **macOS:** Macs have no Print key; the defaults there are still open (Q-16).
+- **macOS:** **Done** (2026-11-13, D-048): Carbon's `RegisterEventHotKey`, the same settings tab. Macs have no Print key: Cmd + Shift + 6 (last mode), 7 (screen), 8 (active window), 9 (region); Cmd + Shift + 3, 4 and 5 stay the system's.
 - **Hyprland and other desktops without our extension:** the desktop's own key bindings run the command line (F-48), e.g. `bind = , Print, exec, snapslash --capture-region`.
 - Not adopted: Ctrl + Print (active application, all its windows) and Ctrl + Shift + Print (multi-object selection), because these capture modes are not in our scope.
 

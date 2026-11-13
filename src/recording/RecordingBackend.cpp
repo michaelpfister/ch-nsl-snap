@@ -12,11 +12,14 @@
 #ifdef NSL_HAVE_PIPEWIRE
 #include "recording/gnome/GnomeRecordingBackend.h"
 #endif
+#ifdef NSL_HAVE_MACOS_BACKEND
+#include "recording/macos/MacRecordingBackend.h"
+#endif
 
 namespace {
 
-// Platforms whose video backend is not written yet (D-039: the portal and
-// macOS follow), or a build without what it needs.
+// Platforms whose video backend is not written yet (D-039: the portal
+// follows), or a build without what it needs.
 class UnsupportedRecordingBackend : public RecordingBackend
 {
 public:
@@ -38,13 +41,15 @@ private:
     QString m_reason;
 };
 
+#if !defined(NSL_HAVE_WINDOWS_BACKEND) && !defined(NSL_HAVE_MACOS_BACKEND)
 // No Q_OBJECT in this file, so the context is named for lupdate (D-038).
 QString notYet()
 {
     return QCoreApplication::translate("UnsupportedRecordingBackend",
                                        "Videos lassen sich auf diesem Desktop noch nicht aufnehmen. Bisher gehen "
-                                       "GNOME, Hyprland, andere wlroots-Desktops und Windows.");
+                                       "GNOME, Hyprland, andere wlroots-Desktops, Windows und macOS.");
 }
+#endif
 
 #ifdef NSL_HAVE_GNOME_BACKEND
 // GNOME, also under another name (Zorin sets "zorin:GNOME").
@@ -61,6 +66,8 @@ std::unique_ptr<RecordingBackend> createRecordingBackend(QObject *parent)
 {
 #if defined(NSL_HAVE_WINDOWS_BACKEND)
     return std::make_unique<WindowsRecordingBackend>(parent);
+#elif defined(NSL_HAVE_MACOS_BACKEND)
+    return std::make_unique<MacRecordingBackend>(parent);
 #else
 #ifdef NSL_HAVE_GNOME_BACKEND
     if (onGnome()) {

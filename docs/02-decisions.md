@@ -168,6 +168,7 @@ Each entry: context, decision, rationale, consequences. Entries marked **(assump
 - Performance: the blur reads memory in order (columns via a transposed copy) and is compiled with `-O2` even in debug builds; the blurred image is cached per radius and the finished dimmed layer per setting.
 **Rationale:** Three fixed levels cover the instruction pages and keep them consistent; fine-tuning is rarely needed.
 **Consequences:** Measured on a 2292 × 1318 capture: dimming 17 ms, the first use of a blur level about 100 ms (with a wait cursor), every later switch under 10 ms.
+- The hole in the dim follows the **middle of each frame's line**, rounded like it, so the dim reaches under the line. Cut along the line's outer edge, both edges were antialiased at the same place and left a light seam around the frame, best seen on white backgrounds (issue #46, 2026-11-13; Windows and macOS alike; gone in 1.1.0-beta.1 on both).
 
 ## D-017 Zoom: fit mode that follows the window, steps, crisp pixels
 
@@ -629,7 +630,7 @@ Each entry: context, decision, rationale, consequences. Entries marked **(assump
 - `Theme::current()` asks `ColorScheme`; the whole app switches live (main window, dialogs, settings overlay, trim window).
 **Rationale:** The portal is how GNOME, KDE and the wlroots portals publish light and dark today, also to sandboxed apps; asking it directly needs no GTK in the AppImage.
 **Rejected:** Bundling Qt's GTK theme plugin (pulls GTK 3 and its dependencies into the AppImage, the classic source of AppImage breakage); reading GNOME's gsettings key (GNOME-only).
-**Consequences:** On a desktop without a portal and without Qt's GTK theme, "Wie das System" stays light; the setting still offers dark.
+**Consequences:** On a desktop without a portal and without Qt's GTK theme, "Wie das System" stays light; the setting still offers dark. Switching repolishes every widget; anything that reacts to each widget's palette change must stay cheap (the settings overlay redrew its icons for each one and froze the app for 20–40 s, fixed 2026-11-13; `tst_themeswitch` checks that switching with the settings open takes at most ten times as long as without; about 2–3 times now).
 
 ## D-046 First macOS build: an app bundle in a disk image, built in CI, signed ad hoc
 
@@ -638,10 +639,47 @@ Each entry: context, decision, rationale, consequences. Entries marked **(assump
 - **Bundle:** on macOS the program is `Snapslash.app` (`MACOSX_BUNDLE`, bundle id `ch.netslash.Snapslash`, the app id of D-036), with `resources/macos/Info.plist.in` and the icon `resources/macos/Snapslash.icns` (the logo on Apple's icon grid: 824 of 1024 px). Minimum macOS 14 (D-002), set as `CMAKE_OSX_DEPLOYMENT_TARGET`.
 - **Package:** `scripts/build-macos-app.sh` builds one **universal** program (arm64 and x86_64; Qt for macOS is universal), puts Qt into the bundle with `macdeployqt`, adds Qt's German texts under `Contents/Resources/translations`, signs the bundle **ad hoc** (`codesign --sign -`), checks that it reports its version and packs it with a link to `/Applications` into `snapslash-<version>-macos.dmg`.
 - **CI:** the CI workflow builds and tests on `macos-15` (arm64, Debug, `-Wall -Wextra`, warnings as errors), and `macos.yml` builds the disk image for every pull request as a workflow artifact, like the AppImage (D-041).
-- **Not yet:** no capture backend ("Fenster", "Bereich" and "Bildschirm" say that capturing is not supported, as on Windows before D-022), no global hotkeys, no update path (installation kind *Other*), no macOS file in the releases.
+- **Not yet:** no capture backend ("Fenster", "Bereich" and "Bildschirm" say that capturing is not supported, as on Windows before D-022; since D-047 there is one), no global hotkeys, no update path (installation kind *Other*), no macOS file in the releases.
 **Rationale:** The build is cheap to keep green in CI and gives a Mac user something to open: paste, drag & drop and the editor work. A universal program means one file for Apple silicon and Intel Macs.
 **Rejected:** Developer ID signing and notarisation now (needs the paid Apple account, Q-36; the screen recording permission only matters once the backend exists). Two separate programs per architecture (twice the files for no gain).
 **Consequences:**
 - Without a Developer ID macOS refuses to open the downloaded app at first; the user allows it once (macOS 15: Systemeinstellungen › Datenschutz & Sicherheit › "Dennoch öffnen"). The app is signed ad hoc, so it runs on Apple silicon.
 - Tried on a Mac on 2026-11-13: the disk image from CI opens, the editor works.
-- Next: the ScreenCaptureKit backend (`src/capture/macos/`, Objective-C++), then signing (Q-36), then the disk image in the releases.
+- Next: the ScreenCaptureKit backend (D-047), then signing (Q-36), then the disk image in the releases.
+
+## D-047 macOS capture: ScreenCaptureKit freezes everything, the app's own overlay picks
+
+**Context:** The first macOS build (D-046) runs the editor; capture was missing (2026-11-13). D-002 chose ScreenCaptureKit; D-011 asks for a frozen screen before the user selects, D-004 for windows without shadow.
+**Decision:**
+- **Freeze:** right after the countdown, `MacCapture::Freeze` asks ScreenCaptureKit for the displays and the windows on screen and requests, all at once, one `SCScreenshotManager` picture per monitor and one per window (`SCContentFilter` with a single window, `ignoreShadowsSingleWindow`, not opaque): each window alone, also where it is covered, without shadow and with its rounded corners transparent. Pickable are the normal windows (layer 0) of other apps, at least 20 × 20 points; the order (topmost first) and the frames come from Core Graphics' window list, which ScreenCaptureKit does not give. The window pictures stay as Core Graphics images until one is picked.
+- **Pick:** the app's own `CaptureOverlay`, as on Windows (D-022, D-023, D-024): window highlight, region with magnifier, screen. Its windows are lifted above the menu bar and the Dock (`NSScreenSaverWindowLevel`, on every Space). Qt's screens are in points; the overlay works in pixels, laid out with `PickGeometry::nativeLayout` as on Wayland (D-031).
+- **Result:** the window picture is the window itself, no margin to crop (`cornerRadius` 0: the corners are already in the picture); the shared core trims and cleans as on every platform (D-009, D-010). Colours are converted to sRGB. Alt + Print's "active window" is the topmost window of another app, as the app itself is hidden.
+- **Permission:** without "Screen Recording" macOS shows only the desktop picture. The backend then asks macOS once (`CGRequestScreenCaptureAccess`, which also puts Snapslash into the list) and says where to switch it on; macOS applies it after a restart of the app.
+- Videos (F-50) and global hotkeys (F-42, Q-16) on macOS are not part of this step (hotkeys: D-048, videos: D-049).
+**Rationale:** One way for all three modes, and the same overlay and behaviour as on Windows. ScreenCaptureKit's single-window filter gives exactly what D-004 asks for, without a shadow to cut off.
+**Rejected:** `CGWindowListCreateImage` (deprecated, removed in macOS 15). The system's own picker (`SCContentSharingPicker`): another look, no region mode, no frozen screen. Capturing only the picked window after the pick: the window could have changed since the freeze (D-011).
+**Consequences:**
+- With the ad-hoc signature (D-046) macOS ties the permission to the exact build: after installing another build it must be switched off and on again, or reset with `tccutil reset ScreenCapture ch.netslash.Snapslash` (Q-36).
+- Freezing many windows at Retina resolution takes memory for a moment; the pictures are dropped right after the pick.
+
+## D-048 macOS: global hotkeys with Carbon, Cmd + Shift + 6 to 9; updates by disk image
+
+**Context:** The macOS app captures (D-047), but the hotkeys of F-42 and a way to update were missing (2026-11-13). Macs have no Print key, and Cmd + Shift + 3, 4 and 5 are the system's own screenshot keys (Q-16). The update dialog showed the steps for a build from source, with GNOME, also on a Mac.
+**Decision:**
+- **Hotkeys:** Carbon's `RegisterEventHotKey`, exclusive, so a key another app holds shows as taken, as on Windows (D-035). Defaults: **Cmd + Shift + 6** (last mode), **7** (screen), **8** (active window), **9** (region); changeable in the same settings tab. Letters and digits are looked up on the current keyboard layout (a Swiss keyboard has Y and Z swapped, a French one the digits on Shift); function, arrow and similar keys have fixed codes.
+- **Updates:** a new installation kind *macOS app* (the program runs from `….app/Contents/MacOS`). The update dialog explains the disk image of the chosen version: download, open, drag into Programme, switch the screen recording permission off and on again. The release workflow publishes `snapslash-<version>-macos.dmg` with the other files.
+**Rationale:** `RegisterEventHotKey` needs no permission; the alternatives do. The keys right after the system's own are easy to remember and free in common apps. A self-replacing update makes little sense while every new ad-hoc-signed build needs the permission again (Q-36).
+**Rejected:** An event tap (`CGEventTapCreate`) or `NSEvent` global monitors: they need the accessibility or input monitoring permission, a third prompt. Replacing the bundle from the app: later, with a Developer ID.
+**Consequences:** Carbon is old but still the documented way for global hotkeys; if Apple removes it, the hotkeys go with it. The Escape key during the countdown is not global on macOS yet; a click cancels it (D-025).
+
+## D-049 macOS videos: the image overlay picks, a ScreenCaptureKit stream records
+
+**Context:** The last missing piece of F-50 on macOS (2026-11-13). D-039 shares everything but the pick and the frames; Windows picks in the app's own overlay and streams with Windows.Graphics.Capture.
+**Decision:**
+- **Pick:** `MacBackend::pickForVideo`, the freeze and overlay of D-047 in video mode (window or screen, no region), as on Windows.
+- **Frames:** one `SCStream` per window or monitor (`MacCapture::Stream`), 30 fps at most, with the pointer, BGRA in sRGB; the newest frame is kept until the controller asks for it, so a still window costs nothing. A window is recorded alone (`desktopIndependentWindow`, without shadow), also while covered; several monitors are put side by side as on Windows.
+- **Indicator:** monitor recordings leave out the app's own windows (`excludingApplications`), so the indicator is not in the video, on every monitor. Countdown and indicator stay visible over other apps (`NSStatusWindowLevel`, not hidden when the app is inactive).
+- A stream that macOS ends (window closed, permission withdrawn) ends the recording with a message.
+**Rationale:** The same flow as on Windows; ScreenCaptureKit is the only supported way to stream single windows on macOS 14 and later.
+**Rejected:** `AVCaptureScreenInput` (deprecated, screens only). `SCRecordingOutput` (macOS 15, writes the file itself): the shared encoder, trimming and the 10-minute limit (D-039) would be bypassed.
+**Consequences:** H.264 comes from Qt's FFmpeg with VideoToolbox, which every Mac has. Audio stays out (F-50). Tried on a Mac with 1.1.0-beta.1 (2026-11-13): recording and trimming work.

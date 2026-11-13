@@ -139,6 +139,9 @@ Installation installation(const QString &applicationDir, bool isWindows, bool ha
         return Installation::AppImage;
     if (applicationDir.startsWith(QLatin1String("/nix/store/")))
         return Installation::Nix;
+    // The program inside an app bundle: Snapslash.app/Contents/MacOS.
+    if (!isWindows && applicationDir.endsWith(QLatin1String(".app/Contents/MacOS")))
+        return Installation::MacApp;
     return Installation::Other;
 }
 
@@ -173,6 +176,11 @@ QString windowsAssetName(const Version &version)
 QString linuxAssetName(const Version &version)
 {
     return QStringLiteral("snapslash-%1-linux-x86_64.AppImage").arg(version.toString());
+}
+
+QString macosAssetName(const Version &version)
+{
+    return QStringLiteral("snapslash-%1-macos.dmg").arg(version.toString());
 }
 
 } // namespace Releases

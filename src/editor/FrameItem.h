@@ -25,6 +25,11 @@ public:
     // Corners where the number would be fully visible; the panel offers only these.
     QList<BadgePosition> fittingBadgePositions() const;
 
+    // The middle of the frame's line, rounded like it, in item coordinates.
+    // The dimming (F-30) cuts its hole along it, so the dim reaches under
+    // the line and no light seam shows between them (issue #46).
+    QPainterPath lineCentre() const;
+
     QRectF boundingRect() const override;
     QPainterPath shape() const override;
     void paint(QPainter *painter, const QStyleOptionGraphicsItem *option, QWidget *widget) override;
