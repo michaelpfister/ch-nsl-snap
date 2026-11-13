@@ -41,6 +41,7 @@ private:
     QString m_reason;
 };
 
+#if !defined(NSL_HAVE_WINDOWS_BACKEND) && !defined(NSL_HAVE_MACOS_BACKEND)
 // No Q_OBJECT in this file, so the context is named for lupdate (D-038).
 QString notYet()
 {
@@ -48,6 +49,7 @@ QString notYet()
                                        "Videos lassen sich auf diesem Desktop noch nicht aufnehmen. Bisher gehen "
                                        "GNOME, Hyprland, andere wlroots-Desktops, Windows und macOS.");
 }
+#endif
 
 #ifdef NSL_HAVE_GNOME_BACKEND
 // GNOME, also under another name (Zorin sets "zorin:GNOME").
