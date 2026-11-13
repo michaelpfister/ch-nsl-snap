@@ -168,7 +168,7 @@ Each entry: context, decision, rationale, consequences. Entries marked **(assump
 - Performance: the blur reads memory in order (columns via a transposed copy) and is compiled with `-O2` even in debug builds; the blurred image is cached per radius and the finished dimmed layer per setting.
 **Rationale:** Three fixed levels cover the instruction pages and keep them consistent; fine-tuning is rarely needed.
 **Consequences:** Measured on a 2292 × 1318 capture: dimming 17 ms, the first use of a blur level about 100 ms (with a wait cursor), every later switch under 10 ms.
-- The hole in the dim follows the **middle of each frame's line**, rounded like it, so the dim reaches under the line. Cut along the line's outer edge, both edges were antialiased at the same place and left a light seam around the frame, best seen on white backgrounds (issue #46, 2026-11-13; Windows and macOS alike).
+- The hole in the dim follows the **middle of each frame's line**, rounded like it, so the dim reaches under the line. Cut along the line's outer edge, both edges were antialiased at the same place and left a light seam around the frame, best seen on white backgrounds (issue #46, 2026-11-13; Windows and macOS alike; gone in 1.1.0-beta.1 on both).
 
 ## D-017 Zoom: fit mode that follows the window, steps, crisp pixels
 
@@ -682,4 +682,4 @@ Each entry: context, decision, rationale, consequences. Entries marked **(assump
 - A stream that macOS ends (window closed, permission withdrawn) ends the recording with a message.
 **Rationale:** The same flow as on Windows; ScreenCaptureKit is the only supported way to stream single windows on macOS 14 and later.
 **Rejected:** `AVCaptureScreenInput` (deprecated, screens only). `SCRecordingOutput` (macOS 15, writes the file itself): the shared encoder, trimming and the 10-minute limit (D-039) would be bypassed.
-**Consequences:** H.264 comes from Qt's FFmpeg with VideoToolbox, which every Mac has. Audio stays out (F-50).
+**Consequences:** H.264 comes from Qt's FFmpeg with VideoToolbox, which every Mac has. Audio stays out (F-50). Tried on a Mac with 1.1.0-beta.1 (2026-11-13): recording and trimming work.
