@@ -54,12 +54,18 @@ void install(QCoreApplication &app, const QString &language)
 
     // Qt's own texts (buttons of message boxes, context menus) are English
     // in Qt; other languages from Qt's translations, which windeployqt puts
-    // next to the program on Windows. Without them those few texts stay English.
+    // next to the program on Windows and the macOS package script into the
+    // bundle's Contents/Resources. Without them those few texts stay English.
     // windeployqt writes qt_<language>.qm, Qt's own folder has qtbase_ too.
     if (g_current != QLatin1String("en")) {
         auto *qt = new QTranslator(&app);
-        const QStringList folders = {QCoreApplication::applicationDirPath() + QStringLiteral("/translations"),
-                                     QLibraryInfo::path(QLibraryInfo::TranslationsPath)};
+        const QStringList folders = {
+#ifdef Q_OS_MACOS
+            // Snapslash.app/Contents/MacOS is the program's folder.
+            QCoreApplication::applicationDirPath() + QStringLiteral("/../Resources/translations"),
+#endif
+            QCoreApplication::applicationDirPath() + QStringLiteral("/translations"),
+            QLibraryInfo::path(QLibraryInfo::TranslationsPath)};
         bool loaded = false;
         for (const QString &folder : folders) {
             for (const QString &name : {QStringLiteral("qt_%1"), QStringLiteral("qtbase_%1")}) {
