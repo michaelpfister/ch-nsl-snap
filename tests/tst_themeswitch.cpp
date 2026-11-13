@@ -1,8 +1,9 @@
 // Switching between light and dark (D-045) with the whole main window on
-// the screen: it must take a moment, not tens of seconds. From the open
-// settings it froze the app for about 40 s on Windows (20 s here): their
-// event filter redrew the navigation icons for every widget's palette
-// change. Now about half a second for two switches.
+// the screen. From the open settings it froze the app for about 40 s on
+// Windows: their event filter redrew the navigation icons for every
+// widget's palette change, 150 times as long as without the settings.
+// Machines differ a lot (a Debug build on the ARM64 runner is about 15
+// times slower), so the test compares the two cases instead of a time.
 
 #include "app/MainWindow.h"
 #include "app/SettingsDialog.h"
@@ -26,7 +27,7 @@ private slots:
         QCoreApplication::setApplicationName(QStringLiteral("tst_themeswitch"));
     }
 
-    void switchIsQuick()
+    void switchWithoutSettings()
     {
         auto *app = qApp;
         MainWindow window;
@@ -43,12 +44,11 @@ private slots:
             window.applyTheme(theme);
             QCoreApplication::processEvents();
         }
-        const qint64 ms = timer.elapsed();
-        qInfo("Two switches took %lld ms", ms);
-        QVERIFY2(ms < 5000, qPrintable(QStringLiteral("%1 ms").arg(ms)));
+        m_plainMs = timer.elapsed();
+        qInfo("Two switches took %lld ms", m_plainMs);
     }
 
-    void switchInTheSettingsIsQuick()
+    void switchInTheSettingsIsNotMuchSlower()
     {
         // As the user does it: the choice in the open settings overlay,
         // with the app following ColorScheme as main() wires it.
@@ -88,8 +88,14 @@ private slots:
         dialog.exec();
         qInfo("Two switches in the settings took %lld ms", ms);
         QVERIFY(ms >= 0);
-        QVERIFY2(ms < 5000, qPrintable(QStringLiteral("%1 ms").arg(ms)));
+        // About 2 to 3 times as long now: the settings have many widgets.
+        QVERIFY(m_plainMs >= 0);
+        QVERIFY2(ms < 10 * m_plainMs + 500,
+                 qPrintable(QStringLiteral("%1 ms against %2 ms without the settings").arg(ms).arg(m_plainMs)));
     }
+
+private:
+    qint64 m_plainMs = -1; // two switches without the settings
 };
 
 QTEST_MAIN(TestThemeSwitch)
