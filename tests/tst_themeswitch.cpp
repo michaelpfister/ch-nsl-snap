@@ -6,6 +6,7 @@
 // times slower), so the test compares the two cases instead of a time.
 
 #include "app/MainWindow.h"
+#include "app/Settings.h"
 #include "app/SettingsDialog.h"
 #include "ui/ColorScheme.h"
 #include "ui/Theme.h"
@@ -13,6 +14,7 @@
 #include <QApplication>
 #include <QComboBox>
 #include <QElapsedTimer>
+#include <QSettings>
 #include <QTest>
 #include <QTimer>
 
@@ -25,6 +27,18 @@ private slots:
     {
         QCoreApplication::setOrganizationName(QStringLiteral("netslash.ch-tests"));
         QCoreApplication::setApplicationName(QStringLiteral("tst_themeswitch"));
+        // Own settings, without what the main window shows on a first
+        // start: on Windows the note about the Print key is a dialog that
+        // waits for a click (it hung the test until Qt Test's 5 minutes),
+        // and the update check would go to GitHub.
+        QSettings().clear();
+        Settings::setPrintKeyHintShown(true);
+        Settings::setCheckForUpdates(false);
+    }
+
+    void cleanupTestCase()
+    {
+        QSettings().clear();
     }
 
     void switchWithoutSettings()
