@@ -61,19 +61,36 @@ void MacBackend::captureScreen()
     start(CaptureOverlay::Mode::Screen);
 }
 
+bool MacBackend::checkPermission()
+{
+    // Without the permission macOS shows only the desktop picture. Asking
+    // shows the system's question once and puts the app into the list.
+    if (MacCapture::hasPermission())
+        return true;
+    MacCapture::requestPermission();
+    emit failed(tr("Snapslash braucht die Berechtigung zur Bildschirmaufnahme. Bitte in den Systemeinstellungen "
+                   "unter «Datenschutz & Sicherheit › Bildschirm- & Systemaudioaufnahme» einschalten und "
+                   "Snapslash danach neu starten."));
+    return false;
+}
+
+void MacBackend::pickForVideo(bool window)
+{
+    if (m_overlay || m_countdown)
+        return;
+    if (!checkPermission())
+        return;
+    m_forVideo = true;
+    freezeAndPick(window ? CaptureOverlay::Mode::Window : CaptureOverlay::Mode::Screen, false);
+}
+
 void MacBackend::start(CaptureOverlay::Mode mode, bool activeWindow)
 {
     if (m_overlay || m_countdown)
         return;
-    // Without the permission macOS shows only the desktop picture. Asking
-    // shows the system's question once and puts the app into the list.
-    if (!MacCapture::hasPermission()) {
-        MacCapture::requestPermission();
-        emit failed(tr("Snapslash braucht die Berechtigung zur Bildschirmaufnahme. Bitte in den Systemeinstellungen "
-                       "unter «Datenschutz & Sicherheit › Bildschirm- & Systemaudioaufnahme» einschalten und "
-                       "Snapslash danach neu starten."));
+    m_forVideo = false;
+    if (!checkPermission())
         return;
-    }
     if (delay() <= 0) {
         freezeAndPick(mode, activeWindow);
         return;
@@ -144,11 +161,16 @@ void MacBackend::freezeAndPick(CaptureOverlay::Mode mode, bool activeWindow)
 
     m_overlay = new CaptureOverlay(m_screens, m_frames, mode,
                                    regionByDragging() ? RegionSelector::Mode::Drag : RegionSelector::Mode::Clicks, this);
+    m_overlay->setForVideo(m_forVideo);
     connect(m_overlay, &CaptureOverlay::windowPicked, this, &MacBackend::onWindowPicked);
     connect(m_overlay, &CaptureOverlay::regionSelected, this,
             [this](const QRect &rect) { deliverPart(rect, CaptureResult::Kind::Region); });
-    connect(m_overlay, &CaptureOverlay::screenSelected, this,
-            [this](const QRect &rect) { deliverPart(rect, CaptureResult::Kind::Screen); });
+    connect(m_overlay, &CaptureOverlay::screenSelected, this, [this](const QRect &rect) {
+        if (m_forVideo)
+            deliverVideoScreens(rect);
+        else
+            deliverPart(rect, CaptureResult::Kind::Screen);
+    });
     connect(m_overlay, &CaptureOverlay::cancelled, this, [this] {
         finish();
         emit cancelled();
@@ -159,6 +181,16 @@ void MacBackend::freezeAndPick(CaptureOverlay::Mode mode, bool activeWindow)
 void MacBackend::onWindowPicked(int index)
 {
     const MacCapture::Window window = m_freeze->windows()[index];
+    if (m_forVideo) {
+        // The stream starts after the countdown; the frozen picture is not needed.
+        VideoPick pick;
+        pick.windowId = window.id;
+        pick.title = window.title.isEmpty() ? window.appName : window.title;
+        pick.size = m_frames.value(index).size();
+        finish();
+        emit videoPicked(pick);
+        return;
+    }
     const QImage image = m_freeze->windowImage(index);
     finish();
     if (image.isNull()) {
@@ -195,6 +227,25 @@ void MacBackend::deliverPart(const QRect &native, CaptureResult::Kind kind)
     result.scale = scale;
     result.regionRect = native;
     emit captured(result);
+}
+
+void MacBackend::deliverVideoScreens(const QRect &native)
+{
+    // One monitor, or all of them (Enter): those inside the rectangle.
+    VideoPick pick;
+    for (const CaptureOverlay::Screen &screen : std::as_const(m_screens)) {
+        if (native.contains(screen.native)) {
+            pick.screens << screen.screen;
+            pick.natives << screen.native;
+        }
+    }
+    pick.size = native.size();
+    finish();
+    if (pick.screens.isEmpty()) {
+        emit cancelled();
+        return;
+    }
+    emit videoPicked(pick);
 }
 
 void MacBackend::finish()

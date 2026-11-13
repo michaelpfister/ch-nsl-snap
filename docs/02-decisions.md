@@ -655,7 +655,7 @@ Each entry: context, decision, rationale, consequences. Entries marked **(assump
 - **Pick:** the app's own `CaptureOverlay`, as on Windows (D-022, D-023, D-024): window highlight, region with magnifier, screen. Its windows are lifted above the menu bar and the Dock (`NSScreenSaverWindowLevel`, on every Space). Qt's screens are in points; the overlay works in pixels, laid out with `PickGeometry::nativeLayout` as on Wayland (D-031).
 - **Result:** the window picture is the window itself, no margin to crop (`cornerRadius` 0: the corners are already in the picture); the shared core trims and cleans as on every platform (D-009, D-010). Colours are converted to sRGB. Alt + Print's "active window" is the topmost window of another app, as the app itself is hidden.
 - **Permission:** without "Screen Recording" macOS shows only the desktop picture. The backend then asks macOS once (`CGRequestScreenCaptureAccess`, which also puts Snapslash into the list) and says where to switch it on; macOS applies it after a restart of the app.
-- Videos (F-50) and global hotkeys (F-42, Q-16) on macOS are not part of this step (hotkeys: D-048).
+- Videos (F-50) and global hotkeys (F-42, Q-16) on macOS are not part of this step (hotkeys: D-048, videos: D-049).
 **Rationale:** One way for all three modes, and the same overlay and behaviour as on Windows. ScreenCaptureKit's single-window filter gives exactly what D-004 asks for, without a shadow to cut off.
 **Rejected:** `CGWindowListCreateImage` (deprecated, removed in macOS 15). The system's own picker (`SCContentSharingPicker`): another look, no region mode, no frozen screen. Capturing only the picked window after the pick: the window could have changed since the freeze (D-011).
 **Consequences:**
@@ -671,3 +671,15 @@ Each entry: context, decision, rationale, consequences. Entries marked **(assump
 **Rationale:** `RegisterEventHotKey` needs no permission; the alternatives do. The keys right after the system's own are easy to remember and free in common apps. A self-replacing update makes little sense while every new ad-hoc-signed build needs the permission again (Q-36).
 **Rejected:** An event tap (`CGEventTapCreate`) or `NSEvent` global monitors: they need the accessibility or input monitoring permission, a third prompt. Replacing the bundle from the app: later, with a Developer ID.
 **Consequences:** Carbon is old but still the documented way for global hotkeys; if Apple removes it, the hotkeys go with it. The Escape key during the countdown is not global on macOS yet; a click cancels it (D-025).
+
+## D-049 macOS videos: the image overlay picks, a ScreenCaptureKit stream records
+
+**Context:** The last missing piece of F-50 on macOS (2026-11-13). D-039 shares everything but the pick and the frames; Windows picks in the app's own overlay and streams with Windows.Graphics.Capture.
+**Decision:**
+- **Pick:** `MacBackend::pickForVideo`, the freeze and overlay of D-047 in video mode (window or screen, no region), as on Windows.
+- **Frames:** one `SCStream` per window or monitor (`MacCapture::Stream`), 30 fps at most, with the pointer, BGRA in sRGB; the newest frame is kept until the controller asks for it, so a still window costs nothing. A window is recorded alone (`desktopIndependentWindow`, without shadow), also while covered; several monitors are put side by side as on Windows.
+- **Indicator:** monitor recordings leave out the app's own windows (`excludingApplications`), so the indicator is not in the video, on every monitor. Countdown and indicator stay visible over other apps (`NSStatusWindowLevel`, not hidden when the app is inactive).
+- A stream that macOS ends (window closed, permission withdrawn) ends the recording with a message.
+**Rationale:** The same flow as on Windows; ScreenCaptureKit is the only supported way to stream single windows on macOS 14 and later.
+**Rejected:** `AVCaptureScreenInput` (deprecated, screens only). `SCRecordingOutput` (macOS 15, writes the file itself): the shared encoder, trimming and the 10-minute limit (D-039) would be bypassed.
+**Consequences:** H.264 comes from Qt's FFmpeg with VideoToolbox, which every Mac has. Audio stays out (F-50).

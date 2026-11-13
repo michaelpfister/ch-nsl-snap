@@ -13,8 +13,10 @@
 
 #include <unistd.h>
 
+#include <atomic>
 #include <cmath>
-
+#include <memory>
+#include <mutex>
 #include <vector>
 
 namespace {
@@ -66,7 +68,117 @@ void sizeFor(SCContentFilter *filter, SCStreamConfiguration *config)
     config.height = size_t(std::lround(filter.contentRect.size.height * scale));
 }
 
+// What may be captured: the displays and the windows on screen.
+// ScreenCaptureKit answers on a queue of its own, so the main thread can
+// wait for it. nil when it does not answer in time or refuses.
+SCShareableContent *shareableContent(dispatch_time_t deadline, QString *diagnostic)
+{
+    __block SCShareableContent *content = nil;
+    __block NSError *contentError = nil;
+    dispatch_semaphore_t contentReady = dispatch_semaphore_create(0);
+    [SCShareableContent getShareableContentExcludingDesktopWindows:YES
+                                               onScreenWindowsOnly:YES
+                                                 completionHandler:^(SCShareableContent *found, NSError *error) {
+                                                     content = found;
+                                                     contentError = error;
+                                                     dispatch_semaphore_signal(contentReady);
+                                                 }];
+    if (dispatch_semaphore_wait(contentReady, deadline) != 0) {
+        *diagnostic = QStringLiteral("ScreenCaptureKit did not list the content in time");
+        return nil;
+    }
+    if (!content)
+        *diagnostic = QStringLiteral("ScreenCaptureKit lists no content: %1")
+                          .arg(toQString(contentError.localizedDescription));
+    return content;
+}
+
+dispatch_time_t deadlineIn(int timeoutMs)
+{
+    return dispatch_time(DISPATCH_TIME_NOW, int64_t(timeoutMs) * int64_t(NSEC_PER_MSEC));
+}
+
+// The display behind one of Qt's screens: the same rectangle in points,
+// top left of the main display at 0,0 for both.
+SCDisplay *displayFor(SCShareableContent *content, QScreen *screen)
+{
+    for (SCDisplay *display in content.displays) {
+        if (toQRect(CGDisplayBounds(display.displayID)) == screen->geometry())
+            return display;
+    }
+    return nil;
+}
+
+// Shared between a stream's output (on ScreenCaptureKit's queue) and the
+// app's thread.
+struct StreamShared
+{
+    std::mutex mutex;
+    QImage latest;
+    bool fresh = false;
+    std::atomic<bool> stopped = false;
+};
+
 } // namespace
+
+// Receives the frames of a stream, and its end.
+@interface NslStreamOutput : NSObject <SCStreamOutput, SCStreamDelegate>
+- (instancetype)initWithShared:(std::shared_ptr<StreamShared>)shared;
+@end
+
+@implementation NslStreamOutput {
+    std::shared_ptr<StreamShared> _shared;
+}
+
+- (instancetype)initWithShared:(std::shared_ptr<StreamShared>)shared
+{
+    if ((self = [super init]))
+        _shared = std::move(shared);
+    return self;
+}
+
+- (void)stream:(SCStream *)stream didOutputSampleBuffer:(CMSampleBufferRef)sampleBuffer ofType:(SCStreamOutputType)type
+{
+    (void)stream;
+    if (type != SCStreamOutputTypeScreen)
+        return;
+    // Only complete frames carry a picture; idle ones only say that
+    // nothing changed.
+    CFArrayRef attachments = CMSampleBufferGetSampleAttachmentsArray(sampleBuffer, false);
+    if (attachments && CFArrayGetCount(attachments) > 0) {
+        NSDictionary *info = (__bridge NSDictionary *)CFArrayGetValueAtIndex(attachments, 0);
+        NSNumber *status = info[SCStreamFrameInfoStatus];
+        if (status && status.integerValue != SCFrameStatusComplete)
+            return;
+    }
+    CVImageBufferRef pixels = CMSampleBufferGetImageBuffer(sampleBuffer);
+    if (!pixels)
+        return;
+    // BGRA in memory: Qt's ARGB32 on little-endian machines (every Mac).
+    CVPixelBufferLockBaseAddress(pixels, kCVPixelBufferLock_ReadOnly);
+    const int width = int(CVPixelBufferGetWidth(pixels));
+    const int height = int(CVPixelBufferGetHeight(pixels));
+    const auto bytesPerLine = qsizetype(CVPixelBufferGetBytesPerRow(pixels));
+    const auto *bits = static_cast<const uchar *>(CVPixelBufferGetBaseAddress(pixels));
+    QImage frame;
+    if (bits && width > 0 && height > 0)
+        frame = QImage(bits, width, height, bytesPerLine, QImage::Format_ARGB32_Premultiplied).copy();
+    CVPixelBufferUnlockBaseAddress(pixels, kCVPixelBufferLock_ReadOnly);
+    if (frame.isNull())
+        return;
+    std::lock_guard<std::mutex> lock(_shared->mutex);
+    _shared->latest = std::move(frame);
+    _shared->fresh = true;
+}
+
+- (void)stream:(SCStream *)stream didStopWithError:(NSError *)error
+{
+    (void)stream;
+    (void)error;
+    _shared->stopped = true;
+}
+
+@end
 
 namespace MacCapture {
 
@@ -120,40 +232,15 @@ QImage Freeze::windowImage(int index) const
 std::unique_ptr<Freeze> Freeze::capture(const QList<QScreen *> &screens, int timeoutMs, QString *diagnostic)
 {
     @autoreleasepool {
-        const dispatch_time_t deadline = dispatch_time(DISPATCH_TIME_NOW, int64_t(timeoutMs) * int64_t(NSEC_PER_MSEC));
-
-        // What may be captured: the displays and the windows on screen.
-        // ScreenCaptureKit answers on a queue of its own, so the main
-        // thread can wait for it.
-        __block SCShareableContent *content = nil;
-        __block NSError *contentError = nil;
-        dispatch_semaphore_t contentReady = dispatch_semaphore_create(0);
-        [SCShareableContent getShareableContentExcludingDesktopWindows:YES
-                                                   onScreenWindowsOnly:YES
-                                                     completionHandler:^(SCShareableContent *found, NSError *error) {
-                                                         content = found;
-                                                         contentError = error;
-                                                         dispatch_semaphore_signal(contentReady);
-                                                     }];
-        if (dispatch_semaphore_wait(contentReady, deadline) != 0) {
-            *diagnostic = QStringLiteral("ScreenCaptureKit did not list the content in time");
+        const dispatch_time_t deadline = deadlineIn(timeoutMs);
+        SCShareableContent *content = shareableContent(deadline, diagnostic);
+        if (!content)
             return nullptr;
-        }
-        if (!content) {
-            *diagnostic = QStringLiteral("ScreenCaptureKit lists no content: %1")
-                              .arg(toQString(contentError.localizedDescription));
-            return nullptr;
-        }
 
-        // The display behind each of Qt's screens: the same rectangle in
-        // points, top left of the main display at 0,0 for both.
+        // The display behind each of Qt's screens.
         NSMutableArray<SCDisplay *> *displays = [NSMutableArray array];
         for (QScreen *screen : screens) {
-            SCDisplay *match = nil;
-            for (SCDisplay *display in content.displays) {
-                if (toQRect(CGDisplayBounds(display.displayID)) == screen->geometry())
-                    match = display;
-            }
+            SCDisplay *match = displayFor(content, screen);
             if (!match) {
                 *diagnostic = QStringLiteral("No display for the screen %1").arg(screen->name());
                 return nullptr;
@@ -188,7 +275,7 @@ std::unique_ptr<Freeze> Freeze::capture(const QList<QScreen *> &screens, int tim
             if (bounds.size.width < kMinWindowSize || bounds.size.height < kMinWindowSize)
                 continue;
             [windows addObject:window];
-            windowInfo.append({toQRect(bounds), toQString(window.title),
+            windowInfo.append({window.windowID, toQRect(bounds), toQString(window.title),
                                toQString(window.owningApplication.applicationName),
                                toQString(window.owningApplication.bundleIdentifier)});
         }
@@ -256,14 +343,163 @@ std::unique_ptr<Freeze> Freeze::capture(const QList<QScreen *> &screens, int tim
     }
 }
 
+struct Stream::Impl
+{
+    SCStream *stream = nil;
+    NslStreamOutput *output = nil;
+    std::shared_ptr<StreamShared> shared = std::make_shared<StreamShared>();
+
+    ~Impl()
+    {
+        if (!stream)
+            return;
+        // Stopping is asynchronous; the block keeps stream and output alive
+        // until it is done.
+        SCStream *running = stream;
+        NslStreamOutput *receiver = output;
+        [running stopCaptureWithCompletionHandler:^(NSError *error) {
+            (void)error;
+            (void)running;
+            (void)receiver;
+        }];
+    }
+};
+
+Stream::Stream(std::unique_ptr<Impl> impl)
+    : m(std::move(impl))
+{
+}
+
+Stream::~Stream() = default;
+
+bool Stream::takeLatest(QImage &frame)
+{
+    std::lock_guard<std::mutex> lock(m->shared->mutex);
+    if (!m->shared->fresh)
+        return false;
+    frame = m->shared->latest;
+    m->shared->fresh = false;
+    return true;
+}
+
+bool Stream::hasStopped() const
+{
+    return m->shared->stopped;
+}
+
+namespace {
+
+std::unique_ptr<Stream::Impl> startStream(SCContentFilter *filter, bool singleWindow, QString *diagnostic)
+{
+    SCStreamConfiguration *config = [[SCStreamConfiguration alloc] init];
+    sizeFor(filter, config);
+    config.showsCursor = YES;                           // videos show the pointer (F-50)
+    config.pixelFormat = kCVPixelFormatType_32BGRA;
+    config.colorSpaceName = kCGColorSpaceSRGB;
+    config.minimumFrameInterval = CMTimeMake(1, 30);    // the encoder's 30 fps
+    config.queueDepth = 5;
+    if (singleWindow) {
+        config.ignoreShadowsSingleWindow = YES;
+        config.shouldBeOpaque = NO;
+    }
+
+    auto impl = std::make_unique<Stream::Impl>();
+    impl->output = [[NslStreamOutput alloc] initWithShared:impl->shared];
+    impl->stream = [[SCStream alloc] initWithFilter:filter configuration:config delegate:impl->output];
+    dispatch_queue_t queue = dispatch_queue_create("ch.netslash.snapslash.stream", DISPATCH_QUEUE_SERIAL);
+    NSError *error = nil;
+    if (![impl->stream addStreamOutput:impl->output type:SCStreamOutputTypeScreen sampleHandlerQueue:queue error:&error]) {
+        *diagnostic = QStringLiteral("No stream output: %1").arg(toQString(error.localizedDescription));
+        impl->stream = nil;
+        return nullptr;
+    }
+    // Starting is asynchronous too; a refusal ends the stream.
+    std::shared_ptr<StreamShared> shared = impl->shared;
+    [impl->stream startCaptureWithCompletionHandler:^(NSError *startError) {
+        if (startError)
+            shared->stopped = true;
+    }];
+    return impl;
+}
+
+} // namespace
+
+std::unique_ptr<Stream> Stream::forWindow(quint32 windowId, int timeoutMs, QString *diagnostic)
+{
+    @autoreleasepool {
+        SCShareableContent *content = shareableContent(deadlineIn(timeoutMs), diagnostic);
+        if (!content)
+            return nullptr;
+        for (SCWindow *window in content.windows) {
+            if (window.windowID != windowId)
+                continue;
+            SCContentFilter *filter = [[SCContentFilter alloc] initWithDesktopIndependentWindow:window];
+            std::unique_ptr<Impl> impl = startStream(filter, true, diagnostic);
+            return impl ? std::unique_ptr<Stream>(new Stream(std::move(impl))) : nullptr;
+        }
+        *diagnostic = QStringLiteral("The window %1 is gone").arg(windowId);
+        return nullptr;
+    }
+}
+
+std::unique_ptr<Stream> Stream::forScreen(QScreen *screen, int timeoutMs, QString *diagnostic)
+{
+    @autoreleasepool {
+        SCShareableContent *content = shareableContent(deadlineIn(timeoutMs), diagnostic);
+        if (!content)
+            return nullptr;
+        SCDisplay *display = displayFor(content, screen);
+        if (!display) {
+            *diagnostic = QStringLiteral("No display for the screen %1").arg(screen->name());
+            return nullptr;
+        }
+        // Without the app's own windows: the recording indicator stays out
+        // of the video.
+        NSMutableArray<SCRunningApplication *> *own = [NSMutableArray array];
+        for (SCRunningApplication *application in content.applications) {
+            if (application.processID == getpid())
+                [own addObject:application];
+        }
+        SCContentFilter *filter = [[SCContentFilter alloc] initWithDisplay:display
+                                                     excludingApplications:own
+                                                          exceptingWindows:@[]];
+        std::unique_ptr<Impl> impl = startStream(filter, false, diagnostic);
+        return impl ? std::unique_ptr<Stream>(new Stream(std::move(impl))) : nullptr;
+    }
+}
+
+namespace {
+
+// The NSWindow of a shown widget; nil without Qt's Cocoa platform (the
+// tests draw offscreen, where a window id is something else).
+NSWindow *nativeWindow(QWidget *widget)
+{
+    if (QGuiApplication::platformName() != QLatin1String("cocoa"))
+        return nil;
+    // On macOS a widget's window id is its NSView.
+    NSView *view = (__bridge NSView *)reinterpret_cast<void *>(widget->winId());
+    return view.window;
+}
+
+} // namespace
+
+void keepOnTop(QWidget *widget)
+{
+    NSWindow *window = nativeWindow(widget);
+    if (!window)
+        return;
+    // Above normal windows and the menu bar; Qt makes tool windows panels,
+    // which macOS hides when the app is not active.
+    window.level = NSStatusWindowLevel;
+    window.collectionBehavior = NSWindowCollectionBehaviorCanJoinAllSpaces
+                                | NSWindowCollectionBehaviorFullScreenAuxiliary
+                                | NSWindowCollectionBehaviorStationary;
+    window.hidesOnDeactivate = NO;
+}
+
 void raiseAboveAll(QWidget *widget)
 {
-    // On macOS a widget's window id is its NSView, but only with Qt's
-    // Cocoa platform (the tests draw offscreen, where it is something else).
-    if (QGuiApplication::platformName() != QLatin1String("cocoa"))
-        return;
-    NSView *view = (__bridge NSView *)reinterpret_cast<void *>(widget->winId());
-    NSWindow *window = view.window;
+    NSWindow *window = nativeWindow(widget);
     if (!window)
         return;
     // Above the menu bar and the Dock, on every Space, also next to an app

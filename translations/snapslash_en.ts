@@ -512,6 +512,25 @@
     </message>
 </context>
 <context>
+    <name>MacRecordingBackend</name>
+    <message>
+        <source>Bildschirm</source>
+        <translation>Screen</translation>
+    </message>
+    <message>
+        <source>Die Aufnahme liess sich nicht starten: ScreenCaptureKit verweigert sie.</source>
+        <translation>The recording could not be started: ScreenCaptureKit refuses it.</translation>
+    </message>
+    <message>
+        <source>Das Fenster ist nicht mehr da; die Aufnahme wurde beendet.</source>
+        <translation>The window is gone; the recording was stopped.</translation>
+    </message>
+    <message>
+        <source>Die Aufnahme des Bildschirms wurde von macOS beendet.</source>
+        <translation>macOS stopped the screen recording.</translation>
+    </message>
+</context>
+<context>
     <name>MainWindow</name>
     <message>
         <source>Klicken, um die Farbe zu übernehmen · Esc bricht ab</source>
@@ -1826,12 +1845,12 @@ Click to open in the editor</translation>
 <context>
     <name>UnsupportedRecordingBackend</name>
     <message>
-        <source>Videos lassen sich auf diesem Desktop noch nicht aufnehmen. Bisher gehen GNOME, Hyprland, andere wlroots-Desktops und Windows.</source>
-        <translation>Videos cannot be recorded on this desktop yet. So far GNOME, Hyprland, other wlroots desktops and Windows work.</translation>
-    </message>
-    <message>
         <source>Diese Snapslash-Version wurde ohne PipeWire gebaut; unter GNOME gibt es damit keine Videos.</source>
         <translation>This Snapslash version was built without PipeWire, so there are no videos on GNOME.</translation>
+    </message>
+    <message>
+        <source>Videos lassen sich auf diesem Desktop noch nicht aufnehmen. Bisher gehen GNOME, Hyprland, andere wlroots-Desktops, Windows und macOS.</source>
+        <translation>Videos cannot be recorded on this desktop yet. So far GNOME, Hyprland, other wlroots desktops, Windows and macOS work.</translation>
     </message>
 </context>
 <context>

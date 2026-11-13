@@ -27,6 +27,7 @@ void requestPermission();
 // A window that can be picked, as it was at the freeze.
 struct Window
 {
+    quint32 id = 0;    // the window number, for a video of it
     QRect frame;       // in logical desktop pixels (points), as Qt's screens
     QString title;     // the window's title, may be empty
     QString appName;   // the app that owns it, e.g. "Finder"
@@ -61,9 +62,40 @@ private:
     std::unique_ptr<Impl> m;
 };
 
+// A continuous recording of one window or one monitor, with the pointer
+// (F-50, D-049): ScreenCaptureKit delivers frames on a queue of its own,
+// the newest is kept until takeLatest() fetches it. The app's own windows
+// (the recording indicator) are left out of monitor recordings.
+class Stream
+{
+public:
+    ~Stream();
+
+    // nullptr when the window or monitor is gone; `diagnostic` says why.
+    static std::unique_ptr<Stream> forWindow(quint32 windowId, int timeoutMs, QString *diagnostic);
+    static std::unique_ptr<Stream> forScreen(QScreen *screen, int timeoutMs, QString *diagnostic);
+
+    // The newest frame since the last call, in physical pixels; false if
+    // none came (macOS sends frames only when something changes).
+    bool takeLatest(QImage &frame);
+    // The stream stopped by itself, e.g. the window was closed.
+    bool hasStopped() const;
+
+    struct Impl;
+
+private:
+    explicit Stream(std::unique_ptr<Impl> impl);
+    std::unique_ptr<Impl> m;
+};
+
 // Puts a frameless window above everything, also the menu bar and the
 // Dock, on every Space, and makes the app active so it gets the keys
 // (the capture overlay). Call after the window is shown.
 void raiseAboveAll(QWidget *window);
+
+// Keeps a small frameless window (countdown, recording indicator) visible
+// above other apps' windows and on every Space, also while another app is
+// active, without making the app active. Call after the window is shown.
+void keepOnTop(QWidget *window);
 
 } // namespace MacCapture

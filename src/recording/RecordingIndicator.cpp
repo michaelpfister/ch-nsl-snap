@@ -3,6 +3,9 @@
 #ifdef NSL_HAVE_WAYLAND_BACKEND
 #include "capture/wayland/LayerShell.h"
 #endif
+#ifdef NSL_HAVE_MACOS_BACKEND
+#include "capture/macos/MacCapture.h"
+#endif
 
 #include <QGuiApplication>
 #include <QMouseEvent>
@@ -60,6 +63,11 @@ void RecordingIndicator::showOn(QScreen *screen)
     }
     show();
     m_shown = true;
+#ifdef NSL_HAVE_MACOS_BACKEND
+    // Visible while the user works in another app; left out of monitor
+    // recordings by the stream (MacCapture::Stream).
+    MacCapture::keepOnTop(this);
+#endif
 #ifdef Q_OS_WIN
     // Windows leaves the window out of every capture, the video included.
     SetWindowDisplayAffinity(reinterpret_cast<HWND>(winId()), WDA_EXCLUDEFROMCAPTURE);

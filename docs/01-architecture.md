@@ -61,6 +61,7 @@ Each backend delivers a **capture result**: a PNG/RGBA image with alpha, plus me
 - `src/capture/macos/` (D-047). `MacCapture` (Objective-C++, `.mm`, behind a plain C++ header) freezes every monitor and every normal window of other apps with ScreenCaptureKit (`SCScreenshotManager`), all requests at once; each window alone, without shadow and with transparent corners. The order of the windows (topmost first) and their frames come from Core Graphics' window list. It also lifts the overlay windows above the menu bar and the Dock.
 - `MacBackend` ties the freeze to `CaptureOverlay`, as on Windows. Qt's screens are in points, so `PickGeometry::nativeLayout` builds pixel coordinates as on Wayland.
 - Needs the "Screen Recording" permission; without it the backend asks macOS once and says where to switch it on.
+- Videos (D-049): `MacCapture::Stream` (an `SCStream` per window or monitor), driven by `src/recording/macos/MacRecordingBackend`; the pick is `MacBackend::pickForVideo`.
 
 ### Wayland backend (Hyprland, Sway & co.) and portal backend
 

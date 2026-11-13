@@ -6,6 +6,9 @@
 #ifdef NSL_HAVE_WAYLAND_BACKEND
 #include "capture/wayland/LayerShell.h"
 #endif
+#ifdef NSL_HAVE_MACOS_BACKEND
+#include "capture/macos/MacCapture.h"
+#endif
 
 #include <QGuiApplication>
 #include <QKeyEvent>
@@ -135,6 +138,9 @@ void Countdown::start(int seconds)
     }
     show();
     m_shown = true;
+#ifdef NSL_HAVE_MACOS_BACKEND
+    MacCapture::keepOnTop(this);
+#endif
 #ifdef Q_OS_WIN
     // Escape from anywhere: the key goes to the window with the focus.
     RegisterHotKey(reinterpret_cast<HWND>(winId()), kEscapeHotkey, MOD_NOREPEAT, VK_ESCAPE);

@@ -307,10 +307,13 @@ if(APPLE)
         src/capture/macos/MacBackend.h
         src/capture/macos/MacCapture.h
         src/capture/macos/MacCapture.mm
+        src/recording/macos/MacRecordingBackend.cpp
+        src/recording/macos/MacRecordingBackend.h
     )
     set_source_files_properties(src/capture/macos/MacCapture.mm PROPERTIES COMPILE_OPTIONS "-fobjc-arc")
     target_link_libraries(nsl_snap_core PUBLIC
-        "-framework AppKit" "-framework Carbon" "-framework CoreGraphics" "-framework ScreenCaptureKit")
+        "-framework AppKit" "-framework Carbon" "-framework CoreGraphics" "-framework CoreMedia"
+        "-framework CoreVideo" "-framework ScreenCaptureKit")
     target_compile_definitions(nsl_snap_core PUBLIC NSL_HAVE_MACOS_BACKEND)
 endif()
 
