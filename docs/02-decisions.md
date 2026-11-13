@@ -630,7 +630,7 @@ Each entry: context, decision, rationale, consequences. Entries marked **(assump
 - `Theme::current()` asks `ColorScheme`; the whole app switches live (main window, dialogs, settings overlay, trim window).
 **Rationale:** The portal is how GNOME, KDE and the wlroots portals publish light and dark today, also to sandboxed apps; asking it directly needs no GTK in the AppImage.
 **Rejected:** Bundling Qt's GTK theme plugin (pulls GTK 3 and its dependencies into the AppImage, the classic source of AppImage breakage); reading GNOME's gsettings key (GNOME-only).
-**Consequences:** On a desktop without a portal and without Qt's GTK theme, "Wie das System" stays light; the setting still offers dark.
+**Consequences:** On a desktop without a portal and without Qt's GTK theme, "Wie das System" stays light; the setting still offers dark. Switching repolishes every widget; anything that reacts to each widget's palette change must stay cheap (the settings overlay redrew its icons for each one and froze the app for 20–40 s, fixed 2026-11-13; `tst_themeswitch` keeps two switches under 5 s, now about 0.5 s).
 
 ## D-046 First macOS build: an app bundle in a disk image, built in CI, signed ad hoc
 

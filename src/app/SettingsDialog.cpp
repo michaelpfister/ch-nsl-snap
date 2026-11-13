@@ -612,7 +612,11 @@ bool SettingsDialog::eventFilter(QObject *watched, QEvent *event)
         if (!widget || !(widget == this || isAncestorOf(widget) || widget->window() != window()))
             return true;
     }
-    if (event->type() == QEvent::ThemeChange || event->type() == QEvent::PaletteChange)
+    // Light or dark: the navigation's icons follow. Only for the overlay
+    // itself: the filter sees every widget of the app, and redrawing the
+    // icons for each of their palette changes froze the app for half a
+    // minute when switching between light and dark.
+    if (watched == this && (event->type() == QEvent::ThemeChange || event->type() == QEvent::PaletteChange))
         applyNavIcons();
     return QWidget::eventFilter(watched, event);
 }
