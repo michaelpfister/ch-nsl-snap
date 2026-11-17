@@ -53,8 +53,15 @@ Each backend delivers a **capture result**: a PNG/RGBA image with alpha, plus me
 
 ### Windows backend
 
-- `src/capture/windows/` (D-022). `WgcCapture` (C++/WinRT, no Qt) lists the pickable windows and freezes them: one Windows.Graphics.Capture frame per window, in parallel, kept on the GPU. `src/capture/CaptureOverlay` is the overlay the app draws itself (one window per monitor, frozen picture, window highlight or region with magnifier, D-023; shared with macOS later), driven by `RegionSelector`. `WindowsBackend` ties both together and crops the picked window to its DWM frame.
+- `src/capture/windows/` (D-022). `WgcCapture` (C++/WinRT, no Qt) lists the pickable windows and freezes them: one Windows.Graphics.Capture frame per window, in parallel, kept on the GPU. `src/capture/CaptureOverlay` is the overlay the app draws itself (one window per monitor, frozen picture, window highlight or region with magnifier, D-023; shared with macOS, D-047), driven by `RegionSelector`. `WindowsBackend` ties both together and crops the picked window to its DWM frame.
 - The app is per-monitor DPI aware (Qt's default), so Win32 reports physical pixels; `PickGeometry` converts between them and the overlay's logical pixels.
+
+### macOS backend
+
+- `src/capture/macos/` (D-047). `MacCapture` (Objective-C++, `.mm`, behind a plain C++ header) freezes every monitor and every normal window of other apps with ScreenCaptureKit (`SCScreenshotManager`), all requests at once; each window alone, without shadow and with transparent corners. The order of the windows (topmost first) and their frames come from Core Graphics' window list. It also lifts the overlay windows above the menu bar and the Dock.
+- `MacBackend` ties the freeze to `CaptureOverlay`, as on Windows. Qt's screens are in points, so `PickGeometry::nativeLayout` builds pixel coordinates as on Wayland.
+- Needs the "Screen Recording" permission; without it the backend asks macOS once and says where to switch it on.
+- Videos (D-049): `MacCapture::Stream` (an `SCStream` per window or monitor), driven by `src/recording/macos/MacRecordingBackend`; the pick is `MacBackend::pickForVideo`.
 
 ### Wayland backend (Hyprland, Sway & co.) and portal backend
 
@@ -71,7 +78,7 @@ Each backend delivers a **capture result**: a PNG/RGBA image with alpha, plus me
 
 ### Shared core
 
-Skeleton since 2026-10-25, with the approved design (D-014): top bar with capture modes, timer, undo/redo, copy and save; tool rail; properties panel; status bar; the shortcuts of F-46 that already have a function; editor view with drag & drop and paste; GNOME backend, window crop and corner cleanup in C++ (`src/imaging/WindowImage`, same result as the PoC client, pixel for pixel). Since then: crop (F-12), frames, numbered frames, dim background, pixelate/blur, replace text, free text (F-25), text marker (F-28) and arrows (F-44), and the colour popup with colour wheel, hex code and eyedropper (D-027, `src/ui/ColorWheel`, `src/ui/ColorPopup`, `src/app/ColorRow`). Region capture and window capture on a frozen screen (F-02, F-03, D-011) on GNOME. Window and region capture on Windows (D-022), region by two clicks with a magnifier (D-023), screen capture on GNOME and Windows (D-024), delayed capture with a countdown (D-025). Window, region and screen capture on Hyprland, region and screen on other Wayland desktops (D-031, D-032). Still to come: global hotkeys, the macOS backend, more settings, tray icon. Feature scope in [04-features.md](04-features.md).
+Skeleton since 2026-10-25, with the approved design (D-014): top bar with capture modes, timer, undo/redo, copy and save; tool rail; properties panel; status bar; the shortcuts of F-46 that already have a function; editor view with drag & drop and paste; GNOME backend, window crop and corner cleanup in C++ (`src/imaging/WindowImage`, same result as the PoC client, pixel for pixel). Since then: crop (F-12), frames, numbered frames, dim background, pixelate/blur, replace text, free text (F-25), text marker (F-28) and arrows (F-44), and the colour popup with colour wheel, hex code and eyedropper (D-027, `src/ui/ColorWheel`, `src/ui/ColorPopup`, `src/app/ColorRow`). Region capture and window capture on a frozen screen (F-02, F-03, D-011) on GNOME. Window and region capture on Windows (D-022), region by two clicks with a magnifier (D-023), screen capture on GNOME and Windows (D-024), delayed capture with a countdown (D-025). Window, region and screen capture on Hyprland, region and screen on other Wayland desktops (D-031, D-032). Window, region and screen capture on macOS (D-047). Still to come: global hotkeys on macOS, more settings, tray icon. Feature scope in [04-features.md](04-features.md).
 
 The editor is object-based (D-012): the captured image stays unchanged, annotations are objects with properties, every change is an undoable command, pixels are only computed on render and export.
 
@@ -89,7 +96,7 @@ The editor is object-based (D-012): the captured image stays unchanged, annotati
 | `docs/` | This documentation |
 | `CMakeLists.txt`, `src/` | The app (C++20, Qt 6.8, D-013) |
 | `src/app/` | Main window, top bar, tool rail, properties panel, shortcuts, global hotkeys on Windows (`GlobalHotkeys`, D-035), settings (`Settings`, stored with QSettings; `SettingsDialog`, an overlay in the window, D-044), the GTK theme check at start (`PlatformTheme`, D-033), the command line (`CommandLine`, F-48), the hand-over to a running app (`SingleInstance`, D-034), and the AppImage's self-setup (`LinuxIntegration`: menu entry, icon, `~/.local/bin/snapslash`, the GNOME extension; `GnomeExtensionSetup`: its dialog, D-041) |
-| `src/capture/` | `CaptureBackend` interface, `PickGeometry`, and the platform backends (`gnome/`, `windows/`, `wayland/`, `portal/`; `macos/` later) |
+| `src/capture/` | `CaptureBackend` interface, `PickGeometry`, and the platform backends (`gnome/`, `windows/`, `wayland/`, `portal/`, `macos/`) |
 | `protocols/` | Wayland protocol files for the Wayland backend |
 | `flake.nix`, `nix/` | Nix package and development shell (NixOS) |
 | `scripts/build-appimage.sh` (D-041) | The Linux AppImage of a release: the app, Qt with Qt Multimedia, LayerShellQt and the GNOME extension in one file (PipeWire and VA-API from the system) |

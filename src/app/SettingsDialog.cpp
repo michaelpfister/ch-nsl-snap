@@ -612,7 +612,11 @@ bool SettingsDialog::eventFilter(QObject *watched, QEvent *event)
         if (!widget || !(widget == this || isAncestorOf(widget) || widget->window() != window()))
             return true;
     }
-    if (event->type() == QEvent::ThemeChange || event->type() == QEvent::PaletteChange)
+    // Light or dark: the navigation's icons follow. Only for the overlay
+    // itself: the filter sees every widget of the app, and redrawing the
+    // icons for each of their palette changes froze the app for half a
+    // minute when switching between light and dark.
+    if (watched == this && (event->type() == QEvent::ThemeChange || event->type() == QEvent::PaletteChange))
         applyNavIcons();
     return QWidget::eventFilter(watched, event);
 }
@@ -666,8 +670,14 @@ void SettingsDialog::createCountdownSection(QVBoxLayout *layout, bool hasEscape)
 
 void SettingsDialog::createHotkeyPage(QVBoxLayout *layout)
 {
+#ifdef Q_OS_MACOS
+    auto *intro = new QLabel(tr("Diese Tasten nehmen auf, auch wenn Snapslash nur in der Menüleiste läuft oder ein "
+                                "anderes Programm aktiv ist. Ein eingestellter Timer gilt auch hier. Cmd + Shift + 3, "
+                                "4 und 5 gehören macOS."), this);
+#else
     auto *intro = new QLabel(tr("Diese Tasten nehmen auf, auch wenn Snapslash im Infobereich läuft oder ein anderes "
                                 "Programm aktiv ist. Ein eingestellter Timer gilt auch hier."), this);
+#endif
     intro->setProperty("role", QStringLiteral("hint"));
     intro->setWordWrap(true);
     layout->addWidget(intro);
@@ -741,7 +751,11 @@ void SettingsDialog::createHotkeyPage(QVBoxLayout *layout)
             if (!key.isEmpty() && !GlobalHotkeys::toNative(key, modifiers, virtualKey))
                 text = tr("Diese Taste kann nicht global verwendet werden.");
             else if (m_hotkeys->isTaken(actions[i]))
+#ifdef Q_OS_MACOS
+                text = tr("Belegt durch ein anderes Programm oder durch macOS.");
+#else
                 text = tr("Belegt durch ein anderes Programm oder durch Windows.");
+#endif
             states[i]->setText(text);
             states[i]->setVisible(!text.isEmpty());
         }
@@ -777,6 +791,7 @@ void SettingsDialog::createUpdatePage(QVBoxLayout *layout)
     case Releases::Installation::PortableWindows: kind = tr("portable Windows-Version"); break;
     case Releases::Installation::AppImage: kind = tr("AppImage"); break;
     case Releases::Installation::Nix: kind = tr("über Nix installiert"); break;
+    case Releases::Installation::MacApp: kind = tr("macOS-App"); break;
     case Releases::Installation::Other: kind = tr("selbst gebaut"); break;
     }
     layout->addWidget(new QLabel(tr("Snapslash %1 · %2").arg(Version::current().toString(), kind), this));

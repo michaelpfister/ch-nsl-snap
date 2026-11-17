@@ -5,6 +5,9 @@
 #ifdef NSL_HAVE_WAYLAND_BACKEND
 #include "capture/wayland/LayerShell.h"
 #endif
+#ifdef NSL_HAVE_MACOS_BACKEND
+#include "capture/macos/MacCapture.h"
+#endif
 
 #include <QCursor>
 #include <QGuiApplication>
@@ -73,6 +76,10 @@ public:
             showFullScreen();
         else
             show();
+#ifdef NSL_HAVE_MACOS_BACKEND
+        // "Stay on top" stops below the menu bar and the Dock on macOS.
+        MacCapture::raiseAboveAll(this);
+#endif
     }
 
     const QRect &native() const { return m_native; }

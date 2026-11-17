@@ -493,6 +493,44 @@
     </message>
 </context>
 <context>
+    <name>MacBackend</name>
+    <message>
+        <source>Der Bildschirm konnte nicht aufgenommen werden.</source>
+        <translation>The screen could not be captured.</translation>
+    </message>
+    <message>
+        <source>Es wurde kein Fenster gefunden, das aufgenommen werden kann.</source>
+        <translation>No window was found that can be captured.</translation>
+    </message>
+    <message>
+        <source>Das Fenster konnte nicht gelesen werden.</source>
+        <translation>The window could not be read.</translation>
+    </message>
+    <message>
+        <source>Snapslash braucht die Berechtigung zur Bildschirmaufnahme. Bitte in den Systemeinstellungen unter «Datenschutz &amp; Sicherheit › Bildschirm- &amp; Systemaudioaufnahme» einschalten und Snapslash danach neu starten.</source>
+        <translation>Snapslash needs the permission to record the screen. Please turn it on in System Settings under “Privacy &amp; Security › Screen &amp; System Audio Recording” and then restart Snapslash.</translation>
+    </message>
+</context>
+<context>
+    <name>MacRecordingBackend</name>
+    <message>
+        <source>Bildschirm</source>
+        <translation>Screen</translation>
+    </message>
+    <message>
+        <source>Die Aufnahme liess sich nicht starten: ScreenCaptureKit verweigert sie.</source>
+        <translation>The recording could not be started: ScreenCaptureKit refuses it.</translation>
+    </message>
+    <message>
+        <source>Das Fenster ist nicht mehr da; die Aufnahme wurde beendet.</source>
+        <translation>The window is gone; the recording was stopped.</translation>
+    </message>
+    <message>
+        <source>Die Aufnahme des Bildschirms wurde von macOS beendet.</source>
+        <translation>macOS stopped the screen recording.</translation>
+    </message>
+</context>
+<context>
     <name>MainWindow</name>
     <message>
         <source>Klicken, um die Farbe zu übernehmen · Esc bricht ab</source>
@@ -1605,6 +1643,18 @@ Click to open in the editor</translation>
         <source>Dunkel</source>
         <translation>Dark</translation>
     </message>
+    <message>
+        <source>Diese Tasten nehmen auf, auch wenn Snapslash nur in der Menüleiste läuft oder ein anderes Programm aktiv ist. Ein eingestellter Timer gilt auch hier. Cmd + Shift + 3, 4 und 5 gehören macOS.</source>
+        <translation>These keys capture even when Snapslash only runs in the menu bar or another program is active. A set timer applies here too. Cmd + Shift + 3, 4 and 5 belong to macOS.</translation>
+    </message>
+    <message>
+        <source>Belegt durch ein anderes Programm oder durch macOS.</source>
+        <translation>Taken by another program or by macOS.</translation>
+    </message>
+    <message>
+        <source>macOS-App</source>
+        <translation>macOS app</translation>
+    </message>
 </context>
 <context>
     <name>TextItem</name>
@@ -1795,12 +1845,12 @@ Click to open in the editor</translation>
 <context>
     <name>UnsupportedRecordingBackend</name>
     <message>
-        <source>Videos lassen sich auf diesem Desktop noch nicht aufnehmen. Bisher gehen GNOME, Hyprland, andere wlroots-Desktops und Windows.</source>
-        <translation>Videos cannot be recorded on this desktop yet. So far GNOME, Hyprland, other wlroots desktops and Windows work.</translation>
-    </message>
-    <message>
         <source>Diese Snapslash-Version wurde ohne PipeWire gebaut; unter GNOME gibt es damit keine Videos.</source>
         <translation>This Snapslash version was built without PipeWire, so there are no videos on GNOME.</translation>
+    </message>
+    <message>
+        <source>Videos lassen sich auf diesem Desktop noch nicht aufnehmen. Bisher gehen GNOME, Hyprland, andere wlroots-Desktops, Windows und macOS.</source>
+        <translation>Videos cannot be recorded on this desktop yet. So far GNOME, Hyprland, other wlroots desktops, Windows and macOS work.</translation>
     </message>
 </context>
 <context>
@@ -1974,6 +2024,14 @@ On GNOME, then install the extension again (`scripts/dev-install.sh`) and log ou
     <message>
         <source>**Wechsel auf %1:** Auf der Release-Seite die Datei `%2` herunterladen, die bisherige AppImage-Datei damit ersetzen und sie starten. Menüeintrag, Befehl und GNOME-Erweiterung richtet die App danach selbst neu ein.</source>
         <translation>**Switching to %1:** download the file `%2` from the release page, replace the previous AppImage file with it and start it. The app then sets up its menu entry, command and GNOME extension again by itself.</translation>
+    </message>
+    <message>
+        <source>**Wechsel auf %1:** Auf der Release-Seite die Datei `%2` herunterladen und öffnen, dann Snapslash in den Ordner «Programme» ziehen und die bisherige Version ersetzen.
+
+Danach in den Systemeinstellungen unter «Datenschutz &amp; Sicherheit › Bildschirm- &amp; Systemaudioaufnahme» Snapslash aus- und wieder einschalten: Die neue Version braucht die Berechtigung noch einmal.</source>
+        <translation>**Switch to %1:** Download the file `%2` from the release page and open it, then drag Snapslash into the “Applications” folder, replacing the previous version.
+
+Afterwards turn Snapslash off and on again in System Settings under “Privacy &amp; Security › Screen &amp; System Audio Recording”: the new version needs the permission once more.</translation>
     </message>
 </context>
 <context>

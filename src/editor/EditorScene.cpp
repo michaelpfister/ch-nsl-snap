@@ -156,19 +156,13 @@ QPainterPath EditorScene::dimmedArea() const
     QPainterPath area;
     area.addRect(sceneRect());
 
-    // Each frame cuts out its outer outline, rounded like the frame.
+    // Each frame cuts out the area inside the middle of its line. Cutting
+    // along the outer edge left a light seam there (both edges are
+    // antialiased at the same place) and, with rounded frames, light corners
+    // outside the line (issue #46); the dim now reaches under the line.
     QPainterPath cutouts;
-    for (const FrameItem *frame : frames()) {
-        const QRectF rect = frame->mapRectToScene(frame->rect());
-        QPainterPath cut;
-        if (frame->style().rounded) {
-            const qreal r = std::min({FrameStyle::kRadius * imageScale(), rect.width() / 2, rect.height() / 2});
-            cut.addRoundedRect(rect, r, r);
-        } else {
-            cut.addRect(rect);
-        }
-        cutouts = cutouts.united(cut);
-    }
+    for (const FrameItem *frame : frames())
+        cutouts = cutouts.united(frame->mapToScene(frame->lineCentre()));
     return area.subtracted(cutouts);
 }
 

@@ -65,6 +65,7 @@ enum class Installation {
     PortableWindows, // the ZIP from a release: the app replaces its folder
     AppImage,        // the AppImage from a release (D-041)
     Nix,             // in the Nix store: Nix updates it, the app explains how
+    MacApp,          // Snapslash.app on macOS (D-046): the app explains the disk image
     Other,           // built from source or packaged elsewhere: a hint only
 };
 Installation installation();
@@ -79,5 +80,7 @@ QString windowsAssetName(const Version &version);
 QString windowsAssetName(const Version &version, const QString &cpuArchitecture);
 // "snapslash-0.3.0-linux-x86_64.AppImage" (D-041; x86_64 only so far, Q-35).
 QString linuxAssetName(const Version &version);
+// "snapslash-0.3.0-macos.dmg" (D-046; one universal app for every Mac).
+QString macosAssetName(const Version &version);
 
 } // namespace Releases

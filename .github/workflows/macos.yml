@@ -1,7 +1,8 @@
 # Builds the macOS package (D-046) with scripts/build-macos-app.sh: one
 # universal Snapslash.app (Apple silicon and Intel) in a disk image, signed
 # ad hoc. Called by the CI workflow (every pull request gets a disk image to
-# try, as a workflow artifact).
+# try, as a workflow artifact) and by the release workflow (the disk image
+# of the release).
 
 name: macOS package
 

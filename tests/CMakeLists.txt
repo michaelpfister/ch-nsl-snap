@@ -160,3 +160,12 @@ if(LINUX)
     target_compile_definitions(tst_linuxintegration PRIVATE NSL_SOURCE_DIR="${PROJECT_SOURCE_DIR}")
     add_test(NAME tst_linuxintegration COMMAND tst_linuxintegration)
 endif()
+
+# Light and dark (D-045): switching must not freeze the app.
+qt_add_executable(tst_themeswitch tst_themeswitch.cpp)
+target_link_libraries(tst_themeswitch PRIVATE nsl_snap_core Qt6::Test)
+add_test(NAME tst_themeswitch COMMAND tst_themeswitch)
+set_tests_properties(tst_themeswitch PROPERTIES ENVIRONMENT "${NSL_OFFSCREEN_ENV}")
+if(WIN32)
+    set_target_properties(tst_themeswitch PROPERTIES WIN32_EXECUTABLE FALSE)
+endif()

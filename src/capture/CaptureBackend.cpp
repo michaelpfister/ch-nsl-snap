@@ -12,10 +12,13 @@
 #ifdef NSL_HAVE_WINDOWS_BACKEND
 #include "capture/windows/WindowsBackend.h"
 #endif
+#ifdef NSL_HAVE_MACOS_BACKEND
+#include "capture/macos/MacBackend.h"
+#endif
 
 namespace {
 
-// Used on platforms whose backend is not written yet (macOS).
+// Used on platforms without a backend.
 class UnsupportedBackend : public CaptureBackend
 {
 public:
@@ -62,6 +65,8 @@ std::unique_ptr<CaptureBackend> createCaptureBackend(QObject *parent)
 #endif
 #elif defined(NSL_HAVE_WINDOWS_BACKEND)
     return std::make_unique<WindowsBackend>(parent);
+#elif defined(NSL_HAVE_MACOS_BACKEND)
+    return std::make_unique<MacBackend>(parent);
 #else
     return std::make_unique<UnsupportedBackend>(parent);
 #endif

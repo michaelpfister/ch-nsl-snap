@@ -269,6 +269,29 @@ private slots:
         QCOMPARE(pixel(m_scene->renderImage(), 10, 10), QColor(Qt::white));
     }
 
+    void dimHasNoLightSeamAtTheFrame()
+    {
+        // A frame on half pixels: its outer edge and the hole in the dim
+        // were antialiased at the same place, which left a light seam
+        // (issue #46). The dim now reaches under the line.
+        auto *frame = new FrameItem(QRectF(50.5, 20.5, 100, 60), squareStyle(kRed, 2), 1.0);
+        m_stack->push(new AddItemsCommand(m_scene, {frame}, QStringLiteral("add")));
+        DimSettings dim;
+        dim.enabled = true;
+        dim.strength = 50;
+        dim.blur = 0;
+        m_stack->push(new SetDimCommand(m_scene, dim));
+
+        const QImage out = m_scene->renderImage();
+        const QColor dimmed = pixel(out, 10, 10);
+        // Half line, half dimmed white: never brighter than the dimmed white
+        // (it was: gray 161 against 135).
+        const int limit = qGray(dimmed.rgb());
+        QVERIFY2(qGray(pixel(out, 50, 50).rgb()) <= limit, "light seam left of the frame");
+        QVERIFY2(qGray(pixel(out, 100, 20).rgb()) <= limit, "light seam above the frame");
+        QCOMPARE(pixel(out, 100, 50), QColor(Qt::white)); // inside the frame: untouched
+    }
+
     void dimKeepsTransparentCorners()
     {
         QImage base(60, 40, QImage::Format_ARGB32);
